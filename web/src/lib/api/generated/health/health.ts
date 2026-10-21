@@ -55,8 +55,6 @@ export type healthHealthResponseSuccess = (healthHealthResponse200) & {
 };
 ;
 
-export type healthHealthResponse = (healthHealthResponseSuccess)
-
 export const getHealthHealthUrl = () => {
 
 
@@ -68,9 +66,9 @@ export const getHealthHealthUrl = () => {
 /**
  * @summary Health
  */
-export const healthHealth = async ( options?: Parameters<typeof bffFetch>[1]): Promise<healthHealthResponse> => {
+export const healthHealth = async ( options?: Parameters<typeof bffFetch>[1]): Promise<healthHealthResponseSuccess> => {
 
-  return bffFetch<healthHealthResponse>(getHealthHealthUrl(),
+  return bffFetch<healthHealthResponseSuccess>(getHealthHealthUrl(),
   {
     ...options,
     method: 'GET'

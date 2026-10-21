@@ -7,7 +7,7 @@ from app.core.config import get_settings
 
 
 def _operation_id(route: APIRoute) -> str:
-    # e.g. items-list_items -> Orval generates `useItemsListItems`
+    # e.g. operators-list_operators -> Orval generates `useOperatorsListOperators`
     tag = route.tags[0] if route.tags else "default"
     return f"{tag}-{route.name}"
 

@@ -20,7 +20,7 @@ type FormValues = z.infer<typeof schema>;
 
 // Only same-site relative paths, so ?next= can't send users to another origin.
 function safeNext(next: string | null): string {
-  return next && next.startsWith("/") && !next.startsWith("//") ? next : "/items";
+  return next && next.startsWith("/") && !next.startsWith("//") ? next : "/operators";
 }
 
 export function LoginForm() {

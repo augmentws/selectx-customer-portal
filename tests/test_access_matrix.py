@@ -1,0 +1,205 @@
+"""Every endpoint × every actor. 404 means "can't see it" (existence hidden), 403 means "can see
+it but lacks the permission". Backend authorization is the final word, so this is the
+contract the UI's permission checks mirror."""
+
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
+
+import pytest
+
+from tests.conftest import ACTORS, World, headers_for
+
+PA, AA, SA, AB, NR = ACTORS  # platform_admin, admin_a, staff_a, admin_b, no_role
+
+
+@dataclass(frozen=True)
+class Case:
+    name: str
+    method: str
+    path: Callable[[World], str]
+    expected: dict[str, int]
+    body: Callable[[World], Any] | None = None
+
+
+def _all(status: int, **overrides: int) -> dict[str, int]:
+    return {actor: overrides.get(actor, status) for actor in ACTORS}
+
+
+CASES = [
+    Case("list operators", "GET", lambda w: "/v1/operators", _all(200, no_role=403)),
+    Case(
+        "create operator",
+        "POST",
+        lambda w: "/v1/operators",
+        _all(403, platform_admin=201),
+        lambda w: {"name": "New Op", "slug": "new-op"},
+    ),
+    Case(
+        "get operator A",
+        "GET",
+        lambda w: f"/v1/operators/{w.op_a}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "update operator A",
+        "PATCH",
+        lambda w: f"/v1/operators/{w.op_a}",
+        _all(404, platform_admin=200, admin_a=403, staff_a=403),
+        lambda w: {"name": "Renamed"},
+    ),
+    Case(
+        "list companies of A",
+        "GET",
+        lambda w: f"/v1/operators/{w.op_a}/companies",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "create company in A",
+        "POST",
+        lambda w: f"/v1/operators/{w.op_a}/companies",
+        _all(404, platform_admin=201, admin_a=201, staff_a=403),
+        lambda w: {"name": "Gamma Foods"},
+    ),
+    Case(
+        "get company A",
+        "GET",
+        lambda w: f"/v1/companies/{w.company_a}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "update company A",
+        "PATCH",
+        lambda w: f"/v1/companies/{w.company_a}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+        lambda w: {"name": "Acme Restaurants Inc"},
+    ),
+    Case(
+        "list bill-tos of company A",
+        "GET",
+        lambda w: f"/v1/companies/{w.company_a}/bill-tos",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "onboard bill-to to company A",
+        "POST",
+        lambda w: f"/v1/companies/{w.company_a}/bill-tos",
+        _all(404, platform_admin=201, admin_a=201, staff_a=403),
+        lambda w: {"pestpac_bill_to_id": 180020, "name": "Acme Northeast"},
+    ),
+    Case(
+        "get bill-to A",
+        "GET",
+        lambda w: f"/v1/bill-tos/{w.bill_to_a}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "update bill-to A",
+        "PATCH",
+        lambda w: f"/v1/bill-tos/{w.bill_to_a}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+        lambda w: {"description": "Covers HQ only"},
+    ),
+    Case(
+        "list members of A",
+        "GET",
+        lambda w: f"/v1/tenants/{w.op_a}/members",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+    ),
+    Case(
+        "add member to A",
+        "POST",
+        lambda w: f"/v1/tenants/{w.op_a}/members",
+        _all(404, platform_admin=201, admin_a=201, staff_a=403),
+        lambda w: {
+            "email": "new.staff@test.example",
+            "role": "operator_staff",
+            "temporary_password": "temporary-password-1",
+        },
+    ),
+    Case(
+        "change staff_a's role in A",
+        "PATCH",
+        lambda w: f"/v1/tenants/{w.op_a}/members/{w.user_ids['staff_a']}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+        lambda w: {"role": "operator_admin"},
+    ),
+    Case(
+        "remove staff_a from A",
+        "DELETE",
+        lambda w: f"/v1/tenants/{w.op_a}/members/{w.user_ids['staff_a']}",
+        _all(404, platform_admin=204, admin_a=204, staff_a=403),
+    ),
+    Case(
+        "list platform members",
+        "GET",
+        lambda w: f"/v1/tenants/{w.platform_id}/members",
+        _all(404, platform_admin=200),
+    ),
+    Case(
+        "add platform admin",
+        "POST",
+        lambda w: f"/v1/tenants/{w.platform_id}/members",
+        _all(404, platform_admin=201),
+        lambda w: {
+            "email": "second.admin@test.example",
+            "role": "platform_admin",
+            "temporary_password": "temporary-password-1",
+        },
+    ),
+    Case("list roles", "GET", lambda w: "/v1/roles", _all(200, staff_a=403, no_role=403)),
+    Case(
+        "list permissions", "GET", lambda w: "/v1/permissions", _all(200, staff_a=403, no_role=403)
+    ),
+]
+
+
+@pytest.mark.parametrize("actor", ACTORS)
+@pytest.mark.parametrize("case", CASES, ids=lambda c: c.name)
+def test_access(client, world, case: Case, actor: str):
+    headers = headers_for(client, world.emails[actor])
+    body = case.body(world) if case.body else None
+    resp = client.request(case.method, case.path(world), json=body, headers=headers)
+    assert resp.status_code == case.expected[actor], (
+        f"{actor} {case.method} {case.name}: {resp.status_code} {resp.text}"
+    )
+
+
+def test_every_v1_route_is_in_the_matrix():
+    """Adding an endpoint without deciding who may call it should fail loudly."""
+    from app.main import app
+
+    covered = {(c.method, c.path(_PLACEHOLDER_WORLD)) for c in CASES}
+    covered_templates = {(m, _template(p)) for m, p in covered}
+    exempt = {
+        ("POST", "/v1/auth/login"),
+        ("POST", "/v1/auth/refresh"),
+        ("POST", "/v1/auth/logout"),
+        ("POST", "/v1/auth/password"),
+        ("GET", "/v1/auth/me"),
+    }
+    routes = {
+        (method.upper(), path)
+        for path, ops in app.openapi()["paths"].items()
+        if path.startswith("/v1/")
+        for method in ops
+    }
+    missing = routes - covered_templates - exempt
+    assert not missing, f"routes without access-matrix coverage: {sorted(missing)}"
+
+
+_PLACEHOLDER_WORLD = World(
+    platform_id="{tenant_id}",  # type: ignore[arg-type]
+    op_a="{operator_id}",  # type: ignore[arg-type]
+    op_b="{operator_id}",  # type: ignore[arg-type]
+    company_a="{company_id}",  # type: ignore[arg-type]
+    bill_to_a="{bill_to_id}",  # type: ignore[arg-type]
+    company_b="{company_id}",  # type: ignore[arg-type]
+    emails={},
+    user_ids={actor: "{user_id}" for actor in ACTORS},  # type: ignore[misc]
+)
+
+
+def _template(path: str) -> str:
+    # Members routes use {tenant_id} for both platform and operator tenants.
+    return path.replace("/tenants/{operator_id}/", "/tenants/{tenant_id}/")

@@ -4,11 +4,12 @@
  * Customer Portal API
  * OpenAPI spec version: 0.1.0
  */
-import type { ItemStatus } from './itemStatus';
 
-export interface ItemRead {
-  id: string;
-  name: string;
-  status: ItemStatus;
+export interface MemberRead {
+  user_id: string;
+  email: string;
+  tenant_id: string;
+  role: string;
+  must_change_password: boolean;
   created_at: string;
 }

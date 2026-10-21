@@ -15,16 +15,49 @@ class AuthError(Exception):
     pass
 
 
+class PasswordReuseError(AuthError):
+    pass
+
+
 def normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
-def create_user(db: Session, *, email: str, password: str, is_admin: bool = False) -> User:
-    user = User(email=normalize_email(email), is_admin=is_admin)
-    user.credential = Credential(password_hash=hash_password(password))
+def create_user(
+    db: Session, *, email: str, password: str, must_change_password: bool = False
+) -> User:
+    """Adds a user with credentials. Does not commit, so callers can add memberships atomically."""
+    user = User(email=normalize_email(email))
+    user.credential = Credential(
+        password_hash=hash_password(password), must_change_password=must_change_password
+    )
     db.add(user)
-    db.commit()
+    db.flush()
     return user
+
+
+def change_password(
+    db: Session, *, user: User, session: AuthSession, current_password: str, new_password: str
+) -> None:
+    """Sets a new password, clears the temporary-password flag, and signs out other sessions."""
+    if user.credential is None or not verify_password(
+        user.credential.password_hash, current_password
+    ):
+        raise AuthError("invalid credentials")
+    if verify_password(user.credential.password_hash, new_password):
+        raise PasswordReuseError("new password must differ")
+    user.credential.password_hash = hash_password(new_password)
+    user.credential.must_change_password = False
+    now = datetime.now(UTC)
+    for other in db.scalars(
+        select(AuthSession).where(
+            AuthSession.user_id == user.id,
+            AuthSession.id != session.id,
+            AuthSession.revoked_at.is_(None),
+        )
+    ):
+        other.revoked_at = now
+    db.commit()
 
 
 def get_user_by_email(db: Session, email: str) -> User | None:

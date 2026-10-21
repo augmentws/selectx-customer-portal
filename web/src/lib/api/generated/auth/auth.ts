@@ -26,9 +26,10 @@ import type {
 import type {
   HTTPValidationError,
   LoginRequest,
+  MeRead,
+  PasswordChange,
   RefreshRequest,
-  TokenPair,
-  UserRead
+  TokenPair
 } from '../model';
 
 import { bffFetch } from '../../fetcher';
@@ -70,8 +71,6 @@ export type authLoginResponseError = (authLoginResponse422) & {
   headers: Headers;
 };
 
-export type authLoginResponse = (authLoginResponseSuccess | authLoginResponseError)
-
 export const getAuthLoginUrl = () => {
 
 
@@ -83,7 +82,7 @@ export const getAuthLoginUrl = () => {
 /**
  * @summary Login
  */
-export const authLogin = async (loginRequest: LoginRequest, options?: Parameters<typeof bffFetch>[1]): Promise<authLoginResponse> => {
+export const authLogin = async (loginRequest: LoginRequest, options?: Parameters<typeof bffFetch>[1]): Promise<authLoginResponseSuccess> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -99,7 +98,7 @@ export const authLogin = async (loginRequest: LoginRequest, options?: Parameters
     }
     return headers;
   };
-return bffFetch<authLoginResponse>(getAuthLoginUrl(),
+return bffFetch<authLoginResponseSuccess>(getAuthLoginUrl(),
   {
     ...options,
     method: 'POST',
@@ -176,8 +175,6 @@ export type authRefreshResponseError = (authRefreshResponse422) & {
   headers: Headers;
 };
 
-export type authRefreshResponse = (authRefreshResponseSuccess | authRefreshResponseError)
-
 export const getAuthRefreshUrl = () => {
 
 
@@ -189,7 +186,7 @@ export const getAuthRefreshUrl = () => {
 /**
  * @summary Refresh
  */
-export const authRefresh = async (refreshRequest: RefreshRequest, options?: Parameters<typeof bffFetch>[1]): Promise<authRefreshResponse> => {
+export const authRefresh = async (refreshRequest: RefreshRequest, options?: Parameters<typeof bffFetch>[1]): Promise<authRefreshResponseSuccess> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -205,7 +202,7 @@ export const authRefresh = async (refreshRequest: RefreshRequest, options?: Para
     }
     return headers;
   };
-return bffFetch<authRefreshResponse>(getAuthRefreshUrl(),
+return bffFetch<authRefreshResponseSuccess>(getAuthRefreshUrl(),
   {
     ...options,
     method: 'POST',
@@ -275,8 +272,6 @@ export type authLogoutResponseSuccess = (authLogoutResponse204) & {
 };
 ;
 
-export type authLogoutResponse = (authLogoutResponseSuccess)
-
 export const getAuthLogoutUrl = () => {
 
 
@@ -288,9 +283,9 @@ export const getAuthLogoutUrl = () => {
 /**
  * @summary Logout
  */
-export const authLogout = async ( options?: Parameters<typeof bffFetch>[1]): Promise<authLogoutResponse> => {
+export const authLogout = async ( options?: Parameters<typeof bffFetch>[1]): Promise<authLogoutResponseSuccess> => {
 
-  return bffFetch<authLogoutResponse>(getAuthLogoutUrl(),
+  return bffFetch<authLogoutResponseSuccess>(getAuthLogoutUrl(),
   {
     ...options,
     method: 'POST'
@@ -350,8 +345,112 @@ export const useAuthLogout = <TError = unknown,
       > => {
       return useMutation(getAuthLogoutMutationOptions(options), queryClient);
     }
+    export type authChangePasswordResponse204 = {
+  data: void
+  status: 204
+}
+
+export type authChangePasswordResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type authChangePasswordResponseSuccess = (authChangePasswordResponse204) & {
+  headers: Headers;
+};
+export type authChangePasswordResponseError = (authChangePasswordResponse422) & {
+  headers: Headers;
+};
+
+export const getAuthChangePasswordUrl = () => {
+
+
+
+
+  return `/v1/auth/password`
+}
+
+/**
+ * @summary Change Password
+ */
+export const authChangePassword = async (passwordChange: PasswordChange, options?: Parameters<typeof bffFetch>[1]): Promise<authChangePasswordResponseSuccess> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return bffFetch<authChangePasswordResponseSuccess>(getAuthChangePasswordUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(passwordChange)
+  }
+);}
+
+
+
+
+
+export const getAuthChangePasswordMutationKey = () => ['authChangePassword'] as const;
+
+export const getAuthChangePasswordMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authChangePassword>>, TError,AuthChangePasswordMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authChangePassword>>, TError,AuthChangePasswordMutationVariables, TContext> => {
+
+const mutationKey = getAuthChangePasswordMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authChangePassword>>, AuthChangePasswordMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  authChangePassword(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthChangePasswordMutationResult = NonNullable<Awaited<ReturnType<typeof authChangePassword>>>
+    export type AuthChangePasswordMutationBody = PasswordChange
+    export type AuthChangePasswordMutationError = HTTPValidationError
+    export type AuthChangePasswordMutationVariables = {data: PasswordChange}
+
+    /**
+ * @summary Change Password
+ */
+export const useAuthChangePassword = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authChangePassword>>, TError,AuthChangePasswordMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof authChangePassword>>,
+        TError,
+        AuthChangePasswordMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAuthChangePasswordMutationOptions(options), queryClient);
+    }
     export type authMeResponse200 = {
-  data: UserRead
+  data: MeRead
   status: 200
 }
 
@@ -359,8 +458,6 @@ export type authMeResponseSuccess = (authMeResponse200) & {
   headers: Headers;
 };
 ;
-
-export type authMeResponse = (authMeResponseSuccess)
 
 export const getAuthMeUrl = () => {
 
@@ -373,9 +470,9 @@ export const getAuthMeUrl = () => {
 /**
  * @summary Me
  */
-export const authMe = async ( options?: Parameters<typeof bffFetch>[1]): Promise<authMeResponse> => {
+export const authMe = async ( options?: Parameters<typeof bffFetch>[1]): Promise<authMeResponseSuccess> => {
 
-  return bffFetch<authMeResponse>(getAuthMeUrl(),
+  return bffFetch<authMeResponseSuccess>(getAuthMeUrl(),
   {
     ...options,
     method: 'GET'

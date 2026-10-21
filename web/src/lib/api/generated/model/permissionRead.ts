@@ -5,8 +5,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface UserRead {
-  id: string;
-  email: string;
-  is_admin: boolean;
+export interface PermissionRead {
+  code: string;
+  description: string;
 }

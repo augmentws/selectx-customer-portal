@@ -27,15 +27,39 @@ The OpenAPI document at `/openapi.json` is the API contract. Interactive docs ar
 Current API surface (keep the versioned shape unless a contract change is requested):
 
 - `GET /health`
-- `POST /v1/auth/login`, `POST /v1/auth/refresh`, `POST /v1/auth/logout`, `GET /v1/auth/me`
-- `GET /v1/items`, `POST /v1/items`, `GET /v1/items/{item_id}` (sample resource; authenticated)
+- Auth: `POST /v1/auth/login`, `/refresh`, `/logout`, `/password`; `GET /v1/auth/me` (includes memberships and permissions)
+- `GET/POST /v1/operators`, `GET/PATCH /v1/operators/{id}`, `GET/POST /v1/operators/{id}/companies`
+- `GET/PATCH /v1/companies/{id}`, `GET/POST /v1/companies/{id}/bill-tos`
+- `GET/PATCH /v1/bill-tos/{id}`
+- `GET/POST /v1/tenants/{id}/members`, `PATCH/DELETE /v1/tenants/{id}/members/{user_id}`
+- `GET /v1/roles`, `GET /v1/permissions`
+
+## Tenancy and Data Model
+
+- `tenants` is a tree: exactly one `platform` root (SELECTX, the application admin) with `operator` tenants beneath it. Each operator maps 1:1 to a PestPac tenant (`pestpac_tenant_id`).
+- `companies` are our own customer entity (PestPac has none) and belong to one operator.
+- `bill_tos` are PestPac bill-tos onboarded to a company. Onboarding happens at the bill-to level; a bill-to may bill a single location, a region, or a whole company (recorded in `description`). `(operator_id, pestpac_bill_to_id)` is unique, and a composite FK keeps a bill-to inside its company's operator.
+- Deactivate with `is_active`; don't hard-delete tenants, companies, or bill-tos.
+- Every operator-owned row carries `operator_id`; queries are scoped through the services layer.
+- Not built yet (keep designs extensible): locations, customer logins, branches, regions, per-operator custom roles, PestPac credentials per operator.
+
+## Authorization (RBAC)
+
+- Permissions decide what users can see and do, at both API and UI layers. Never check role names in routes or components.
+- `app/security/permissions.py` is the source of truth for permission codes and system roles (`platform_admin`, `operator_admin`, `operator_staff`). `app.bootstrap` syncs the database to it; `tests/test_rbac.py` fails if the latest migration doesn't match. Changing a permission or system role needs a migration.
+- A membership grants a role on a tenant and applies to that tenant and everything beneath it: platform memberships cover every operator.
+- Each route declares its permission via `scope.require(perm, operator_id, read_perm=...)` or `require_any(perm)`. Return 404 when the caller can't see the resource at all (don't reveal other operators' records) and 403 when they can see it but lack the permission.
+- Nobody may grant a role holding permissions they don't have on that tenant; the last platform admin can't be removed.
+- New users are added with a temporary password and must change it before any other API call succeeds.
+- Every endpoint must appear in `tests/test_access_matrix.py` with the expected status for each actor; a test fails when a `/v1` route is missing from it.
+- UI: `usePermissions()` / `<Can>` in `web/src/lib/permissions.tsx` mirror the backend rule to hide or disable actions. They are not a security boundary.
 
 ## Authentication and Browser Security
 
 - Login accepts email and password only. Emails are globally unique.
 - Hash passwords with Argon2id; keep credentials separate from the user record.
 - FastAPI mints signed JWT access and refresh tokens. Preserve refresh-token rotation, session records, revocation, and logout.
-- Bootstrap the first administrator from environment settings with `python -m app.bootstrap`; keep it idempotent.
+- Bootstrap the first platform administrator from environment settings with `python -m app.bootstrap`; keep it idempotent.
 - Never commit `.env` files or credentials.
 
 Next.js is a thin backend-for-frontend (BFF):
@@ -94,7 +118,7 @@ cd web && cp .env.example .env.local && pnpm install && pnpm dev
 
 ## Change Discipline
 
-- Keep work focused on the current scope: auth shell, sample `items` resource, and the PestPac client. Don't build deferred features (customer-facing PestPac views, roles beyond admin, theming, frontend test tooling) unless the user advances scope, but keep designs extensible for them.
+- Keep work focused on the current scope: tenants, RBAC, companies, and bill-to onboarding; the PestPac service-order webhook capture is next. Don't build deferred features (customer logins, custom roles, regions, branches, theming, frontend test tooling) unless the user advances scope, but keep designs extensible for them.
 - Add an Alembic migration for every persistent schema change.
 - Preserve user changes and unrelated work already in the repository.
 - Update this file when an architectural or product decision is explicitly changed.

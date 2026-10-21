@@ -1,9 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
-from app.models import AuthSession, User
-from app.schemas.auth import LoginRequest, RefreshRequest, TokenPair, UserRead
+from app.models import AuthSession, Membership, Role, Tenant, User
+from app.schemas.auth import (
+    LoginRequest,
+    MembershipGrant,
+    MeRead,
+    PasswordChange,
+    RefreshRequest,
+    TokenPair,
+)
 from app.security.deps import get_current_session, get_current_user
 from app.services import auth as auth_service
 
@@ -36,6 +44,54 @@ def logout(session: AuthSession = Depends(get_current_session), db: Session = De
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.get("/me", response_model=UserRead)
-def me(user: User = Depends(get_current_user)):
-    return user
+@router.post("/password", status_code=status.HTTP_204_NO_CONTENT)
+def change_password(
+    data: PasswordChange,
+    user: User = Depends(get_current_user),
+    session: AuthSession = Depends(get_current_session),
+    db: Session = Depends(get_db),
+):
+    try:
+        auth_service.change_password(
+            db,
+            user=user,
+            session=session,
+            current_password=data.current_password,
+            new_password=data.new_password,
+        )
+    except auth_service.PasswordReuseError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must differ from the current one",
+        ) from None
+    except auth_service.AuthError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect"
+        ) from None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/me", response_model=MeRead)
+def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    rows = db.execute(
+        select(Membership, Tenant)
+        .join(Tenant, Tenant.id == Membership.tenant_id)
+        .where(Membership.user_id == user.id, Tenant.is_active.is_(True))
+        .options(selectinload(Membership.role).selectinload(Role.permissions))
+        .order_by(Tenant.kind, Tenant.name)
+    ).all()
+    return MeRead(
+        id=user.id,
+        email=user.email,
+        must_change_password=bool(user.credential and user.credential.must_change_password),
+        memberships=[
+            MembershipGrant(
+                tenant_id=tenant.id,
+                tenant_name=tenant.name,
+                tenant_kind=tenant.kind,
+                role=m.role.name,
+                permissions=sorted(p.code for p in m.role.permissions),
+            )
+            for m, tenant in rows
+        ],
+    )

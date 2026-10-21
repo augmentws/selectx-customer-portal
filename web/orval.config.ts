@@ -12,6 +12,8 @@ export default defineConfig({
       clean: true,
       override: {
         mutator: { path: "src/lib/api/fetcher.ts", name: "bffFetch" },
+        // bffFetch throws ApiError on any non-2xx, so resolved values are always the success shape.
+        fetch: { includeHttpResponseReturnType: true, forceSuccessResponse: true },
       },
     },
   },

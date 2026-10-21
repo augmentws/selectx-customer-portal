@@ -28,7 +28,7 @@ pnpm install
 pnpm dev
 ```
 
-Sign in at http://localhost:3001/login with the bootstrap admin.
+Sign in at http://localhost:3001/login with the bootstrap admin (a platform admin), then add operators, companies, bill-tos, and members from the UI.
 
 ## Checks
 

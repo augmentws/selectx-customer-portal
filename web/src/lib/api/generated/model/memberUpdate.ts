@@ -5,10 +5,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface ItemCreate {
-  /**
-     * @minLength 1
-     * @maxLength 200
-     */
-  name: string;
+export interface MemberUpdate {
+  role: string;
 }
