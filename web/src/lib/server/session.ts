@@ -39,7 +39,7 @@ export function clearSessionCookies(res: NextResponse) {
  * CSRF for state-changing requests: the Origin must be ours (or the browser must say
  * same-origin), and the double-submit header must match the CSRF cookie when a session exists.
  */
-export function checkCsrf(req: NextRequest): boolean {
+export function checkCsrf(req: NextRequest, { sessionBound = true } = {}): boolean {
   const method = req.method.toUpperCase();
   if (method === "GET" || method === "HEAD" || method === "OPTIONS") return true;
 
@@ -47,6 +47,9 @@ export function checkCsrf(req: NextRequest): boolean {
   const fetchSite = req.headers.get("sec-fetch-site");
   const sameOrigin = origin ? origin === req.nextUrl.origin : fetchSite === "same-origin";
   if (!sameOrigin) return false;
+  // Login doesn't act on an existing session, so the origin check is enough. Requiring the
+  // double-submit token there would lock out anyone holding stale session cookies.
+  if (!sessionBound) return true;
 
   const cookie = req.cookies.get(CSRF_COOKIE)?.value;
   if (!cookie) return !req.cookies.has(REFRESH_COOKIE);

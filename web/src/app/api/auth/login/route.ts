@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { API_URL, checkCsrf, setSessionCookies, type TokenPair } from "@/lib/server/session";
 
 export async function POST(req: NextRequest) {
-  if (!checkCsrf(req)) {
+  if (!checkCsrf(req, { sessionBound: false })) {
     return NextResponse.json({ detail: "CSRF check failed" }, { status: 403 });
   }
 
