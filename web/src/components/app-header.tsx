@@ -5,6 +5,7 @@ import { LogOut } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { BrandLogo } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { CSRF_HEADER, readCsrfToken } from "@/lib/csrf";
 import { usePermissions } from "@/lib/permissions";
@@ -26,12 +27,15 @@ export function AppHeader() {
   };
 
   return (
-    <header className="border-b border-border bg-card">
-      <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between px-6">
+    <header className="border-b-4 border-highlight bg-background">
+      <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-6">
         <nav className="flex items-center gap-6">
-          <span className="font-semibold">Customer Portal</span>
+          <BrandLogo href="/operators" />
           {canAnywhere("operators:read") && !me?.must_change_password && (
-            <Link href="/operators" className="text-sm text-muted-foreground hover:text-foreground">
+            <Link
+              href="/operators"
+              className="font-heading text-sm font-medium tracking-wide text-foreground uppercase hover:text-primary"
+            >
               Operators
             </Link>
           )}

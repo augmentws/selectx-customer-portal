@@ -152,9 +152,9 @@ export function CompanyDetail() {
         >
           ← Operator
         </Link>
-        <h1 className="mt-2 flex items-center gap-3 text-2xl font-semibold tracking-tight">
+        <h1 className="mt-2 flex items-center gap-3 text-3xl">
           {c.name}
-          {!c.is_active && <Badge variant="secondary">Inactive</Badge>}
+          {!c.is_active && <Badge variant="outline">Inactive</Badge>}
         </h1>
         <p className="text-muted-foreground">
           Bill-tos onboarded to the portal. Service orders are captured only for these.
@@ -191,7 +191,7 @@ export function CompanyDetail() {
                   <span className="text-sm font-normal text-muted-foreground">
                     BillToID {b.pestpac_bill_to_id}
                   </span>
-                  {!b.is_active && <Badge variant="secondary">Inactive</Badge>}
+                  {!b.is_active && <Badge variant="outline">Inactive</Badge>}
                 </span>
                 {b.description && (
                   <span className="text-sm text-muted-foreground">{b.description}</span>

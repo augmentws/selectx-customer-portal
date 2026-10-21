@@ -99,7 +99,7 @@ export function OperatorsPanel() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Operators</h1>
+        <h1 className="text-3xl">Operators</h1>
         <p className="text-muted-foreground">Operating entities, each linked to a PestPac tenant.</p>
       </div>
 
@@ -129,7 +129,7 @@ export function OperatorsPanel() {
                 <span className="font-medium">{op.name}</span>
                 <span className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span>PestPac {op.pestpac_tenant_id}</span>
-                  {!op.is_active && <Badge variant="secondary">Inactive</Badge>}
+                  {!op.is_active && <Badge variant="outline">Inactive</Badge>}
                 </span>
               </Link>
             </li>

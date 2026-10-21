@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-lato);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-heading: var(--font-oswald);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -27,20 +27,26 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-muted: var(--destructive-muted);
   --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
+  --color-success-muted: var(--success-muted);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
-  --color-info: var(--info);
-  --color-info-foreground: var(--info-foreground);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
+  --color-brand-green: var(--brand-green);
+  --color-ink: var(--ink);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
+  --color-secondary-hover: var(--secondary-hover);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -55,46 +61,55 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --success: oklch(0.527 0.137 150.069);
-  --success-foreground: oklch(0.985 0 0);
-  --warning: oklch(0.769 0.188 70.08);
-  --warning-foreground: oklch(0.205 0 0);
-  --info: oklch(0.546 0.245 262.881);
-  --info-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Select Exterminating brand mapped to semantic tokens. See docs/design-guidance.md.
+     Hex only: scripts/check-contrast.mjs reads these and enforces WCAG AA. */
+  --background: #ffffff;
+  --foreground: #333333; /* Body Text */
+  --card: #ffffff;
+  --card-foreground: #333333;
+  --popover: #ffffff;
+  --popover-foreground: #333333;
+  --primary: #186839; /* Forest: the app's action green (white text passes AA) */
+  --primary-hover: #11502b;
+  --primary-foreground: #ffffff;
+  --secondary: #353e43; /* Charcoal */
+  --secondary-hover: #2a3135;
+  --secondary-foreground: #ffffff;
+  --muted: #f8f7f7; /* Paper */
+  --muted-foreground: #646967; /* darker than Stone so small text passes AA */
+  --accent: #f1f0f0; /* subtle hover surface (shadcn "accent"), not the brand gold */
+  --accent-foreground: #333333;
+  --highlight: #fdcf0e; /* Select Gold: rules, badges, highlights only */
+  --highlight-foreground: #171c1a; /* Ink */
+  --brand-green: #2b935c; /* Select Green: logo-adjacent and large display use only */
+  --ink: #171c1a;
+  --destructive: #b42318;
+  --destructive-foreground: #ffffff;
+  --destructive-muted: #fcebe9;
+  --success: #186839;
+  --success-muted: #e6f2eb;
+  --warning: #fdcf0e;
+  --warning-foreground: #171c1a;
+  --border: #d9d9d9; /* Mist: decorative dividers */
+  --input: #878b89; /* Stone: form control borders need 3:1 */
+  --ring: #186839;
+  --chart-1: #2b935c;
+  --chart-2: #fdcf0e;
+  --chart-3: #353e43;
+  --chart-4: #186839;
+  --chart-5: #878b89;
+  --radius: 0rem; /* square corners everywhere */
+  --sidebar: #f8f7f7;
+  --sidebar-foreground: #333333;
+  --sidebar-primary: #186839;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f1f0f0;
+  --sidebar-accent-foreground: #333333;
+  --sidebar-border: #d9d9d9;
+  --sidebar-ring: #186839;
 }
 
+/* Dark mode is not enabled yet (full tier). These are shadcn defaults, not brand-reviewed. */
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -115,8 +130,6 @@
   --success-foreground: oklch(0.205 0 0);
   --warning: oklch(0.828 0.189 84.429);
   --warning-foreground: oklch(0.205 0 0);
-  --info: oklch(0.707 0.165 254.624);
-  --info-foreground: oklch(0.205 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
@@ -137,12 +150,20 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring;
   }
   body {
     @apply bg-background text-foreground;
   }
   html {
     @apply font-sans;
+  }
+  /* Headlines: Oswald, uppercase, tight leading (docs/design-guidance.md §4). */
+  h1,
+  h2 {
+    @apply font-heading font-bold uppercase leading-[1.1] tracking-normal;
+  }
+  h3 {
+    @apply font-heading font-bold leading-[1.15];
   }
 }

@@ -165,7 +165,7 @@ export function MembersPanel({ tenantId, roleScope }: { tenantId: string; roleSc
               <span className="flex items-center gap-2">
                 {m.email}
                 {m.user_id === me?.id && <Badge variant="outline">You</Badge>}
-                {m.must_change_password && <Badge variant="secondary">Temporary password</Badge>}
+                {m.must_change_password && <Badge variant="warning">Temporary password</Badge>}
               </span>
               {canWrite ? (
                 <span className="flex items-center gap-2">

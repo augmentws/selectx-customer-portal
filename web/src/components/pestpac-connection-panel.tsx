@@ -38,9 +38,9 @@ type FormValues = z.infer<ReturnType<typeof makeSchema>>;
 
 export function ConnectionStatusBadge({ conn }: { conn: PestPacConnectionRead }) {
   if (!conn.configured) return <Badge variant="outline">Not set up</Badge>;
-  if (conn.status === "verified") return <Badge>Verified</Badge>;
+  if (conn.status === "verified") return <Badge variant="success">Verified</Badge>;
   if (conn.status === "failed") return <Badge variant="destructive">Failed</Badge>;
-  return <Badge variant="secondary">Not verified</Badge>;
+  return <Badge variant="warning">Not verified</Badge>;
 }
 
 function ConnectionForm({ operatorId, conn }: { operatorId: string; conn: PestPacConnectionRead }) {

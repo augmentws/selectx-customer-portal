@@ -96,7 +96,8 @@ One application for all user types; separate experiences with route groups, not 
 
 ## UI and Styling
 
-- Brand palette: neutral placeholder. Map palette colors to semantic CSS variables (background, foreground, card, muted, primary, secondary, accent, destructive, border, input, ring, plus state tokens). Feature code uses semantic utilities such as `bg-background` and `text-muted-foreground`, never raw palette classes like `bg-blue-600`.
+- Brand: Select Exterminating. `docs/design-guidance.md` is the source; §9 "Application UI" defines how the brand maps to app tokens and overrides the marketing-site rules where they conflict (Forest, not Select Green, for buttons; 16px body; sentence-case inline actions). Map colors only through the semantic CSS variables in `web/src/app/globals.css`. Feature code uses semantic utilities such as `bg-primary`, `text-muted-foreground`, `bg-highlight`, never raw hex or palette classes like `bg-green-700`.
+- Tokens are hex in `:root`; `pnpm lint` runs `pnpm check:contrast`, which fails if a token pair drops below WCAG 2.2 AA. Add a pair there when introducing a new foreground/background combination.
 - Validate text, icon, focus, and interactive-state contrast against WCAG 2.2 AA. Accessibility overrides literal palette use.
 - Keep shadcn primitives in `components/ui`; features compose them rather than modifying them.
 - Use `class-variance-authority` and a shared `cn()` helper. No Sass, CSS-in-JS, or another styling framework without a specific need.
@@ -113,7 +114,7 @@ pipenv run alembic check
 
 Migration changes must be exercised through upgrade and downgrade **against a scratch database, never the development database** — a downgrade drops data. When a migration check targets a temporary database, verify `current_database()` before any downgrade, and call the virtualenv's `alembic` directly with an explicit `DATABASE_URL` — `pipenv run` loads `.env` and can redirect the command to the development database.
 
-Frontend: `pnpm typecheck`, `pnpm lint`, `pnpm build`. Regenerate the API client (`pnpm api:generate`) whenever the backend contract changes. Test authorization on the backend; UI visibility checks are not a substitute.
+Frontend: `pnpm typecheck`, `pnpm lint` (includes the theme contrast check), `pnpm build`. Regenerate the API client (`pnpm api:generate`) whenever the backend contract changes. Test authorization on the backend; UI visibility checks are not a substitute.
 
 ## Local Development
 

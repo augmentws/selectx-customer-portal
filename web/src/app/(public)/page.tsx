@@ -1,18 +1,18 @@
 import Link from "next/link";
 
+import { BrandBand, ProofPoints } from "@/components/brand";
 import { buttonVariants } from "@/components/ui/button";
 
 export default function HomePage() {
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center gap-6 px-6 py-16">
-      <h1 className="text-3xl font-semibold tracking-tight">Customer Portal</h1>
-      <p className="text-muted-foreground">
-        Sign in to manage operators, companies, and the PestPac bill-tos onboarded to the
-        portal.
-      </p>
-      <div>
-        <Link href="/operators" className={buttonVariants()}>
-          Go to the portal
+    <main className="flex flex-1 flex-col">
+      <BrandBand title="We lead the Northeast in pest control">
+        <p>The Select Exterminating customer portal.</p>
+        <ProofPoints />
+      </BrandBand>
+      <div className="px-8 py-12 sm:px-12">
+        <Link href="/operators" className={buttonVariants({ size: "lg" })}>
+          Sign in to the portal
         </Link>
       </div>
     </main>

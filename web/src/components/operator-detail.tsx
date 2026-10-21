@@ -102,7 +102,7 @@ function CompaniesTab({ operatorId }: { operatorId: string }) {
                 className="flex items-center justify-between p-4 hover:bg-muted"
               >
                 <span className="font-medium">{c.name}</span>
-                {!c.is_active && <Badge variant="secondary">Inactive</Badge>}
+                {!c.is_active && <Badge variant="outline">Inactive</Badge>}
               </Link>
             </li>
           ))}
@@ -134,9 +134,9 @@ export function OperatorDetail() {
         <Link href="/operators" className="text-sm text-muted-foreground hover:text-foreground">
           ← Operators
         </Link>
-        <h1 className="mt-2 flex items-center gap-3 text-2xl font-semibold tracking-tight">
+        <h1 className="mt-2 flex items-center gap-3 text-3xl">
           {op.name}
-          {!op.is_active && <Badge variant="secondary">Inactive</Badge>}
+          {!op.is_active && <Badge variant="outline">Inactive</Badge>}
         </h1>
         <p className="text-muted-foreground">
           PestPac tenant {op.pestpac_tenant_id}
