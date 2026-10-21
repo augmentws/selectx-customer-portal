@@ -19,7 +19,11 @@ def test_operator_list_is_scoped(client, world):
 
 def test_operator_slug_and_pestpac_tenant_are_unique(client, world):
     headers = headers_for(client, world.emails["platform_admin"])
-    dup_slug = client.post("/v1/operators", json={"name": "X", "slug": "op-a"}, headers=headers)
+    dup_slug = client.post(
+        "/v1/operators",
+        json={"name": "X", "slug": "op-a", "pestpac_tenant_id": "999999"},
+        headers=headers,
+    )
     assert dup_slug.status_code == 409
     dup_pp = client.post(
         "/v1/operators",
@@ -35,7 +39,21 @@ def test_operator_slug_and_pestpac_tenant_are_unique(client, world):
 
 def test_operator_slug_format(client, world):
     headers = headers_for(client, world.emails["platform_admin"])
-    resp = client.post("/v1/operators", json={"name": "X", "slug": "Bad Slug"}, headers=headers)
+    resp = client.post(
+        "/v1/operators",
+        json={"name": "X", "slug": "Bad Slug", "pestpac_tenant_id": "999999"},
+        headers=headers,
+    )
+    assert resp.status_code == 422
+
+
+def test_operator_requires_pestpac_tenant_id(client, world):
+    headers = headers_for(client, world.emails["platform_admin"])
+    resp = client.post("/v1/operators", json={"name": "X", "slug": "op-x"}, headers=headers)
+    assert resp.status_code == 422
+    resp = client.patch(
+        f"/v1/operators/{world.op_a}", json={"pestpac_tenant_id": None}, headers=headers
+    )
     assert resp.status_code == 422
 
 
@@ -59,7 +77,7 @@ def test_partial_update_rejects_explicit_null(client, world):
     assert resp.json()["name"] == "Acme Restaurants"
 
 
-def test_bill_to_onboarding(client, world):
+def test_bill_to_onboarding(client, world, pestpac):
     headers = headers_for(client, world.emails["admin_a"])
     resp = client.post(
         f"/v1/companies/{world.company_a}/bill-tos",
@@ -76,7 +94,7 @@ def test_bill_to_onboarding(client, world):
     assert [b["pestpac_bill_to_id"] for b in listed] == [175101, 180020]
 
 
-def test_bill_to_unique_within_operator(client, world):
+def test_bill_to_unique_within_operator(client, world, pestpac):
     pa = headers_for(client, world.emails["platform_admin"])
     other_company = client.post(
         f"/v1/operators/{world.op_a}/companies", json={"name": "Other"}, headers=pa
@@ -90,6 +108,18 @@ def test_bill_to_unique_within_operator(client, world):
     assert "another company" in dup.json()["detail"]
 
     # The same PestPac id under a different operator is a different bill-to.
+    setup = client.put(
+        f"/v1/operators/{world.op_b}/pestpac-connection",
+        json={
+            "client_id": "c",
+            "username": "u",
+            "client_secret": "s",
+            "password": "p",
+            "api_key": "key-b-5678",
+        },
+        headers=pa,
+    )
+    assert setup.json()["status"] == "verified"
     other_op = client.post(
         f"/v1/companies/{world.company_b}/bill-tos",
         json={"pestpac_bill_to_id": 175101, "name": "B's 175101"},

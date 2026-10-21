@@ -17,5 +17,9 @@ export interface OperatorCreate {
      * @pattern ^[a-z0-9]+(?:-[a-z0-9]+)*$
      */
   slug: string;
-  pestpac_tenant_id?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 64
+     */
+  pestpac_tenant_id: string;
 }

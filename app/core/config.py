@@ -20,6 +20,14 @@ class Settings(BaseSettings):
 
     web_origin: str = "http://localhost:3001"
 
+    # Comma-separated Fernet keys; the first encrypts. See app/security/secrets.py.
+    app_encryption_keys: str = ""
+
+    pestpac_token_url: str = "https://is.workwave.com/oauth2/token?scope=openid"
+    pestpac_default_base_url: str = "https://api.workwave.com/pestpac/v1"
+    # Log PestPac request/response bodies. They contain customer data; local debugging only.
+    pestpac_debug_bodies: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:

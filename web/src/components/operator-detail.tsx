@@ -3,11 +3,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { MembersPanel } from "@/components/members-panel";
+import { PestPacConnectionPanel } from "@/components/pestpac-connection-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -113,6 +114,7 @@ function CompaniesTab({ operatorId }: { operatorId: string }) {
 
 export function OperatorDetail() {
   const { operatorId } = useParams<{ operatorId: string }>();
+  const initialTab = useSearchParams().get("tab") ?? "companies";
   const { can } = usePermissions();
   const operator = useOperatorsGetOperator(operatorId);
 
@@ -137,14 +139,17 @@ export function OperatorDetail() {
           {!op.is_active && <Badge variant="secondary">Inactive</Badge>}
         </h1>
         <p className="text-muted-foreground">
-          {op.pestpac_tenant_id ? `PestPac tenant ${op.pestpac_tenant_id}` : "No PestPac tenant linked"}
+          PestPac tenant {op.pestpac_tenant_id}
         </p>
       </div>
 
-      <Tabs defaultValue="companies">
+      <Tabs defaultValue={initialTab}>
         <TabsList>
           {can("companies:read", operatorId) && <TabsTrigger value="companies">Companies</TabsTrigger>}
           {can("members:read", operatorId) && <TabsTrigger value="members">Members</TabsTrigger>}
+          {can("pestpac_connection:read", operatorId) && (
+            <TabsTrigger value="pestpac">PestPac API</TabsTrigger>
+          )}
         </TabsList>
         {can("companies:read", operatorId) && (
           <TabsContent value="companies" className="pt-4">
@@ -154,6 +159,11 @@ export function OperatorDetail() {
         {can("members:read", operatorId) && (
           <TabsContent value="members" className="pt-4">
             <MembersPanel tenantId={operatorId} roleScope="operator" />
+          </TabsContent>
+        )}
+        {can("pestpac_connection:read", operatorId) && (
+          <TabsContent value="pestpac" className="pt-4">
+            <PestPacConnectionPanel operatorId={operatorId} />
           </TabsContent>
         )}
       </Tabs>

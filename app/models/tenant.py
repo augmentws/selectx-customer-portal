@@ -35,6 +35,9 @@ class Tenant(Base):
         CheckConstraint(
             "pestpac_tenant_id IS NULL OR kind = 'operator'", name="pestpac_only_on_operator"
         ),
+        CheckConstraint(
+            "kind = 'platform' OR pestpac_tenant_id IS NOT NULL", name="operator_has_pestpac"
+        ),
         Index(
             "uq_tenants_single_platform",
             "kind",

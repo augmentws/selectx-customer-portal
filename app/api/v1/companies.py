@@ -8,7 +8,7 @@ from app.models import Company
 from app.schemas.tenancy import BillToCreate, BillToRead, CompanyRead, CompanyUpdate
 from app.security.access import AccessScope, get_scope
 from app.security.permissions import Perm
-from app.services import tenancy
+from app.services import pestpac_connection, tenancy
 
 router = APIRouter(prefix="/companies", tags=["companies"])
 
@@ -63,5 +63,11 @@ def onboard_bill_to(
     scope.require(Perm.bill_tos_write, company.operator_id, read_perm=Perm.companies_read)
     try:
         return tenancy.onboard_bill_to(db, company, data, onboarded_by=scope.user_id)
-    except tenancy.ConflictError as exc:
+    except (tenancy.ConflictError, pestpac_connection.ConnectionNotReadyError) as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from None
+    except tenancy.BillToNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from None
+    except pestpac_connection.PestPacUnavailableError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from None

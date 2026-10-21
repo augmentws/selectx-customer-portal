@@ -33,7 +33,7 @@ CASES = [
         "POST",
         lambda w: "/v1/operators",
         _all(403, platform_admin=201),
-        lambda w: {"name": "New Op", "slug": "new-op"},
+        lambda w: {"name": "New Op", "slug": "new-op", "pestpac_tenant_id": "330000"},
     ),
     Case(
         "get operator A",
@@ -147,6 +147,25 @@ CASES = [
             "temporary_password": "temporary-password-1",
         },
     ),
+    Case(
+        "get PestPac connection of A",
+        "GET",
+        lambda w: f"/v1/operators/{w.op_a}/pestpac-connection",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+    ),
+    Case(
+        "save PestPac connection of A",
+        "PUT",
+        lambda w: f"/v1/operators/{w.op_a}/pestpac-connection",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+        lambda w: {"client_id": "client-a", "username": "api-user-a"},
+    ),
+    Case(
+        "verify PestPac connection of A",
+        "POST",
+        lambda w: f"/v1/operators/{w.op_a}/pestpac-connection/verify",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+    ),
     Case("list roles", "GET", lambda w: "/v1/roles", _all(200, staff_a=403, no_role=403)),
     Case(
         "list permissions", "GET", lambda w: "/v1/permissions", _all(200, staff_a=403, no_role=403)
@@ -156,7 +175,7 @@ CASES = [
 
 @pytest.mark.parametrize("actor", ACTORS)
 @pytest.mark.parametrize("case", CASES, ids=lambda c: c.name)
-def test_access(client, world, case: Case, actor: str):
+def test_access(client, world, pestpac, case: Case, actor: str):
     headers = headers_for(client, world.emails[actor])
     body = case.body(world) if case.body else None
     resp = client.request(case.method, case.path(world), json=body, headers=headers)

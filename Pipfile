@@ -15,11 +15,13 @@ pyjwt = "*"
 email-validator = "*"
 requests = "*"
 python-dotenv = "*"
+cryptography = "*"
 
 [dev-packages]
 pytest = "*"
 httpx = "*"
 ruff = "*"
+responses = "*"
 
 [requires]
 python_version = "3.14"

@@ -12,19 +12,35 @@ TEST_DATABASE_URL = _env.get(
 TEST_DB_NAME = "customer_portal_test"
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ.setdefault("JWT_SECRET", "test-secret-" + "x" * 32)
+# Fixed test-only Fernet key so ciphertext written by fixtures stays readable.
+os.environ["APP_ENCRYPTION_KEYS"] = "Q2PYvKXuaXz5O3b4pV3-6dmgHAx5k5hvYb7Qm9H8u2Y="
+os.environ["PESTPAC_DEBUG_BODIES"] = "false"
 
+import re  # noqa: E402
 import uuid  # noqa: E402
 
 import pytest  # noqa: E402
+import responses  # noqa: E402
 from alembic.config import Config  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 
 from alembic import command  # noqa: E402
+from app.core.config import get_settings  # noqa: E402
 from app.db.session import SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import BillTo, Company, Membership, Tenant, TenantKind  # noqa: E402
+from app.models import (  # noqa: E402
+    BillTo,
+    Company,
+    ConnectionStatus,
+    Membership,
+    PestPacConnection,
+    Tenant,
+    TenantKind,
+)
 from app.security.permissions import SystemRole  # noqa: E402
+from app.security.secrets import encrypt  # noqa: E402
+from app.services import pestpac_connection  # noqa: E402
 from app.services.auth import create_user  # noqa: E402
 from app.services.rbac import get_platform_tenant, get_system_role  # noqa: E402
 
@@ -49,10 +65,40 @@ def _clean_tables():
     # Keep migration seed data (permissions, system roles, platform tenant).
     with engine.begin() as conn:
         conn.execute(
-            text("TRUNCATE bill_tos, companies, memberships, auth_sessions, credentials, users")
+            text(
+                "TRUNCATE pestpac_connections, bill_tos, companies, memberships, auth_sessions, "
+                "credentials, users"
+            )
         )
         conn.execute(text("DELETE FROM roles WHERE tenant_id IS NOT NULL"))
         conn.execute(text("DELETE FROM tenants WHERE kind <> 'platform'"))
+    pestpac_connection._clients.clear()
+
+
+PESTPAC_BASE = get_settings().pestpac_default_base_url
+PESTPAC_TOKEN_URL = get_settings().pestpac_token_url
+KNOWN_BILL_TO_IDS = {175101, 180020}
+COMPANY_SETUP = {"CompanyID": 1, "Company": "Select Exterminating", "Settings": {}}
+
+
+@pytest.fixture
+def pestpac():
+    """Mocked PestPac: token, /CompanySetup, and /BillTos/{id} (known ids 200, others 404).
+    Any other outbound HTTP fails the test."""
+    with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
+        rsps.post(PESTPAC_TOKEN_URL, json={"access_token": "test-token"})
+        rsps.get(f"{PESTPAC_BASE}/CompanySetup", json=COMPANY_SETUP)
+
+        def bill_to(request):
+            bill_to_id = int(request.url.rstrip("/").rsplit("/", 1)[-1])
+            if bill_to_id in KNOWN_BILL_TO_IDS:
+                return 200, {}, f'{{"BillToID": {bill_to_id}}}'
+            return 404, {}, "{}"
+
+        rsps.add_callback(
+            responses.GET, re.compile(re.escape(PESTPAC_BASE) + r"/BillTos/\d+$"), bill_to
+        )
+        yield rsps
 
 
 @pytest.fixture
@@ -99,7 +145,11 @@ def world() -> World:
             pestpac_tenant_id="115060",
         )
         op_b = Tenant(
-            parent_id=platform.id, kind=TenantKind.operator, name="Operator B", slug="op-b"
+            parent_id=platform.id,
+            kind=TenantKind.operator,
+            name="Operator B",
+            slug="op-b",
+            pestpac_tenant_id="220000",
         )
         db.add_all([op_a, op_b])
         db.flush()
@@ -120,6 +170,22 @@ def world() -> World:
                 role = get_system_role(db, role_name)
                 db.add(Membership(user_id=user.id, tenant_id=tenant_id, role_id=role.id))
 
+        # Operator A has verified PestPac access; operator B has none set up.
+        db.add(
+            PestPacConnection(
+                operator_id=op_a.id,
+                base_url=PESTPAC_BASE,
+                client_id="client-a",
+                username="api-user-a",
+                client_secret_enc=encrypt("secret-a"),
+                password_enc=encrypt("password-a"),
+                api_key_enc=encrypt("apikey-a-1234"),
+                api_key_last4="1234",
+                status=ConnectionStatus.verified,
+                pestpac_company_id=1,
+                pestpac_company_name="Select Exterminating",
+            )
+        )
         company_a = Company(operator_id=op_a.id, name="Acme Restaurants")
         company_b = Company(operator_id=op_b.id, name="Beta Hotels")
         db.add_all([company_a, company_b])

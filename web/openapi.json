@@ -1023,6 +1023,159 @@
         }
       }
     },
+    "/v1/operators/{operator_id}/pestpac-connection": {
+      "get": {
+        "tags": [
+          "pestpac"
+        ],
+        "summary": "Get Connection",
+        "operationId": "pestpac-get_connection",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "operator_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operator Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PestPacConnectionRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "pestpac"
+        ],
+        "summary": "Save Connection",
+        "description": "Save credentials, then test them against PestPac. The response carries the result.",
+        "operationId": "pestpac-save_connection",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "operator_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operator Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PestPacConnectionWrite"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PestPacConnectionRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/operators/{operator_id}/pestpac-connection/verify": {
+      "post": {
+        "tags": [
+          "pestpac"
+        ],
+        "summary": "Verify Connection",
+        "operationId": "pestpac-verify_connection",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "operator_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operator Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PestPacConnectionRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/roles": {
       "get": {
         "tags": [
@@ -1314,6 +1467,15 @@
         "type": "object",
         "title": "CompanyUpdate"
       },
+      "ConnectionStatus": {
+        "type": "string",
+        "enum": [
+          "unverified",
+          "verified",
+          "failed"
+        ],
+        "title": "ConnectionStatus"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1565,23 +1727,17 @@
             "title": "Slug"
           },
           "pestpac_tenant_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 64,
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
             "title": "Pestpac Tenant Id"
           }
         },
         "type": "object",
         "required": [
           "name",
-          "slug"
+          "slug",
+          "pestpac_tenant_id"
         ],
         "title": "OperatorCreate"
       },
@@ -1601,14 +1757,7 @@
             "title": "Slug"
           },
           "pestpac_tenant_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Pestpac Tenant Id"
           },
           "is_active": {
@@ -1712,6 +1861,220 @@
           "description"
         ],
         "title": "PermissionRead"
+      },
+      "PestPacConnectionRead": {
+        "properties": {
+          "operator_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Operator Id"
+          },
+          "pestpac_tenant_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Tenant Id"
+          },
+          "configured": {
+            "type": "boolean",
+            "title": "Configured"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          },
+          "has_client_secret": {
+            "type": "boolean",
+            "title": "Has Client Secret",
+            "default": false
+          },
+          "has_password": {
+            "type": "boolean",
+            "title": "Has Password",
+            "default": false
+          },
+          "api_key_last4": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key Last4"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConnectionStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_verified_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Verified At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "pestpac_company_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Company Id"
+          },
+          "pestpac_company_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Company Name"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "operator_id",
+          "pestpac_tenant_id",
+          "configured"
+        ],
+        "title": "PestPacConnectionRead"
+      },
+      "PestPacConnectionWrite": {
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Client Id"
+          },
+          "username": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Username"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Secret"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1024,
+                "minLength": 4
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_id",
+          "username"
+        ],
+        "title": "PestPacConnectionWrite",
+        "description": "Secrets are write-only. Omit one to keep the stored value (required on first setup)."
       },
       "RefreshRequest": {
         "properties": {

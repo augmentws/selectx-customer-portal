@@ -28,11 +28,11 @@ class PartialUpdate(BaseModel):
 class OperatorCreate(BaseModel):
     name: str = Name
     slug: str = Field(min_length=2, max_length=64, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-    pestpac_tenant_id: str | None = Field(default=None, min_length=1, max_length=64)
+    pestpac_tenant_id: str = Field(min_length=1, max_length=64)
 
 
 class OperatorUpdate(PartialUpdate):
-    _not_nullable = ("name", "is_active")
+    _not_nullable = ("name", "is_active", "pestpac_tenant_id")
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
     pestpac_tenant_id: str | None = Field(default=None, min_length=1, max_length=64)
@@ -45,7 +45,7 @@ class OperatorRead(BaseModel):
     id: uuid.UUID
     name: str
     slug: str
-    pestpac_tenant_id: str | None
+    pestpac_tenant_id: str
     is_active: bool
     created_at: datetime
 

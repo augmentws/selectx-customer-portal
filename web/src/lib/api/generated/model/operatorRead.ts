@@ -9,7 +9,7 @@ export interface OperatorRead {
   id: string;
   name: string;
   slug: string;
-  pestpac_tenant_id: string | null;
+  pestpac_tenant_id: string;
   is_active: boolean;
   created_at: string;
 }

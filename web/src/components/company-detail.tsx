@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { errorMessage } from "@/lib/api/errors";
 import { useBillTosUpdateBillTo } from "@/lib/api/generated/bill-tos/bill-tos";
+import { usePestpacGetConnection } from "@/lib/api/generated/pestpac/pestpac";
 import {
   getCompaniesListBillTosQueryKey,
   useCompaniesGetCompany,
@@ -34,8 +35,10 @@ const schema = z.object({
 type FormInput = z.input<typeof schema>;
 type FormOutput = z.output<typeof schema>;
 
-function OnboardBillToForm({ companyId }: { companyId: string }) {
+function OnboardBillToForm({ companyId, operatorId }: { companyId: string; operatorId: string }) {
   const queryClient = useQueryClient();
+  const connection = usePestpacGetConnection(operatorId);
+  const ready = connection.data?.data.status === "verified";
   const onboard = useCompaniesOnboardBillTo({
     mutation: {
       onSuccess: () =>
@@ -63,36 +66,49 @@ function OnboardBillToForm({ companyId }: { companyId: string }) {
         <CardTitle>Onboard bill-to</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2" noValidate>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="billto-id">PestPac BillToID</Label>
-            <Input id="billto-id" inputMode="numeric" {...register("pestpac_bill_to_id")} />
-            {errors.pestpac_bill_to_id && (
-              <p className="text-sm text-destructive">{errors.pestpac_bill_to_id.message}</p>
-            )}
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="billto-name">Name</Label>
-            <Input id="billto-name" {...register("name")} />
-            {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-          </div>
-          <div className="flex flex-col gap-2 sm:col-span-2">
-            <Label htmlFor="billto-description">Description</Label>
-            <Input
-              id="billto-description"
-              placeholder="e.g. Northeast region, covers 14 locations"
-              {...register("description")}
-            />
-            {errors.description && (
-              <p className="text-sm text-destructive">{errors.description.message}</p>
-            )}
-          </div>
-          <div className="sm:col-span-2">
-            <Button type="submit" disabled={onboard.isPending}>
-              Onboard
-            </Button>
-          </div>
-        </form>
+        {connection.data && !ready && (
+          <Alert>
+            <AlertDescription>
+              Set up and verify this operator&apos;s{" "}
+              <Link href={`/operators/${operatorId}?tab=pestpac`} className="underline">
+                PestPac API access
+              </Link>{" "}
+              before onboarding bill-tos. Each BillToID is checked against PestPac.
+            </AlertDescription>
+          </Alert>
+        )}
+        <fieldset disabled={!ready} className="contents">
+          <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-2" noValidate>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="billto-id">PestPac BillToID</Label>
+              <Input id="billto-id" inputMode="numeric" {...register("pestpac_bill_to_id")} />
+              {errors.pestpac_bill_to_id && (
+                <p className="text-sm text-destructive">{errors.pestpac_bill_to_id.message}</p>
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="billto-name">Name</Label>
+              <Input id="billto-name" {...register("name")} />
+              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+            </div>
+            <div className="flex flex-col gap-2 sm:col-span-2">
+              <Label htmlFor="billto-description">Description</Label>
+              <Input
+                id="billto-description"
+                placeholder="e.g. Northeast region, covers 14 locations"
+                {...register("description")}
+              />
+              {errors.description && (
+                <p className="text-sm text-destructive">{errors.description.message}</p>
+              )}
+            </div>
+            <div className="sm:col-span-2">
+              <Button type="submit" disabled={onboard.isPending}>
+                Onboard
+              </Button>
+            </div>
+          </form>
+        </fieldset>
         {onboard.isError && (
           <Alert variant="destructive">
             <AlertDescription>{errorMessage(onboard.error)}</AlertDescription>
@@ -146,7 +162,7 @@ export function CompanyDetail() {
       </div>
 
       <Can perm="bill_tos:write" tenantId={c.operator_id}>
-        <OnboardBillToForm companyId={companyId} />
+        <OnboardBillToForm companyId={companyId} operatorId={c.operator_id} />
       </Can>
 
       {update.isError && (
@@ -157,7 +173,9 @@ export function CompanyDetail() {
       {billTos.isPending && <p className="text-muted-foreground">Loading…</p>}
       {billTos.isError && (
         <Alert variant="destructive">
-          <AlertDescription>{errorMessage(billTos.error, "Could not load bill-tos.")}</AlertDescription>
+          <AlertDescription>
+            {errorMessage(billTos.error, "Could not load bill-tos.")}
+          </AlertDescription>
         </Alert>
       )}
       {billTos.data && (

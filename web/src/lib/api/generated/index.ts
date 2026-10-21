@@ -4,4 +4,5 @@ export * from './companies/companies';
 export * from './health/health';
 export * from './members/members';
 export * from './operators/operators';
+export * from './pestpac/pestpac';
 export * from './roles/roles';

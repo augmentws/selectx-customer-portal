@@ -12,10 +12,14 @@ from app.schemas.tenancy import (
     OperatorCreate,
     OperatorUpdate,
 )
+from app.services import pestpac_connection
+from app.services.errors import ConflictError
 from app.services.rbac import get_platform_tenant
 
+__all__ = ["ConflictError"]
 
-class ConflictError(Exception):
+
+class BillToNotFoundError(Exception):
     pass
 
 
@@ -71,6 +75,11 @@ def create_operator(db: Session, data: OperatorCreate) -> Tenant:
 def update_operator(db: Session, operator: Tenant, data: OperatorUpdate) -> Tenant:
     if "pestpac_tenant_id" in data.model_fields_set:
         _check_pestpac_tenant_free(db, data.pestpac_tenant_id, exclude=operator.id)
+        if data.pestpac_tenant_id != operator.pestpac_tenant_id:
+            # Credentials were verified against the old tenant; make the admin re-test them.
+            conn = pestpac_connection.get_connection(db, operator.id)
+            if conn is not None:
+                pestpac_connection.mark_unverified(conn)
     _apply(operator, data)
     db.commit()
     return operator
@@ -114,6 +123,7 @@ def list_bill_tos(db: Session, company_id: uuid.UUID) -> list[BillTo]:
 def onboard_bill_to(
     db: Session, company: Company, data: BillToCreate, onboarded_by: uuid.UUID
 ) -> BillTo:
+    """Requires the operator's verified PestPac connection; the BillToID must exist there."""
     existing = db.scalar(
         select(BillTo).where(
             BillTo.operator_id == company.operator_id,
@@ -124,6 +134,13 @@ def onboard_bill_to(
         owner = "this company" if existing.company_id == company.id else "another company"
         raise ConflictError(
             f"PestPac bill-to {data.pestpac_bill_to_id} is already onboarded to {owner}"
+        )
+    operator = db.get(Tenant, company.operator_id)
+    client = pestpac_connection.get_pestpac_client(db, operator)
+    if not pestpac_connection.bill_to_exists(client, data.pestpac_bill_to_id):
+        raise BillToNotFoundError(
+            f"BillToID {data.pestpac_bill_to_id} was not found in PestPac tenant "
+            f"{operator.pestpac_tenant_id}"
         )
     bill_to = BillTo(
         operator_id=company.operator_id,

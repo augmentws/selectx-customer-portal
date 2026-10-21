@@ -26,7 +26,7 @@ const schema = z.object({
     .string()
     .trim()
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Lowercase letters, numbers, and single hyphens"),
-  pestpac_tenant_id: z.string().trim().max(64),
+  pestpac_tenant_id: z.string().trim().min(1, "PestPac tenant ID is required").max(64),
 });
 type FormValues = z.infer<typeof schema>;
 
@@ -45,10 +45,8 @@ function CreateOperatorForm() {
     formState: { errors },
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
-  const onSubmit = async ({ pestpac_tenant_id, ...rest }: FormValues) => {
-    await create.mutateAsync({
-      data: { ...rest, pestpac_tenant_id: pestpac_tenant_id || null },
-    });
+  const onSubmit = async (data: FormValues) => {
+    await create.mutateAsync({ data });
     reset();
   };
 
@@ -76,6 +74,9 @@ function CreateOperatorForm() {
           <div className="flex flex-col gap-2">
             <Label htmlFor="op-pestpac">PestPac tenant ID</Label>
             <Input id="op-pestpac" placeholder="115060" {...register("pestpac_tenant_id")} />
+            {errors.pestpac_tenant_id && (
+              <p className="text-sm text-destructive">{errors.pestpac_tenant_id.message}</p>
+            )}
           </div>
           <Button type="submit" disabled={create.isPending}>
             Add
@@ -127,7 +128,7 @@ export function OperatorsPanel() {
               >
                 <span className="font-medium">{op.name}</span>
                 <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                  {op.pestpac_tenant_id && <span>PestPac {op.pestpac_tenant_id}</span>}
+                  <span>PestPac {op.pestpac_tenant_id}</span>
                   {!op.is_active && <Badge variant="secondary">Inactive</Badge>}
                 </span>
               </Link>

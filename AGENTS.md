@@ -11,7 +11,7 @@ SELECTX customer portal: a web app where customers sign in to view their account
 This repository holds the backend API and the single web application:
 
 - `app/`: FastAPI application and domain logic
-- `app/integrations/pestpac/`: PestPac API client (OAuth2 password grant, per-resource sections). Only the backend calls PestPac; credentials come from `PESTPAC_*` env vars.
+- `app/integrations/pestpac/`: PestPac API client (OAuth2 password grant, per-resource sections). Only the backend calls PestPac. Credentials are per operator, stored encrypted in `pestpac_connections`; build clients with `app.services.pestpac_connection.get_pestpac_client`, never from env vars.
 - `alembic/`: database migrations
 - `tests/`: backend tests
 - `web/`: Next.js application
@@ -31,6 +31,7 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - `GET/POST /v1/operators`, `GET/PATCH /v1/operators/{id}`, `GET/POST /v1/operators/{id}/companies`
 - `GET/PATCH /v1/companies/{id}`, `GET/POST /v1/companies/{id}/bill-tos`
 - `GET/PATCH /v1/bill-tos/{id}`
+- `GET/PUT /v1/operators/{id}/pestpac-connection`, `POST /v1/operators/{id}/pestpac-connection/verify`
 - `GET/POST /v1/tenants/{id}/members`, `PATCH/DELETE /v1/tenants/{id}/members/{user_id}`
 - `GET /v1/roles`, `GET /v1/permissions`
 
@@ -41,7 +42,17 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - `bill_tos` are PestPac bill-tos onboarded to a company. Onboarding happens at the bill-to level; a bill-to may bill a single location, a region, or a whole company (recorded in `description`). `(operator_id, pestpac_bill_to_id)` is unique, and a composite FK keeps a bill-to inside its company's operator.
 - Deactivate with `is_active`; don't hard-delete tenants, companies, or bill-tos.
 - Every operator-owned row carries `operator_id`; queries are scoped through the services layer.
-- Not built yet (keep designs extensible): locations, customer logins, branches, regions, per-operator custom roles, PestPac credentials per operator.
+- Not built yet (keep designs extensible): locations, customer logins, branches, regions, per-operator custom roles.
+
+## PestPac API Access
+
+- Every operator has a required `pestpac_tenant_id`, set by a platform admin when the operator is created. Changing it resets the operator's connection to `unverified`.
+- Operator admins (and platform admins) set the operator's PestPac credentials: client ID, client secret, API username/password, and API key. Secrets are Fernet-encrypted with `APP_ENCRYPTION_KEYS` (first key encrypts; all decrypt, for rotation) and are write-only: the API returns only whether each is set and the API key's last 4 characters.
+- Saving credentials immediately verifies them: OAuth token, then `GET {base_url}/CompanySetup`. The status (`unverified`/`verified`/`failed`) and the PestPac company name and ID are stored. Error messages never include PestPac response bodies.
+- The base URL and token URL come from settings, not from operators, so credentials can't be sent to arbitrary hosts.
+- Bill-to onboarding requires a `verified` connection (409 otherwise), and each BillToID must exist in PestPac (`GET /BillTos/{id}`; 422 if not found, 502 if PestPac fails).
+- PestPac calls have timeouts. Request/response bodies contain customer data and are logged only when `PESTPAC_DEBUG_BODIES=true` (local debugging).
+- Tests mock PestPac with `responses` (`pestpac` fixture in `tests/conftest.py`); they must never call the real API.
 
 ## Authorization (RBAC)
 
@@ -100,7 +111,7 @@ pipenv run pytest
 pipenv run alembic check
 ```
 
-Migration changes must be exercised through upgrade and downgrade. When a migration check targets a temporary database, verify `current_database()` before any downgrade, and call the virtualenv's `alembic` directly with an explicit `DATABASE_URL` — `pipenv run` loads `.env` and can redirect the command to the development database.
+Migration changes must be exercised through upgrade and downgrade **against a scratch database, never the development database** — a downgrade drops data. When a migration check targets a temporary database, verify `current_database()` before any downgrade, and call the virtualenv's `alembic` directly with an explicit `DATABASE_URL` — `pipenv run` loads `.env` and can redirect the command to the development database.
 
 Frontend: `pnpm typecheck`, `pnpm lint`, `pnpm build`. Regenerate the API client (`pnpm api:generate`) whenever the backend contract changes. Test authorization on the backend; UI visibility checks are not a substitute.
 

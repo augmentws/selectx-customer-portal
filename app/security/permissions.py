@@ -18,6 +18,8 @@ class Perm(enum.StrEnum):
     members_read = "members:read"
     members_write = "members:write"
     roles_read = "roles:read"
+    pestpac_connection_read = "pestpac_connection:read"
+    pestpac_connection_write = "pestpac_connection:write"
 
 
 PERMISSION_DESCRIPTIONS: dict[Perm, str] = {
@@ -30,6 +32,8 @@ PERMISSION_DESCRIPTIONS: dict[Perm, str] = {
     Perm.members_read: "View members",
     Perm.members_write: "Add, change, and remove members",
     Perm.roles_read: "View roles and permissions",
+    Perm.pestpac_connection_read: "View PestPac API connection status",
+    Perm.pestpac_connection_write: "Set up and test PestPac API credentials",
 }
 
 
@@ -65,6 +69,8 @@ SYSTEM_ROLES: dict[SystemRole, tuple[RoleScope, str, frozenset[Perm]]] = {
                 Perm.members_read,
                 Perm.members_write,
                 Perm.roles_read,
+                Perm.pestpac_connection_read,
+                Perm.pestpac_connection_write,
             }
         ),
     ),

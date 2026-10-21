@@ -1,17 +1,12 @@
 """PestPac API client.
 
-Loads credentials from .env, manages OAuth2 password-grant tokens with a
-thread-safe singleton, and exposes per-resource API sections with automatic
-401 retry.
+One client per operator: credentials come from that operator's stored PestPac connection
+(see app.services.pestpac_connection.get_pestpac_client), never from process environment.
+Tokens use the OAuth2 password grant and are cached per credential set, with automatic
+refresh-and-retry on 401.
 
-Required env vars:
-    PESTPAC_CLIENT_ID
-    PESTPAC_CLIENT_SECRET
-    PESTPAC_USERNAME
-    PESTPAC_PASSWORD
-    PESTPAC_TENANT
-    PESTPAC_API_KEY
-    PESTPAC_BASE_URL       (optional; defaults to https://api.workwave.com/pestpac/v1)
+Request and response bodies contain customer data and are only logged when
+PESTPAC_DEBUG_BODIES is enabled.
 """
 
 from __future__ import annotations
@@ -19,70 +14,50 @@ from __future__ import annotations
 import base64
 import json
 import logging
-import os
 import threading
-from dataclasses import dataclass
-from pathlib import Path
+from dataclasses import dataclass, field
 from typing import Any, Optional
 from urllib.parse import urlencode
 
 import requests
-from dotenv import find_dotenv, load_dotenv
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-_SCRIPTS_ENV = PROJECT_ROOT / "src" / "scripts" / ".env"
-load_dotenv(_SCRIPTS_ENV if _SCRIPTS_ENV.exists() else find_dotenv(usecwd=True))
-
-BASE_URL = os.environ.get("PESTPAC_BASE_URL", "https://api.workwave.com/pestpac/v1")
-TOKEN_URL = "https://is.workwave.com/oauth2/token?scope=openid"
+DEFAULT_BASE_URL = "https://api.workwave.com/pestpac/v1"
+DEFAULT_TOKEN_URL = "https://is.workwave.com/oauth2/token?scope=openid"
+# (connect, read) seconds. Without a timeout a stalled PestPac call would hang the request.
+DEFAULT_TIMEOUT = (10, 30)
 
 log = logging.getLogger(__name__)
 
 
-def _env(name: str) -> str:
-    value = os.environ.get(name)
-    if not value:
-        raise RuntimeError(f"Missing required environment variable: {name}")
-    return value.strip()
+class PestPacAuthError(Exception):
+    """The token endpoint rejected the credentials or could not be reached."""
 
 
-@dataclass
+@dataclass(frozen=True)
 class PestPacCredentials:
-    access_token: Optional[str] = None
-    tenant_id: Optional[str] = None
-    api_key: Optional[str] = None
-    client_id: Optional[str] = None
-    client_secret: Optional[str] = None
-    username: Optional[str] = None
-    password: Optional[str] = None
+    tenant_id: str
+    api_key: str = field(repr=False)
+    client_id: str
+    client_secret: str = field(repr=False)
+    username: str
+    password: str = field(repr=False)
 
 
 class CredentialManager:
-    _instance: Optional["CredentialManager"] = None
-    _lock: threading.Lock = threading.Lock()
-    _token_lock: threading.Lock = threading.Lock()
+    """Holds one credential set and its cached access token. Thread-safe."""
 
-    def __new__(cls) -> "CredentialManager":
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    instance = super().__new__(cls)
-                    instance._credentials = PestPacCredentials()
-                    instance._initialized = False
-                    cls._instance = instance
-        return cls._instance
-
-    def _load_credentials(self) -> None:
-        if self._initialized:
-            return
-        self._credentials.client_id = _env("PESTPAC_CLIENT_ID")
-        self._credentials.client_secret = _env("PESTPAC_CLIENT_SECRET")
-        self._credentials.username = _env("PESTPAC_USERNAME")
-        self._credentials.password = _env("PESTPAC_PASSWORD")
-        self._credentials.tenant_id = _env("PESTPAC_TENANT")
-        self._credentials.api_key = _env("PESTPAC_API_KEY")
-        self._initialized = True
-        log.info("PestPac credentials loaded")
+    def __init__(
+        self,
+        credentials: PestPacCredentials,
+        *,
+        token_url: str = DEFAULT_TOKEN_URL,
+        timeout: tuple[float, float] = DEFAULT_TIMEOUT,
+    ) -> None:
+        self._credentials = credentials
+        self._token_url = token_url
+        self._timeout = timeout
+        self._access_token: Optional[str] = None
+        self._token_lock = threading.Lock()
 
     def _fetch_new_token(self) -> str:
         token64 = base64.b64encode(
@@ -95,65 +70,70 @@ class CredentialManager:
                 "password": self._credentials.password,
             }
         )
-        response = requests.post(
-            TOKEN_URL,
-            headers={
-                "Authorization": f"Bearer {token64}",
-                "Content-Type": "application/x-www-form-urlencoded",
-            },
-            data=data,
-        )
+        try:
+            response = requests.post(
+                self._token_url,
+                headers={
+                    "Authorization": f"Bearer {token64}",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                data=data,
+                timeout=self._timeout,
+            )
+        except requests.RequestException as exc:
+            raise PestPacAuthError(f"Could not reach the PestPac token endpoint: {exc}") from exc
         if response.status_code != 200:
-            log.error("PestPac token fetch failed: %s %s", response.status_code, response.text)
-        response.raise_for_status()
+            # The body can echo request details; keep it out of logs and error messages.
+            log.error("PestPac token fetch failed with status %s", response.status_code)
+            raise PestPacAuthError(
+                f"PestPac rejected the credentials (token endpoint returned {response.status_code})"
+            )
+        token = response.json().get("access_token")
+        if not token:
+            raise PestPacAuthError("PestPac token response had no access_token")
         log.info("PestPac token fetched")
-        return response.json()["access_token"]
+        return token
 
     def get_token(self, force_refresh: bool = False) -> str:
-        if not self._initialized:
-            with self._lock:
-                self._load_credentials()
-        if self._credentials.access_token is None or force_refresh:
+        if self._access_token is None or force_refresh:
             with self._token_lock:
-                if self._credentials.access_token is None or force_refresh:
-                    self._credentials.access_token = self._fetch_new_token()
-        return self._credentials.access_token
+                if self._access_token is None or force_refresh:
+                    self._access_token = self._fetch_new_token()
+        return self._access_token
 
     def invalidate_token(self) -> None:
         with self._token_lock:
-            self._credentials.access_token = None
+            self._access_token = None
             log.info("PestPac token invalidated")
 
     @property
-    def tenant_id(self) -> Optional[str]:
-        if not self._initialized:
-            with self._lock:
-                self._load_credentials()
+    def tenant_id(self) -> str:
         return self._credentials.tenant_id
 
     @property
-    def api_key(self) -> Optional[str]:
-        if not self._initialized:
-            with self._lock:
-                self._load_credentials()
+    def api_key(self) -> str:
         return self._credentials.api_key
 
+    @property
+    def timeout(self) -> tuple[float, float]:
+        return self._timeout
 
-_credential_manager: Optional[CredentialManager] = None
 
+@dataclass(frozen=True)
+class PestPacContext:
+    """What every section needs: where to send requests and whose credentials to use."""
 
-def get_credential_manager() -> CredentialManager:
-    global _credential_manager
-    if _credential_manager is None:
-        _credential_manager = CredentialManager()
-    return _credential_manager
+    base_url: str
+    credential_manager: CredentialManager
+    debug_bodies: bool = False
 
 
 class PestPacAPISection:
-    def __init__(self, base_url: str, endpoint_path: str) -> None:
-        self.base_url = base_url.rstrip("/")
+    def __init__(self, ctx: PestPacContext, endpoint_path: str) -> None:
+        self.base_url = ctx.base_url.rstrip("/")
         self.endpoint_path = endpoint_path
-        self._credential_manager = get_credential_manager()
+        self._credential_manager = ctx.credential_manager
+        self._debug_bodies = ctx.debug_bodies
 
     def _headers(self, accept: str = "application/json", *, multipart: bool = False) -> dict[str, str]:
         headers = {
@@ -180,9 +160,10 @@ class PestPacAPISection:
         multipart: bool = False,
         **kwargs: Any,
     ) -> requests.Response:
-        self._log_request(method, url, kwargs)
+        kwargs.setdefault("timeout", self._credential_manager.timeout)
+        self._log_request(method, url, kwargs, self._debug_bodies)
         response = requests.request(method, url, headers=self._headers(accept, multipart=multipart), **kwargs)
-        self._log_response(method, url, response)
+        self._log_response(method, url, response, debug_bodies=self._debug_bodies)
         if response.status_code == 401:
             log.info("401 on %s %s — refreshing token and retrying", method, url)
             self._credential_manager.invalidate_token()
@@ -190,13 +171,15 @@ class PestPacAPISection:
             response = requests.request(
                 method, url, headers=self._headers(accept, multipart=multipart), **kwargs
             )
-            self._log_response(method, url, response, retried=True)
+            self._log_response(method, url, response, retried=True, debug_bodies=self._debug_bodies)
         return response
 
     @staticmethod
-    def _log_request(method: str, url: str, kwargs: dict[str, Any]) -> None:
-        # Headers (auth/apiKey/tenant) are intentionally not logged.
+    def _log_request(method: str, url: str, kwargs: dict[str, Any], debug_bodies: bool) -> None:
+        # Headers (auth/apiKey/tenant) are never logged; bodies only with PESTPAC_DEBUG_BODIES.
         log.info("→ %s %s", method, url)
+        if not debug_bodies:
+            return
         if "json" in kwargs and kwargs["json"] is not None:
             try:
                 body = json.dumps(kwargs["json"], default=str)
@@ -210,19 +193,21 @@ class PestPacAPISection:
 
     @staticmethod
     def _log_response(
-        method: str, url: str, response: requests.Response, retried: bool = False
+        method: str,
+        url: str,
+        response: requests.Response,
+        retried: bool = False,
+        *,
+        debug_bodies: bool = False,
     ) -> None:
         tag = " (retry)" if retried else ""
         text = response.text or ""
         if response.ok:
             log.info("← %d %s %s%s (%d bytes)", response.status_code, method, url, tag, len(text))
-            log.info("  response body: %s", text[:4000])
         else:
-            # Failures: log the full body at ERROR so it's always captured.
-            log.error(
-                "← %d %s %s%s FAILED\n  response: %s",
-                response.status_code, method, url, tag, text[:8000],
-            )
+            log.error("← %d %s %s%s FAILED", response.status_code, method, url, tag)
+        if debug_bodies:
+            log.info("  response body: %s", text[:8000])
 
     def get(
         self, object_id: Any = None, params: Optional[dict] = None, accept: str = "application/json"
@@ -256,9 +241,9 @@ def _drop_none(params: dict) -> Optional[dict]:
 class DevicesResource:
     """Devices: direct /Devices endpoints plus the /Locations/{id}/devices nested list."""
 
-    def __init__(self, base_url: str) -> None:
-        self._section = PestPacAPISection(base_url, "/Devices")
-        self._base_url = base_url
+    def __init__(self, ctx: PestPacContext) -> None:
+        self._section = PestPacAPISection(ctx, "/Devices")
+        self._ctx = ctx
 
     def list(
         self,
@@ -286,7 +271,7 @@ class DevicesResource:
         return self._section.delete(device_id)
 
     def report_pest_findings(self, device_id: Any, finding: Any) -> requests.Response:
-        return PestPacAPISection(self._base_url, f"/Devices/{device_id}/pestFindings").post(finding)
+        return PestPacAPISection(self._ctx, f"/Devices/{device_id}/pestFindings").post(finding)
 
     def list_for_location(
         self,
@@ -301,7 +286,7 @@ class DevicesResource:
             "areaId": area_id,
             "includeOrphans": None if include_orphans is None else str(include_orphans).lower(),
         })
-        return PestPacAPISection(self._base_url, f"/Locations/{location_id}/devices").get(params=params)
+        return PestPacAPISection(self._ctx, f"/Locations/{location_id}/devices").get(params=params)
 
     def search(self, barcode: str, location_id: Any) -> requests.Response:
         return self.list(barcode=barcode, location_id=location_id)
@@ -310,13 +295,13 @@ class DevicesResource:
 class ConditionsResource:
     """Conditions: direct /Conditions, nested /Locations/{id}/conditions, lookups."""
 
-    def __init__(self, base_url: str) -> None:
-        self._section = PestPacAPISection(base_url, "/Conditions")
-        self._base_url = base_url
-        self.lookups = PestPacAPISection(base_url, "/lookups/conditions")
-        self.action_lookups = PestPacAPISection(base_url, "/lookups/conditions/actions")
-        self.detail_lookups = PestPacAPISection(base_url, "/lookups/conditions/details")
-        self.type_lookups = PestPacAPISection(base_url, "/lookups/conditions/types")
+    def __init__(self, ctx: PestPacContext) -> None:
+        self._section = PestPacAPISection(ctx, "/Conditions")
+        self._ctx = ctx
+        self.lookups = PestPacAPISection(ctx, "/lookups/conditions")
+        self.action_lookups = PestPacAPISection(ctx, "/lookups/conditions/actions")
+        self.detail_lookups = PestPacAPISection(ctx, "/lookups/conditions/details")
+        self.type_lookups = PestPacAPISection(ctx, "/lookups/conditions/types")
 
     def get(self, condition_id: Any) -> requests.Response:
         return self._section.get(condition_id)
@@ -329,7 +314,7 @@ class ConditionsResource:
         loc_area_id: Any = None,
     ) -> requests.Response:
         params = _drop_none({"status": status, "locAreaId": loc_area_id})
-        return PestPacAPISection(self._base_url, f"/Locations/{location_id}/conditions").get(params=params)
+        return PestPacAPISection(self._ctx, f"/Locations/{location_id}/conditions").get(params=params)
 
     def create(self, data: Any) -> requests.Response:
         return self._section.post(data)
@@ -338,7 +323,7 @@ class ConditionsResource:
         return self._section.put(condition_id, data)
 
     def add_inspection(self, condition_id: Any, data: Any) -> requests.Response:
-        return PestPacAPISection(self._base_url, f"/Conditions/{condition_id}/inspection").post(data)
+        return PestPacAPISection(self._ctx, f"/Conditions/{condition_id}/inspection").post(data)
 
     def mark_completed(
         self,
@@ -364,9 +349,9 @@ class ServiceOrdersResource:
     Location / BillTo, and a bridge from user-facing OrderNumber to OrderID.
     """
 
-    def __init__(self, base_url: str) -> None:
-        self._section = PestPacAPISection(base_url, "/ServiceOrders")
-        self._base_url = base_url
+    def __init__(self, ctx: PestPacContext) -> None:
+        self._section = PestPacAPISection(ctx, "/ServiceOrders")
+        self._ctx = ctx
 
     def list(
         self,
@@ -396,10 +381,10 @@ class ServiceOrdersResource:
         return self._section.delete(order_id)
 
     def list_for_location(self, location_id: Any) -> requests.Response:
-        return PestPacAPISection(self._base_url, f"/Locations/{location_id}/serviceOrders").get()
+        return PestPacAPISection(self._ctx, f"/Locations/{location_id}/serviceOrders").get()
 
     def list_for_bill_to(self, bill_to_id: Any) -> requests.Response:
-        return PestPacAPISection(self._base_url, f"/BillTos/{bill_to_id}/serviceOrders").get()
+        return PestPacAPISection(self._ctx, f"/BillTos/{bill_to_id}/serviceOrders").get()
 
     def order_id_from_number(
         self,
@@ -437,9 +422,9 @@ class ServiceOrdersResource:
 class MaterialsResource:
     """Materials: catalog via /lookups, applications via Location + ServiceOrder."""
 
-    def __init__(self, base_url: str) -> None:
-        self._lookups = PestPacAPISection(base_url, "/lookups/Materials")
-        self._base_url = base_url
+    def __init__(self, ctx: PestPacContext) -> None:
+        self._lookups = PestPacAPISection(ctx, "/lookups/Materials")
+        self._ctx = ctx
 
     def list_catalog(self, *, active: Optional[bool] = None) -> requests.Response:
         params = _drop_none({"active": None if active is None else str(active).lower()})
@@ -449,7 +434,7 @@ class MaterialsResource:
         return self._lookups.get(material_id)
 
     def get_by_code(self, code: str) -> requests.Response:
-        return PestPacAPISection(self._base_url, f"/lookups/Materials/code/{code}").get()
+        return PestPacAPISection(self._ctx, f"/lookups/Materials/code/{code}").get()
 
     def list_for_location(
         self,
@@ -460,22 +445,22 @@ class MaterialsResource:
     ) -> requests.Response:
         params = _drop_none({"startDate": start_date, "endDate": end_date})
         return PestPacAPISection(
-            self._base_url, f"/Locations/{location_id}/materialApplications"
+            self._ctx, f"/Locations/{location_id}/materialApplications"
         ).get(params=params)
 
     def apply_via_service_order(self, service_order_id: Any, data: Any) -> requests.Response:
-        return PestPacAPISection(self._base_url, f"/ServiceOrders/{service_order_id}/materials").post(data)
+        return PestPacAPISection(self._ctx, f"/ServiceOrders/{service_order_id}/materials").post(data)
 
     def update_application(
         self, service_order_id: Any, line_id: Any, data: Any
     ) -> requests.Response:
         return PestPacAPISection(
-            self._base_url, f"/ServiceOrders/{service_order_id}/materials"
+            self._ctx, f"/ServiceOrders/{service_order_id}/materials"
         ).put(line_id, data)
 
     def remove_application(self, service_order_id: Any, line_id: Any) -> requests.Response:
         return PestPacAPISection(
-            self._base_url, f"/ServiceOrders/{service_order_id}/materials"
+            self._ctx, f"/ServiceOrders/{service_order_id}/materials"
         ).delete(line_id)
 
 
@@ -489,9 +474,10 @@ class DocumentsResource:
     ConditionID is the condition's IssueID.
     """
 
-    def __init__(self, base_url: str) -> None:
-        self._base_url = base_url.rstrip("/")
-        self._section = PestPacAPISection(base_url, "/Documents")
+    def __init__(self, ctx: PestPacContext) -> None:
+        self._ctx = ctx
+        self._base_url = ctx.base_url.rstrip("/")
+        self._section = PestPacAPISection(ctx, "/Documents")
 
     def create(self, body: Any, *, doc_type: str = "ConditionDocument") -> requests.Response:
         return self._section.post(body, params={"type": doc_type})
@@ -542,32 +528,43 @@ class DocumentsResource:
 
 
 class PestPacClient:
-    def __init__(self) -> None:
-        self._credential_manager = get_credential_manager()
-        self.base_url = BASE_URL
-        self.locations = PestPacAPISection(self.base_url, "/Locations")
-        self.contacts = PestPacAPISection(self.base_url, "/Contacts")
-        self.bill_tos = PestPacAPISection(self.base_url, "/BillTos")
-        self.service_orders = ServiceOrdersResource(self.base_url)
-        self.invoices = PestPacAPISection(self.base_url, "/Invoices")
-        self.devices = DevicesResource(self.base_url)
-        self.conditions = ConditionsResource(self.base_url)
-        self.materials = MaterialsResource(self.base_url)
-        self.documents = DocumentsResource(self.base_url)
+    def __init__(
+        self,
+        credential_manager: CredentialManager,
+        *,
+        base_url: str = DEFAULT_BASE_URL,
+        debug_bodies: bool = False,
+    ) -> None:
+        self._credential_manager = credential_manager
+        self.base_url = base_url
+        self._ctx = PestPacContext(base_url, credential_manager, debug_bodies)
+        self.locations = PestPacAPISection(self._ctx, "/Locations")
+        self.contacts = PestPacAPISection(self._ctx, "/Contacts")
+        self.bill_tos = PestPacAPISection(self._ctx, "/BillTos")
+        self.service_orders = ServiceOrdersResource(self._ctx)
+        self.invoices = PestPacAPISection(self._ctx, "/Invoices")
+        self.devices = DevicesResource(self._ctx)
+        self.conditions = ConditionsResource(self._ctx)
+        self.materials = MaterialsResource(self._ctx)
+        self.documents = DocumentsResource(self._ctx)
 
     @property
     def auth_token(self) -> str:
         return self._credential_manager.get_token()
 
+    def company_setup(self) -> requests.Response:
+        """GET /CompanySetup: the PestPac company behind these credentials."""
+        return PestPacAPISection(self._ctx, "/CompanySetup").get()
+
     def lookups(self, path: str) -> PestPacAPISection:
-        return PestPacAPISection(self.base_url, f"/lookups/{path}")
+        return PestPacAPISection(self._ctx, f"/lookups/{path}")
 
     def custom_endpoint(self, path: str) -> PestPacAPISection:
-        return PestPacAPISection(self.base_url, path)
+        return PestPacAPISection(self._ctx, path)
 
     def contact_to_location(self, contact_id: Any, location_id: Any) -> requests.Response:
         path = f"/Contacts/location/{contact_id}/{location_id}"
-        response = PestPacAPISection(self.base_url, path).post(None)
+        response = PestPacAPISection(self._ctx, path).post(None)
         if response.status_code == 400 and "is already attached to Location ID" in response.text:
             success = requests.Response()
             success.status_code = 200
@@ -575,13 +572,3 @@ class PestPacClient:
             return success
         return response
 
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-    client = PestPacClient()
-    try:
-        resp = client.locations.get(280374)
-        resp.raise_for_status()
-        print(resp.json())
-    except Exception as e:
-        print("Failed:", e)
