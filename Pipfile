@@ -1,0 +1,26 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pip_conf_index_global"
+
+[packages]
+fastapi = "*"
+uvicorn = {extras = ["standard"], version = "*"}
+sqlalchemy = "*"
+alembic = "*"
+psycopg = {extras = ["binary"], version = "*"}
+pydantic-settings = "*"
+argon2-cffi = "*"
+pyjwt = "*"
+email-validator = "*"
+requests = "*"
+python-dotenv = "*"
+
+[dev-packages]
+pytest = "*"
+httpx = "*"
+ruff = "*"
+
+[requires]
+python_version = "3.14"
+python_full_version = "3.14.3"

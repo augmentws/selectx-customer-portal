@@ -1,0 +1,28 @@
+[project]
+name = "customer-portal"
+version = "0.1.0"
+requires-python = ">=3.14"
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+extend-exclude = ["web"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "SIM"]
+ignore = [
+    "B008",  # FastAPI Depends() in defaults
+    "S105", "S106",  # flags every `token_type=` as a hardcoded password
+]
+
+[tool.ruff.format]
+exclude = ["app/integrations/pestpac/**"]
+
+[tool.ruff.lint.per-file-ignores]
+"alembic/versions/**" = ["E501"]
+"tests/**" = ["S101", "S105", "S106"]
+"app/integrations/pestpac/**" = ["UP", "S", "SIM", "B", "E501"]  # pre-existing client, kept as-is
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
