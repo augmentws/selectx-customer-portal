@@ -17,7 +17,7 @@ from app.integrations.pestpac import (
     PestPacCredentials,
 )
 from app.models import ConnectionStatus, PestPacConnection, Tenant
-from app.schemas.pestpac import PestPacConnectionWrite
+from app.schemas.pestpac import PestPacBillToDetails, PestPacConnectionWrite
 from app.security.secrets import SecretDecryptionError, decrypt, encrypt
 from app.services.errors import ConflictError
 
@@ -181,13 +181,17 @@ def get_pestpac_client(db: Session, operator: Tenant) -> PestPacClient:
         return client
 
 
-def bill_to_exists(client: PestPacClient, pestpac_bill_to_id: int) -> bool:
+def fetch_bill_to(client: PestPacClient, pestpac_bill_to_id: int) -> PestPacBillToDetails | None:
+    """Identifying details for a bill-to, or None if PestPac has no such BillToID."""
     try:
         response = client.bill_tos.get(pestpac_bill_to_id)
     except (PestPacAuthError, requests.RequestException) as exc:
         raise PestPacUnavailableError(f"Could not reach PestPac: {type(exc).__name__}") from exc
-    if response.status_code == 200:
-        return True
     if response.status_code == 404:
-        return False
-    raise PestPacUnavailableError(f"PestPac /BillTos returned {response.status_code}")
+        return None
+    if response.status_code != 200:
+        raise PestPacUnavailableError(f"PestPac /BillTos returned {response.status_code}")
+    body = _json_or_none(response)
+    if not isinstance(body, dict) or body.get("BillToID") != pestpac_bill_to_id:
+        raise PestPacUnavailableError("PestPac /BillTos returned an unexpected response")
+    return PestPacBillToDetails.from_api(body)

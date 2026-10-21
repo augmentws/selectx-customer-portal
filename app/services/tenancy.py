@@ -1,9 +1,11 @@
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import BillTo, Company, Tenant, TenantKind
+from app.schemas.pestpac import BillToLookup, PestPacBillToDetails
 from app.schemas.tenancy import (
     BillToCreate,
     BillToUpdate,
@@ -120,37 +122,78 @@ def list_bill_tos(db: Session, company_id: uuid.UUID) -> list[BillTo]:
     )
 
 
+def _existing_bill_to(
+    db: Session, operator_id: uuid.UUID, pestpac_bill_to_id: int
+) -> BillTo | None:
+    return db.scalar(
+        select(BillTo).where(
+            BillTo.operator_id == operator_id,
+            BillTo.pestpac_bill_to_id == pestpac_bill_to_id,
+        )
+    )
+
+
+def _fetch_details(db: Session, operator_id: uuid.UUID, pestpac_bill_to_id: int):
+    operator = db.get(Tenant, operator_id)
+    client = pestpac_connection.get_pestpac_client(db, operator)
+    details = pestpac_connection.fetch_bill_to(client, pestpac_bill_to_id)
+    if details is None:
+        raise BillToNotFoundError(
+            f"BillToID {pestpac_bill_to_id} was not found in PestPac tenant "
+            f"{operator.pestpac_tenant_id}"
+        )
+    return details
+
+
+def _apply_details(bill_to: BillTo, details: PestPacBillToDetails) -> None:
+    for field in PestPacBillToDetails.model_fields:
+        if field != "pestpac_bill_to_id":
+            setattr(bill_to, field, getattr(details, field))
+    bill_to.pestpac_fetched_at = datetime.now(UTC)
+
+
+def lookup_bill_to(db: Session, company: Company, pestpac_bill_to_id: int) -> BillToLookup:
+    """Preview a PestPac bill-to before onboarding. Stores nothing."""
+    details = _fetch_details(db, company.operator_id, pestpac_bill_to_id)
+    existing = _existing_bill_to(db, company.operator_id, pestpac_bill_to_id)
+    return BillToLookup(
+        details=details,
+        suggested_name=details.suggested_name,
+        onboarded_bill_to_id=existing.id if existing else None,
+        onboarded_company_id=existing.company_id if existing else None,
+    )
+
+
 def onboard_bill_to(
     db: Session, company: Company, data: BillToCreate, onboarded_by: uuid.UUID
 ) -> BillTo:
-    """Requires the operator's verified PestPac connection; the BillToID must exist there."""
-    existing = db.scalar(
-        select(BillTo).where(
-            BillTo.operator_id == company.operator_id,
-            BillTo.pestpac_bill_to_id == data.pestpac_bill_to_id,
-        )
-    )
+    """Requires the operator's verified PestPac connection. Details are fetched here, server
+    side, rather than trusted from the preview the browser saw."""
+    existing = _existing_bill_to(db, company.operator_id, data.pestpac_bill_to_id)
     if existing is not None:
         owner = "this company" if existing.company_id == company.id else "another company"
         raise ConflictError(
             f"PestPac bill-to {data.pestpac_bill_to_id} is already onboarded to {owner}"
         )
-    operator = db.get(Tenant, company.operator_id)
-    client = pestpac_connection.get_pestpac_client(db, operator)
-    if not pestpac_connection.bill_to_exists(client, data.pestpac_bill_to_id):
-        raise BillToNotFoundError(
-            f"BillToID {data.pestpac_bill_to_id} was not found in PestPac tenant "
-            f"{operator.pestpac_tenant_id}"
-        )
+    details = _fetch_details(db, company.operator_id, data.pestpac_bill_to_id)
     bill_to = BillTo(
         operator_id=company.operator_id,
         company_id=company.id,
         pestpac_bill_to_id=data.pestpac_bill_to_id,
-        name=data.name,
+        name=data.name or details.suggested_name,
         description=data.description,
         onboarded_by=onboarded_by,
     )
+    _apply_details(bill_to, details)
     db.add(bill_to)
+    db.commit()
+    return bill_to
+
+
+def refresh_bill_to(db: Session, bill_to: BillTo) -> BillTo:
+    """Re-fetch PestPac details. Our own name and description are left as they are."""
+    details = _fetch_details(db, bill_to.operator_id, bill_to.pestpac_bill_to_id)
+    _apply_details(bill_to, details)
     db.commit()
     return bill_to
 

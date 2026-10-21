@@ -273,3 +273,94 @@ export const useBillTosUpdateBillTo = <TError = HTTPValidationError,
       > => {
       return useMutation(getBillTosUpdateBillToMutationOptions(options), queryClient);
     }
+    export type billTosRefreshBillToResponse200 = {
+  data: BillToRead
+  status: 200
+}
+
+export type billTosRefreshBillToResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type billTosRefreshBillToResponseSuccess = (billTosRefreshBillToResponse200) & {
+  headers: Headers;
+};
+export type billTosRefreshBillToResponseError = (billTosRefreshBillToResponse422) & {
+  headers: Headers;
+};
+
+export const getBillTosRefreshBillToUrl = (billToId: string,) => {
+
+
+
+
+  return `/v1/bill-tos/${billToId}/refresh`
+}
+
+/**
+ * Re-fetch identifying details from PestPac.
+ * @summary Refresh Bill To
+ */
+export const billTosRefreshBillTo = async (billToId: string, options?: Parameters<typeof bffFetch>[1]): Promise<billTosRefreshBillToResponseSuccess> => {
+
+  return bffFetch<billTosRefreshBillToResponseSuccess>(getBillTosRefreshBillToUrl(billToId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getBillTosRefreshBillToMutationKey = () => ['billTosRefreshBillTo'] as const;
+
+export const getBillTosRefreshBillToMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof billTosRefreshBillTo>>, TError,BillTosRefreshBillToMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof billTosRefreshBillTo>>, TError,BillTosRefreshBillToMutationVariables, TContext> => {
+
+const mutationKey = getBillTosRefreshBillToMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof billTosRefreshBillTo>>, BillTosRefreshBillToMutationVariables> = (props) => {
+          const {billToId} = props ?? {};
+
+          return  billTosRefreshBillTo(billToId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BillTosRefreshBillToMutationResult = NonNullable<Awaited<ReturnType<typeof billTosRefreshBillTo>>>
+
+    export type BillTosRefreshBillToMutationError = HTTPValidationError
+    export type BillTosRefreshBillToMutationVariables = {billToId: string}
+
+    /**
+ * @summary Refresh Bill To
+ */
+export const useBillTosRefreshBillTo = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof billTosRefreshBillTo>>, TError,BillTosRefreshBillToMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof billTosRefreshBillTo>>,
+        TError,
+        BillTosRefreshBillToMutationVariables,
+        TContext
+      > => {
+      return useMutation(getBillTosRefreshBillToMutationOptions(options), queryClient);
+    }

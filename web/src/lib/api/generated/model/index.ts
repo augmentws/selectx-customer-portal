@@ -6,8 +6,10 @@
  */
 
 export * from './billToCreate';
+export * from './billToLookup';
 export * from './billToRead';
 export * from './billToUpdate';
+export * from './companiesLookupBillToParams';
 export * from './companyCreate';
 export * from './companyRead';
 export * from './companyUpdate';
@@ -26,6 +28,7 @@ export * from './operatorRead';
 export * from './operatorUpdate';
 export * from './passwordChange';
 export * from './permissionRead';
+export * from './pestPacBillToDetails';
 export * from './pestPacConnectionRead';
 export * from './pestPacConnectionWrite';
 export * from './refreshRequest';

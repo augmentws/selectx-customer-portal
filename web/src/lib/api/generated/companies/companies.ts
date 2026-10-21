@@ -25,7 +25,9 @@ import type {
 
 import type {
   BillToCreate,
+  BillToLookup,
   BillToRead,
+  CompaniesLookupBillToParams,
   CompanyRead,
   CompanyUpdate,
   HTTPValidationError
@@ -497,3 +499,136 @@ export const useCompaniesOnboardBillTo = <TError = HTTPValidationError,
       > => {
       return useMutation(getCompaniesOnboardBillToMutationOptions(options), queryClient);
     }
+    export type companiesLookupBillToResponse200 = {
+  data: BillToLookup
+  status: 200
+}
+
+export type companiesLookupBillToResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type companiesLookupBillToResponseSuccess = (companiesLookupBillToResponse200) & {
+  headers: Headers;
+};
+export type companiesLookupBillToResponseError = (companiesLookupBillToResponse422) & {
+  headers: Headers;
+};
+
+export const getCompaniesLookupBillToUrl = (companyId: string,
+    params: CompaniesLookupBillToParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/v1/companies/${companyId}/bill-tos/lookup?${stringifiedParams}` : `/v1/companies/${companyId}/bill-tos/lookup`
+}
+
+/**
+ * Preview a PestPac bill-to before onboarding it. Nothing is stored.
+ * @summary Lookup Bill To
+ */
+export const companiesLookupBillTo = async (companyId: string,
+    params: CompaniesLookupBillToParams, options?: Parameters<typeof bffFetch>[1]): Promise<companiesLookupBillToResponseSuccess> => {
+
+  return bffFetch<companiesLookupBillToResponseSuccess>(getCompaniesLookupBillToUrl(companyId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getCompaniesLookupBillToQueryKey = (companyId: string,
+    params?: CompaniesLookupBillToParams,) => {
+    return [
+    `/v1/companies/${companyId}/bill-tos/lookup`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getCompaniesLookupBillToQueryOptions = <TData = Awaited<ReturnType<typeof companiesLookupBillTo>>, TError = HTTPValidationError>(companyId: string,
+    params: CompaniesLookupBillToParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof companiesLookupBillTo>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCompaniesLookupBillToQueryKey(companyId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof companiesLookupBillTo>>> = ({ signal }) => companiesLookupBillTo(companyId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: companyId !== null && companyId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof companiesLookupBillTo>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type CompaniesLookupBillToQueryResult = NonNullable<Awaited<ReturnType<typeof companiesLookupBillTo>>>
+export type CompaniesLookupBillToQueryError = HTTPValidationError
+
+
+export function useCompaniesLookupBillTo<TData = Awaited<ReturnType<typeof companiesLookupBillTo>>, TError = HTTPValidationError>(
+ companyId: string,
+    params: CompaniesLookupBillToParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof companiesLookupBillTo>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof companiesLookupBillTo>>,
+          TError,
+          Awaited<ReturnType<typeof companiesLookupBillTo>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCompaniesLookupBillTo<TData = Awaited<ReturnType<typeof companiesLookupBillTo>>, TError = HTTPValidationError>(
+ companyId: string,
+    params: CompaniesLookupBillToParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof companiesLookupBillTo>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof companiesLookupBillTo>>,
+          TError,
+          Awaited<ReturnType<typeof companiesLookupBillTo>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCompaniesLookupBillTo<TData = Awaited<ReturnType<typeof companiesLookupBillTo>>, TError = HTTPValidationError>(
+ companyId: string,
+    params: CompaniesLookupBillToParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof companiesLookupBillTo>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Lookup Bill To
+ */
+
+export function useCompaniesLookupBillTo<TData = Awaited<ReturnType<typeof companiesLookupBillTo>>, TError = HTTPValidationError>(
+ companyId: string,
+    params: CompaniesLookupBillToParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof companiesLookupBillTo>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getCompaniesLookupBillToQueryOptions(companyId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+

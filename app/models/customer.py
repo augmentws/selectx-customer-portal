@@ -66,3 +66,16 @@ class BillTo(Base):
     onboarded_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL")
     )
+
+    # Identifying details copied from PestPac GET /BillTos/{id} on onboarding and refresh.
+    # Deliberately no financial fields or raw snapshot: balances and credit data go stale.
+    pestpac_bill_to_code: Mapped[str | None] = mapped_column(String(50))
+    pestpac_company: Mapped[str | None] = mapped_column(String(200))
+    address: Mapped[str | None] = mapped_column(String(200))
+    address2: Mapped[str | None] = mapped_column(String(200))
+    city: Mapped[str | None] = mapped_column(String(100))
+    state: Mapped[str | None] = mapped_column(String(50))
+    zip: Mapped[str | None] = mapped_column(String(20))
+    phone: Mapped[str | None] = mapped_column(String(50))
+    pestpac_type: Mapped[str | None] = mapped_column(String(100))
+    pestpac_fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

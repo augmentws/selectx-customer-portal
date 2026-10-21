@@ -88,6 +88,18 @@ CASES = [
         lambda w: {"pestpac_bill_to_id": 180020, "name": "Acme Northeast"},
     ),
     Case(
+        "look up a PestPac bill-to for company A",
+        "GET",
+        lambda w: f"/v1/companies/{w.company_a}/bill-tos/lookup?pestpac_bill_to_id=180020",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+    ),
+    Case(
+        "refresh bill-to A from PestPac",
+        "POST",
+        lambda w: f"/v1/bill-tos/{w.bill_to_a}/refresh",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+    ),
+    Case(
         "get bill-to A",
         "GET",
         lambda w: f"/v1/bill-tos/{w.bill_to_a}",
@@ -221,4 +233,5 @@ _PLACEHOLDER_WORLD = World(
 
 def _template(path: str) -> str:
     # Members routes use {tenant_id} for both platform and operator tenants.
-    return path.replace("/tenants/{operator_id}/", "/tenants/{tenant_id}/")
+    path = path.replace("/tenants/{operator_id}/", "/tenants/{tenant_id}/")
+    return path.split("?", 1)[0]

@@ -15,4 +15,14 @@ export interface BillToRead {
   is_active: boolean;
   onboarded_at: string;
   onboarded_by: string | null;
+  pestpac_bill_to_code: string | null;
+  pestpac_company: string | null;
+  address: string | null;
+  address2: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  phone: string | null;
+  pestpac_type: string | null;
+  pestpac_fetched_at: string | null;
 }

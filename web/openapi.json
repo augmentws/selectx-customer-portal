@@ -694,6 +694,65 @@
         }
       }
     },
+    "/v1/companies/{company_id}/bill-tos/lookup": {
+      "get": {
+        "tags": [
+          "companies"
+        ],
+        "summary": "Lookup Bill To",
+        "description": "Preview a PestPac bill-to before onboarding it. Nothing is stored.",
+        "operationId": "companies-lookup_bill_to",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Company Id"
+            }
+          },
+          {
+            "name": "pestpac_bill_to_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "title": "Pestpac Bill To Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillToLookup"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/bill-tos/{bill_to_id}": {
       "get": {
         "tags": [
@@ -774,6 +833,55 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillToRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bill-tos/{bill_to_id}/refresh": {
+      "post": {
+        "tags": [
+          "bill_tos"
+        ],
+        "summary": "Refresh Bill To",
+        "description": "Re-fetch identifying details from PestPac.",
+        "operationId": "bill_tos-refresh_bill_to",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bill_to_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Bill To Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1247,9 +1355,16 @@
             "title": "Pestpac Bill To Id"
           },
           "name": {
-            "type": "string",
-            "maxLength": 200,
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Name"
           },
           "description": {
@@ -1267,10 +1382,50 @@
         },
         "type": "object",
         "required": [
-          "pestpac_bill_to_id",
-          "name"
+          "pestpac_bill_to_id"
         ],
         "title": "BillToCreate"
+      },
+      "BillToLookup": {
+        "properties": {
+          "details": {
+            "$ref": "#/components/schemas/PestPacBillToDetails"
+          },
+          "suggested_name": {
+            "type": "string",
+            "title": "Suggested Name"
+          },
+          "onboarded_bill_to_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Onboarded Bill To Id"
+          },
+          "onboarded_company_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Onboarded Company Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "details",
+          "suggested_name"
+        ],
+        "title": "BillToLookup"
       },
       "BillToRead": {
         "properties": {
@@ -1328,6 +1483,117 @@
               }
             ],
             "title": "Onboarded By"
+          },
+          "pestpac_bill_to_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Bill To Code"
+          },
+          "pestpac_company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Company"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "address2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address2"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "zip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zip"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "pestpac_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Type"
+          },
+          "pestpac_fetched_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Fetched At"
           }
         },
         "type": "object",
@@ -1340,7 +1606,17 @@
           "description",
           "is_active",
           "onboarded_at",
-          "onboarded_by"
+          "onboarded_by",
+          "pestpac_bill_to_code",
+          "pestpac_company",
+          "address",
+          "address2",
+          "city",
+          "state",
+          "zip",
+          "phone",
+          "pestpac_type",
+          "pestpac_fetched_at"
         ],
         "title": "BillToRead"
       },
@@ -1861,6 +2137,119 @@
           "description"
         ],
         "title": "PermissionRead"
+      },
+      "PestPacBillToDetails": {
+        "properties": {
+          "pestpac_bill_to_id": {
+            "type": "integer",
+            "title": "Pestpac Bill To Id"
+          },
+          "pestpac_bill_to_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Bill To Code"
+          },
+          "pestpac_company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Company"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "address2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address2"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "zip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zip"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "pestpac_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pestpac_bill_to_id"
+        ],
+        "title": "PestPacBillToDetails",
+        "description": "Identifying details of a PestPac bill-to. Only these fields are kept; the rest of the\nGET /BillTos/{id} response (balances, credit and collection data, contacts) is discarded."
       },
       "PestPacConnectionRead": {
         "properties": {

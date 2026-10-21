@@ -16,8 +16,10 @@ os.environ.setdefault("JWT_SECRET", "test-secret-" + "x" * 32)
 os.environ["APP_ENCRYPTION_KEYS"] = "Q2PYvKXuaXz5O3b4pV3-6dmgHAx5k5hvYb7Qm9H8u2Y="
 os.environ["PESTPAC_DEBUG_BODIES"] = "false"
 
+import json  # noqa: E402
 import re  # noqa: E402
 import uuid  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 import pytest  # noqa: E402
 import responses  # noqa: E402
@@ -78,6 +80,16 @@ def _clean_tables():
 PESTPAC_BASE = get_settings().pestpac_default_base_url
 PESTPAC_TOKEN_URL = get_settings().pestpac_token_url
 KNOWN_BILL_TO_IDS = {175101, 180020}
+# Sample GET /BillTos/{id} response with personal details replaced.
+BILL_TO_FIXTURE = json.loads(
+    (Path(__file__).parent / "fixtures" / "pestpac_bill_to.json").read_text()
+)
+
+
+def pestpac_bill_to_body(bill_to_id: int, **overrides) -> dict:
+    return {**BILL_TO_FIXTURE, "BillToID": bill_to_id, **overrides}
+
+
 COMPANY_SETUP = {"CompanyID": 1, "Company": "Select Exterminating", "Settings": {}}
 
 
@@ -92,7 +104,7 @@ def pestpac():
         def bill_to(request):
             bill_to_id = int(request.url.rstrip("/").rsplit("/", 1)[-1])
             if bill_to_id in KNOWN_BILL_TO_IDS:
-                return 200, {}, f'{{"BillToID": {bill_to_id}}}'
+                return 200, {}, json.dumps(pestpac_bill_to_body(bill_to_id))
             return 404, {}, "{}"
 
         rsps.add_callback(

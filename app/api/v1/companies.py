@@ -1,14 +1,16 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.api.v1._pestpac_errors import pestpac_errors
 from app.db.session import get_db
 from app.models import Company
+from app.schemas.pestpac import BillToLookup
 from app.schemas.tenancy import BillToCreate, BillToRead, CompanyRead, CompanyUpdate
 from app.security.access import AccessScope, get_scope
 from app.security.permissions import Perm
-from app.services import pestpac_connection, tenancy
+from app.services import tenancy
 
 router = APIRouter(prefix="/companies", tags=["companies"])
 
@@ -61,13 +63,19 @@ def onboard_bill_to(
 ):
     company = _company_or_404(db, company_id)
     scope.require(Perm.bill_tos_write, company.operator_id, read_perm=Perm.companies_read)
-    try:
+    with pestpac_errors():
         return tenancy.onboard_bill_to(db, company, data, onboarded_by=scope.user_id)
-    except (tenancy.ConflictError, pestpac_connection.ConnectionNotReadyError) as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from None
-    except tenancy.BillToNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
-        ) from None
-    except pestpac_connection.PestPacUnavailableError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from None
+
+
+@router.get("/{company_id}/bill-tos/lookup", response_model=BillToLookup)
+def lookup_bill_to(
+    company_id: uuid.UUID,
+    pestpac_bill_to_id: int = Query(gt=0),
+    db: Session = Depends(get_db),
+    scope: AccessScope = Depends(get_scope),
+):
+    """Preview a PestPac bill-to before onboarding it. Nothing is stored."""
+    company = _company_or_404(db, company_id)
+    scope.require(Perm.bill_tos_write, company.operator_id, read_perm=Perm.companies_read)
+    with pestpac_errors():
+        return tenancy.lookup_bill_to(db, company, pestpac_bill_to_id)

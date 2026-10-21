@@ -30,7 +30,7 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - Auth: `POST /v1/auth/login`, `/refresh`, `/logout`, `/password`; `GET /v1/auth/me` (includes memberships and permissions)
 - `GET/POST /v1/operators`, `GET/PATCH /v1/operators/{id}`, `GET/POST /v1/operators/{id}/companies`
 - `GET/PATCH /v1/companies/{id}`, `GET/POST /v1/companies/{id}/bill-tos`
-- `GET/PATCH /v1/bill-tos/{id}`
+- `GET/PATCH /v1/bill-tos/{id}`, `POST /v1/bill-tos/{id}/refresh`, `GET /v1/companies/{id}/bill-tos/lookup`
 - `GET/PUT /v1/operators/{id}/pestpac-connection`, `POST /v1/operators/{id}/pestpac-connection/verify`
 - `GET/POST /v1/tenants/{id}/members`, `PATCH/DELETE /v1/tenants/{id}/members/{user_id}`
 - `GET /v1/roles`, `GET /v1/permissions`
@@ -50,7 +50,9 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - Operator admins (and platform admins) set the operator's PestPac credentials: client ID, client secret, API username/password, and API key. Secrets are Fernet-encrypted with `APP_ENCRYPTION_KEYS` (first key encrypts; all decrypt, for rotation) and are write-only: the API returns only whether each is set and the API key's last 4 characters.
 - Saving credentials immediately verifies them: OAuth token, then `GET {base_url}/CompanySetup`. The status (`unverified`/`verified`/`failed`) and the PestPac company name and ID are stored. Error messages never include PestPac response bodies.
 - The base URL and token URL come from settings, not from operators, so credentials can't be sent to arbitrary hosts.
-- Bill-to onboarding requires a `verified` connection (409 otherwise), and each BillToID must exist in PestPac (`GET /BillTos/{id}`; 422 if not found, 502 if PestPac fails).
+- Bill-to onboarding requires a `verified` connection (409 otherwise), and each BillToID must exist in PestPac (`GET /BillTos/{id}`; 422 if not found, 502 if PestPac fails or answers for a different BillToID).
+- Onboarding is two steps: `GET /v1/companies/{id}/bill-tos/lookup` previews PestPac's details without storing anything; `POST /v1/companies/{id}/bill-tos` fetches again server side and stores them. `POST /v1/bill-tos/{id}/refresh` re-fetches later and never changes our own `name`/`description`.
+- Store only identifying bill-to fields (BillToCode, Company, address, phone, Type), whitelisted in `PestPacBillToDetails`. Don't persist balances, credit/collection data, contacts, or the raw response.
 - PestPac calls have timeouts. Request/response bodies contain customer data and are logged only when `PESTPAC_DEBUG_BODIES=true` (local debugging).
 - Tests mock PestPac with `responses` (`pestpac` fixture in `tests/conftest.py`); they must never call the real API.
 

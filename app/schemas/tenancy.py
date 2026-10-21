@@ -73,7 +73,8 @@ class CompanyRead(BaseModel):
 
 class BillToCreate(BaseModel):
     pestpac_bill_to_id: int = Field(gt=0)
-    name: str = Name
+    # Defaults to "{Company} · {Address}, {City}" from PestPac.
+    name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=1000)
 
 
@@ -97,6 +98,16 @@ class BillToRead(BaseModel):
     is_active: bool
     onboarded_at: datetime
     onboarded_by: uuid.UUID | None
+    pestpac_bill_to_code: str | None
+    pestpac_company: str | None
+    address: str | None
+    address2: str | None
+    city: str | None
+    state: str | None
+    zip: str | None
+    phone: str | None
+    pestpac_type: str | None
+    pestpac_fetched_at: datetime | None
 
 
 class MemberCreate(BaseModel):

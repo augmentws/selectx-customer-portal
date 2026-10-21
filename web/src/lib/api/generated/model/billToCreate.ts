@@ -8,10 +8,6 @@
 export interface BillToCreate {
   /** @exclusiveMinimum 0 */
   pestpac_bill_to_id: number;
-  /**
-     * @minLength 1
-     * @maxLength 200
-     */
-  name: string;
+  name?: string | null;
   description?: string | null;
 }
