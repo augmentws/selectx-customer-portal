@@ -88,3 +88,69 @@ class BillToLookup(BaseModel):
     # Set when this BillToID is already onboarded under the operator.
     onboarded_bill_to_id: uuid.UUID | None = None
     onboarded_company_id: uuid.UUID | None = None
+
+
+_LOCATION_TEXT_FIELDS: dict[str, tuple[str, int]] = {
+    "LocationCode": ("pestpac_location_code", 50),
+    "Company": ("pestpac_company", 200),
+    "Address": ("address", 200),
+    "Address2": ("address2", 200),
+    "City": ("city", 100),
+    "State": ("state", 50),
+    "Zip": ("zip", 20),
+    "Phone": ("phone", 50),
+    "Email": ("email", 320),
+    "Type": ("pestpac_type", 100),
+    "AccountType": ("account_type", 50),
+}
+
+
+def _float_or_none(value: object) -> float | None:
+    try:
+        return float(value) if value is not None and value != "" else None
+    except TypeError, ValueError:
+        return None
+
+
+class PestPacLocationDetails(BaseModel):
+    """A location from GET /BillTos/{id}/locations/pageable. Contact names, user-defined fields
+    (which include staff names), and marketing flags are discarded."""
+
+    pestpac_location_id: int
+    pestpac_bill_to_id: int
+    pestpac_location_code: str | None = None
+    pestpac_company: str | None = None
+    address: str | None = None
+    address2: str | None = None
+    city: str | None = None
+    state: str | None = None
+    zip: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    pestpac_type: str | None = None
+    account_type: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    pestpac_active: bool = True
+
+    @classmethod
+    def from_api(cls, body: dict) -> PestPacLocationDetails:
+        values: dict[str, object] = {
+            "pestpac_location_id": body["LocationID"],
+            "pestpac_bill_to_id": body["BillToID"],
+            "latitude": _float_or_none(body.get("Latitude")),
+            "longitude": _float_or_none(body.get("Longitude")),
+            "pestpac_active": body.get("Active") is not False,
+        }
+        for source, (attr, max_len) in _LOCATION_TEXT_FIELDS.items():
+            raw = body.get(source)
+            text = str(raw).strip() if raw is not None else ""
+            values[attr] = text[:max_len] or None
+        return cls.model_validate(values)
+
+
+class LocationSyncSummary(BaseModel):
+    total: int
+    added: int
+    updated: int
+    removed: int

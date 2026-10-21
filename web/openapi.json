@@ -676,7 +676,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BillToRead"
+                  "$ref": "#/components/schemas/BillToSynced"
                 }
               }
             }
@@ -863,7 +863,7 @@
           "bill_tos"
         ],
         "summary": "Refresh Bill To",
-        "description": "Re-fetch identifying details from PestPac.",
+        "description": "Re-fetch the bill-to's details and locations from PestPac.",
         "operationId": "bill_tos-refresh_bill_to",
         "security": [
           {
@@ -888,7 +888,60 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BillToRead"
+                  "$ref": "#/components/schemas/BillToSynced"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bill-tos/{bill_to_id}/locations": {
+      "get": {
+        "tags": [
+          "bill_tos"
+        ],
+        "summary": "List Locations",
+        "description": "Service locations synced from PestPac, current ones first.",
+        "operationId": "bill_tos-list_locations",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bill_to_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Bill To Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LocationRead"
+                  },
+                  "title": "Response Bill Tos-List Locations"
                 }
               }
             }
@@ -1594,6 +1647,11 @@
               }
             ],
             "title": "Pestpac Fetched At"
+          },
+          "location_count": {
+            "type": "integer",
+            "title": "Location Count",
+            "default": 0
           }
         },
         "type": "object",
@@ -1619,6 +1677,209 @@
           "pestpac_fetched_at"
         ],
         "title": "BillToRead"
+      },
+      "BillToSynced": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "operator_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Operator Id"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "pestpac_bill_to_id": {
+            "type": "integer",
+            "title": "Pestpac Bill To Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "onboarded_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Onboarded At"
+          },
+          "onboarded_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Onboarded By"
+          },
+          "pestpac_bill_to_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Bill To Code"
+          },
+          "pestpac_company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Company"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "address2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address2"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "zip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zip"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "pestpac_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Type"
+          },
+          "pestpac_fetched_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Fetched At"
+          },
+          "location_count": {
+            "type": "integer",
+            "title": "Location Count",
+            "default": 0
+          },
+          "locations_sync": {
+            "$ref": "#/components/schemas/LocationSyncSummary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "operator_id",
+          "company_id",
+          "pestpac_bill_to_id",
+          "name",
+          "description",
+          "is_active",
+          "onboarded_at",
+          "onboarded_by",
+          "pestpac_bill_to_code",
+          "pestpac_company",
+          "address",
+          "address2",
+          "city",
+          "state",
+          "zip",
+          "phone",
+          "pestpac_type",
+          "pestpac_fetched_at",
+          "locations_sync"
+        ],
+        "title": "BillToSynced",
+        "description": "A bill-to after onboarding or refresh, with what the location sync changed."
       },
       "BillToUpdate": {
         "properties": {
@@ -1764,6 +2025,239 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "LocationRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "bill_to_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Bill To Id"
+          },
+          "pestpac_location_id": {
+            "type": "integer",
+            "title": "Pestpac Location Id"
+          },
+          "pestpac_location_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Location Code"
+          },
+          "pestpac_company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Company"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "address2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address2"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "zip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zip"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "pestpac_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Type"
+          },
+          "account_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Type"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "pestpac_active": {
+            "type": "boolean",
+            "title": "Pestpac Active"
+          },
+          "removed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Removed At"
+          },
+          "pestpac_fetched_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Pestpac Fetched At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "bill_to_id",
+          "pestpac_location_id",
+          "pestpac_location_code",
+          "pestpac_company",
+          "address",
+          "address2",
+          "city",
+          "state",
+          "zip",
+          "phone",
+          "email",
+          "pestpac_type",
+          "account_type",
+          "latitude",
+          "longitude",
+          "pestpac_active",
+          "removed_at",
+          "pestpac_fetched_at"
+        ],
+        "title": "LocationRead"
+      },
+      "LocationSyncSummary": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "added": {
+            "type": "integer",
+            "title": "Added"
+          },
+          "updated": {
+            "type": "integer",
+            "title": "Updated"
+          },
+          "removed": {
+            "type": "integer",
+            "title": "Removed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "added",
+          "updated",
+          "removed"
+        ],
+        "title": "LocationSyncSummary"
       },
       "LoginRequest": {
         "properties": {

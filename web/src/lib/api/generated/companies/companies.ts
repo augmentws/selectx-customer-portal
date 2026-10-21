@@ -27,6 +27,7 @@ import type {
   BillToCreate,
   BillToLookup,
   BillToRead,
+  BillToSynced,
   CompaniesLookupBillToParams,
   CompanyRead,
   CompanyUpdate,
@@ -395,7 +396,7 @@ export function useCompaniesListBillTos<TData = Awaited<ReturnType<typeof compan
 
 
 export type companiesOnboardBillToResponse201 = {
-  data: BillToRead
+  data: BillToSynced
   status: 201
 }
 

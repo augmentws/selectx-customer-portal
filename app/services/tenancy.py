@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import BillTo, Company, Tenant, TenantKind
-from app.schemas.pestpac import BillToLookup, PestPacBillToDetails
+from app.schemas.pestpac import BillToLookup, LocationSyncSummary, PestPacBillToDetails
 from app.schemas.tenancy import (
     BillToCreate,
     BillToUpdate,
@@ -14,7 +14,7 @@ from app.schemas.tenancy import (
     OperatorCreate,
     OperatorUpdate,
 )
-from app.services import pestpac_connection
+from app.services import locations, pestpac_connection
 from app.services.errors import ConflictError
 from app.services.rbac import get_platform_tenant
 
@@ -142,7 +142,7 @@ def _fetch_details(db: Session, operator_id: uuid.UUID, pestpac_bill_to_id: int)
             f"BillToID {pestpac_bill_to_id} was not found in PestPac tenant "
             f"{operator.pestpac_tenant_id}"
         )
-    return details
+    return details, client
 
 
 def _apply_details(bill_to: BillTo, details: PestPacBillToDetails) -> None:
@@ -154,7 +154,7 @@ def _apply_details(bill_to: BillTo, details: PestPacBillToDetails) -> None:
 
 def lookup_bill_to(db: Session, company: Company, pestpac_bill_to_id: int) -> BillToLookup:
     """Preview a PestPac bill-to before onboarding. Stores nothing."""
-    details = _fetch_details(db, company.operator_id, pestpac_bill_to_id)
+    details, _ = _fetch_details(db, company.operator_id, pestpac_bill_to_id)
     existing = _existing_bill_to(db, company.operator_id, pestpac_bill_to_id)
     return BillToLookup(
         details=details,
@@ -166,16 +166,19 @@ def lookup_bill_to(db: Session, company: Company, pestpac_bill_to_id: int) -> Bi
 
 def onboard_bill_to(
     db: Session, company: Company, data: BillToCreate, onboarded_by: uuid.UUID
-) -> BillTo:
-    """Requires the operator's verified PestPac connection. Details are fetched here, server
-    side, rather than trusted from the preview the browser saw."""
+) -> tuple[BillTo, LocationSyncSummary]:
+    """Requires the operator's verified PestPac connection. The bill-to and all its locations
+    are fetched server side (not trusted from the browser's preview) before anything is written,
+    then stored in one transaction."""
     existing = _existing_bill_to(db, company.operator_id, data.pestpac_bill_to_id)
     if existing is not None:
         owner = "this company" if existing.company_id == company.id else "another company"
         raise ConflictError(
             f"PestPac bill-to {data.pestpac_bill_to_id} is already onboarded to {owner}"
         )
-    details = _fetch_details(db, company.operator_id, data.pestpac_bill_to_id)
+    details, client = _fetch_details(db, company.operator_id, data.pestpac_bill_to_id)
+    fetched_locations = locations.fetch_locations(client, data.pestpac_bill_to_id)
+
     bill_to = BillTo(
         operator_id=company.operator_id,
         company_id=company.id,
@@ -186,16 +189,21 @@ def onboard_bill_to(
     )
     _apply_details(bill_to, details)
     db.add(bill_to)
+    db.flush()
+    summary = locations.apply_locations(db, bill_to, fetched_locations)
     db.commit()
-    return bill_to
+    return bill_to, summary
 
 
-def refresh_bill_to(db: Session, bill_to: BillTo) -> BillTo:
-    """Re-fetch PestPac details. Our own name and description are left as they are."""
-    details = _fetch_details(db, bill_to.operator_id, bill_to.pestpac_bill_to_id)
+def refresh_bill_to(db: Session, bill_to: BillTo) -> tuple[BillTo, LocationSyncSummary]:
+    """Re-fetch the bill-to and its locations. Our own name and description are left alone.
+    Nothing changes unless every PestPac call succeeds."""
+    details, client = _fetch_details(db, bill_to.operator_id, bill_to.pestpac_bill_to_id)
+    fetched_locations = locations.fetch_locations(client, bill_to.pestpac_bill_to_id)
     _apply_details(bill_to, details)
+    summary = locations.apply_locations(db, bill_to, fetched_locations)
     db.commit()
-    return bill_to
+    return bill_to, summary
 
 
 def update_bill_to(db: Session, bill_to: BillTo, data: BillToUpdate) -> BillTo:

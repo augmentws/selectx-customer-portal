@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { LocationSyncResult } from "@/components/location-sync-result";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ import {
   useCompaniesLookupBillTo,
   useCompaniesOnboardBillTo,
 } from "@/lib/api/generated/companies/companies";
-import type { BillToLookup, PestPacBillToDetails } from "@/lib/api/generated/model";
+import type { BillToLookup, BillToSynced, PestPacBillToDetails } from "@/lib/api/generated/model";
 import { usePestpacGetConnection } from "@/lib/api/generated/pestpac/pestpac";
 
 /** PestPac's identifying details for a bill-to: code, company, address, phone, type. */
@@ -103,7 +104,7 @@ function ConfirmOnboarding({
 }: {
   companyId: string;
   lookup: BillToLookup;
-  onDone: () => void;
+  onDone: (onboarded?: BillToSynced) => void;
 }) {
   const queryClient = useQueryClient();
   const onboard = useCompaniesOnboardBillTo({
@@ -122,7 +123,7 @@ function ConfirmOnboarding({
   });
 
   const onSubmit = async ({ name, description }: ConfirmValues) => {
-    await onboard.mutateAsync({
+    const response = await onboard.mutateAsync({
       companyId,
       data: {
         pestpac_bill_to_id: lookup.details.pestpac_bill_to_id,
@@ -130,7 +131,7 @@ function ConfirmOnboarding({
         description: description || null,
       },
     });
-    onDone();
+    onDone(response.data);
   };
 
   return (
@@ -157,7 +158,7 @@ function ConfirmOnboarding({
         <Button type="submit" disabled={onboard.isPending}>
           {onboard.isPending ? "Onboarding…" : "Onboard"}
         </Button>
-        <Button type="button" variant="ghost" onClick={onDone}>
+        <Button type="button" variant="ghost" onClick={() => onDone()}>
           Cancel
         </Button>
       </div>
@@ -198,8 +199,11 @@ export function OnboardBillToCard({
   const result = lookup.data?.data;
   const onboardedHere = result?.onboarded_company_id === companyId;
 
-  const done = () => {
+  const [lastOnboarded, setLastOnboarded] = useState<BillToSynced | null>(null);
+
+  const done = (onboarded?: BillToSynced) => {
     setLookupId(null);
+    setLastOnboarded(onboarded ?? null);
     reset();
   };
 
@@ -220,9 +224,18 @@ export function OnboardBillToCard({
             </AlertDescription>
           </Alert>
         )}
+        {lastOnboarded && (
+          <LocationSyncResult
+            summary={lastOnboarded.locations_sync}
+            label={`Onboarded ${lastOnboarded.name}`}
+          />
+        )}
         <fieldset disabled={!ready} className="contents">
           <form
-            onSubmit={handleSubmit(({ pestpac_bill_to_id }) => setLookupId(pestpac_bill_to_id))}
+            onSubmit={handleSubmit(({ pestpac_bill_to_id }) => {
+              setLastOnboarded(null);
+              setLookupId(pestpac_bill_to_id);
+            })}
             className="flex items-end gap-3"
             noValidate
           >
@@ -265,7 +278,7 @@ export function OnboardBillToCard({
             <BillToDetailLines details={result.details} />
             {result.onboarded_bill_to_id ? (
               <div>
-                <Button type="button" variant="ghost" onClick={done}>
+                <Button type="button" variant="ghost" onClick={() => done()}>
                   Look up another
                 </Button>
               </div>

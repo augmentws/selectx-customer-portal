@@ -4,6 +4,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 from app.schemas.auth import PASSWORD_MIN_LENGTH
+from app.schemas.pestpac import LocationSyncSummary
 from app.security.permissions import RoleScope
 
 Name = Field(min_length=1, max_length=200)
@@ -108,6 +109,38 @@ class BillToRead(BaseModel):
     phone: str | None
     pestpac_type: str | None
     pestpac_fetched_at: datetime | None
+    # Locations PestPac currently lists under this bill-to.
+    location_count: int = 0
+
+
+class BillToSynced(BillToRead):
+    """A bill-to after onboarding or refresh, with what the location sync changed."""
+
+    locations_sync: LocationSyncSummary
+
+
+class LocationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    bill_to_id: uuid.UUID
+    pestpac_location_id: int
+    pestpac_location_code: str | None
+    pestpac_company: str | None
+    address: str | None
+    address2: str | None
+    city: str | None
+    state: str | None
+    zip: str | None
+    phone: str | None
+    email: str | None
+    pestpac_type: str | None
+    account_type: str | None
+    latitude: float | None
+    longitude: float | None
+    pestpac_active: bool
+    removed_at: datetime | None
+    pestpac_fetched_at: datetime
 
 
 class MemberCreate(BaseModel):

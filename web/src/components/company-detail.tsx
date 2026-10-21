@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 
 import { BillToDetailLines, OnboardBillToCard } from "@/components/bill-to-onboarding";
+import { LocationSyncResult } from "@/components/location-sync-result";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,12 @@ export function CompanyDetail() {
         <OnboardBillToCard companyId={companyId} operatorId={c.operator_id} />
       </Can>
 
+      {refresh.isSuccess && (
+        <LocationSyncResult
+          summary={refresh.data.data.locations_sync}
+          label={`Refreshed ${refresh.data.data.name}`}
+        />
+      )}
       {mutationError && (
         <Alert variant="destructive">
           <AlertDescription>{errorMessage(mutationError)}</AlertDescription>
@@ -91,6 +98,12 @@ export function CompanyDetail() {
                   <span className="text-sm font-normal text-muted-foreground">
                     BillToID {b.pestpac_bill_to_id}
                   </span>
+                  <Link
+                    href={`/bill-tos/${b.id}`}
+                    className="text-sm font-normal text-primary hover:underline"
+                  >
+                    {b.location_count} {b.location_count === 1 ? "location" : "locations"} →
+                  </Link>
                   {!b.is_active && <Badge variant="outline">Inactive</Badge>}
                 </span>
                 {b.description && (

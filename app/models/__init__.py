@@ -1,4 +1,4 @@
-from app.models.customer import BillTo, Company
+from app.models.customer import BillTo, Company, Location
 from app.models.pestpac import ConnectionStatus, PestPacConnection
 from app.models.rbac import Membership, Permission, Role, role_permissions
 from app.models.tenant import Tenant, TenantKind
@@ -9,6 +9,7 @@ __all__ = [
     "BillTo",
     "Company",
     "ConnectionStatus",
+    "Location",
     "Credential",
     "Membership",
     "PestPacConnection",

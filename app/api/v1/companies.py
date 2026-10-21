@@ -4,10 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.v1._pestpac_errors import pestpac_errors
+from app.api.v1.bill_tos import bill_to_reads, bill_to_synced
 from app.db.session import get_db
 from app.models import Company
 from app.schemas.pestpac import BillToLookup
-from app.schemas.tenancy import BillToCreate, BillToRead, CompanyRead, CompanyUpdate
+from app.schemas.tenancy import BillToCreate, BillToRead, BillToSynced, CompanyRead, CompanyUpdate
 from app.security.access import AccessScope, get_scope
 from app.security.permissions import Perm
 from app.services import tenancy
@@ -49,11 +50,11 @@ def list_bill_tos(
 ):
     company = _company_or_404(db, company_id)
     scope.require(Perm.bill_tos_read, company.operator_id, read_perm=Perm.companies_read)
-    return tenancy.list_bill_tos(db, company.id)
+    return bill_to_reads(db, tenancy.list_bill_tos(db, company.id))
 
 
 @router.post(
-    "/{company_id}/bill-tos", response_model=BillToRead, status_code=status.HTTP_201_CREATED
+    "/{company_id}/bill-tos", response_model=BillToSynced, status_code=status.HTTP_201_CREATED
 )
 def onboard_bill_to(
     company_id: uuid.UUID,
@@ -64,7 +65,8 @@ def onboard_bill_to(
     company = _company_or_404(db, company_id)
     scope.require(Perm.bill_tos_write, company.operator_id, read_perm=Perm.companies_read)
     with pestpac_errors():
-        return tenancy.onboard_bill_to(db, company, data, onboarded_by=scope.user_id)
+        bill_to, summary = tenancy.onboard_bill_to(db, company, data, onboarded_by=scope.user_id)
+    return bill_to_synced(db, bill_to, summary)
 
 
 @router.get("/{company_id}/bill-tos/lookup", response_model=BillToLookup)

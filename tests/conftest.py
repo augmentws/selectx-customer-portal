@@ -68,7 +68,8 @@ def _clean_tables():
     with engine.begin() as conn:
         conn.execute(
             text(
-                "TRUNCATE pestpac_connections, bill_tos, companies, memberships, auth_sessions, "
+                "TRUNCATE locations, pestpac_connections, bill_tos, companies, memberships, "
+                "auth_sessions, "
                 "credentials, users"
             )
         )
@@ -88,6 +89,39 @@ BILL_TO_FIXTURE = json.loads(
 
 def pestpac_bill_to_body(bill_to_id: int, **overrides) -> dict:
     return {**BILL_TO_FIXTURE, "BillToID": bill_to_id, **overrides}
+
+
+# Sample GET /BillTos/{id}/locations/pageable items, with personal details replaced.
+LOCATIONS_FIXTURE = json.loads(
+    (Path(__file__).parent / "fixtures" / "pestpac_locations.json").read_text()
+)
+
+
+def pestpac_locations(bill_to_id: int, items: list[dict] | None = None) -> list[dict]:
+    """Locations for a bill-to: the fixture by default, re-parented to `bill_to_id`."""
+    return [
+        {**item, "BillToID": bill_to_id}
+        for item in (items if items is not None else LOCATIONS_FIXTURE)
+    ]
+
+
+LOCATIONS_URL = re.compile(re.escape(PESTPAC_BASE) + r"/BillTos/(\d+)/locations/pageable")
+
+
+def locations_callback(pages_by_bill_to: dict[int, list[dict]] | None = None):
+    """A `responses` callback serving locations with real skip/take paging."""
+
+    def callback(request):
+        from urllib.parse import parse_qs, urlparse
+
+        url = urlparse(request.url)
+        bill_to_id = int(LOCATIONS_URL.search(request.url).group(1))
+        query = parse_qs(url.query)
+        skip, take = int(query["skip"][0]), int(query["take"][0])
+        items = (pages_by_bill_to or {}).get(bill_to_id, pestpac_locations(bill_to_id))
+        return 200, {}, json.dumps(items[skip : skip + take])
+
+    return callback
 
 
 COMPANY_SETUP = {"CompanyID": 1, "Company": "Select Exterminating", "Settings": {}}
@@ -110,6 +144,7 @@ def pestpac():
         rsps.add_callback(
             responses.GET, re.compile(re.escape(PESTPAC_BASE) + r"/BillTos/\d+$"), bill_to
         )
+        rsps.add_callback(responses.GET, LOCATIONS_URL, locations_callback())
         yield rsps
 
 

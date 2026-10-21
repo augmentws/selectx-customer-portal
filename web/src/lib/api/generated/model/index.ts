@@ -8,6 +8,7 @@
 export * from './billToCreate';
 export * from './billToLookup';
 export * from './billToRead';
+export * from './billToSynced';
 export * from './billToUpdate';
 export * from './companiesLookupBillToParams';
 export * from './companyCreate';
@@ -16,6 +17,8 @@ export * from './companyUpdate';
 export * from './connectionStatus';
 export * from './healthHealth200';
 export * from './hTTPValidationError';
+export * from './locationRead';
+export * from './locationSyncSummary';
 export * from './loginRequest';
 export * from './memberCreate';
 export * from './memberCreated';

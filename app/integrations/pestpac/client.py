@@ -556,6 +556,12 @@ class PestPacClient:
         """GET /CompanySetup: the PestPac company behind these credentials."""
         return PestPacAPISection(self._ctx, "/CompanySetup").get()
 
+    def bill_to_locations_page(self, bill_to_id: Any, *, skip: int, take: int) -> requests.Response:
+        """GET /BillTos/{id}/locations/pageable: one page of a bill-to's locations (a JSON array)."""
+        return PestPacAPISection(self._ctx, f"/BillTos/{bill_to_id}/locations/pageable").get(
+            params={"skip": skip, "take": take}
+        )
+
     def lookups(self, path: str) -> PestPacAPISection:
         return PestPacAPISection(self._ctx, f"/lookups/{path}")
 

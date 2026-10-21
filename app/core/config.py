@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,6 +28,9 @@ class Settings(BaseSettings):
     pestpac_default_base_url: str = "https://api.workwave.com/pestpac/v1"
     # Log PestPac request/response bodies. They contain customer data; local debugging only.
     pestpac_debug_bodies: bool = False
+    # Page size for PestPac's pageable endpoints, and a ceiling on pages per sync.
+    pestpac_page_size: int = Field(default=50, ge=1, le=500)
+    pestpac_max_pages: int = Field(default=200, ge=1)
 
 
 @lru_cache

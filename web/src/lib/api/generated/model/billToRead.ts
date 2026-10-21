@@ -25,4 +25,5 @@ export interface BillToRead {
   phone: string | null;
   pestpac_type: string | null;
   pestpac_fetched_at: string | null;
+  location_count?: number;
 }

@@ -5,7 +5,14 @@ from sqlalchemy import func, select
 
 from app.db.session import SessionLocal
 from app.models import BillTo
-from tests.conftest import PESTPAC_BASE, PESTPAC_TOKEN_URL, headers_for, pestpac_bill_to_body
+from tests.conftest import (
+    LOCATIONS_URL,
+    PESTPAC_BASE,
+    PESTPAC_TOKEN_URL,
+    headers_for,
+    locations_callback,
+    pestpac_bill_to_body,
+)
 
 FINANCIAL = ("Balance", "InvoiceBalance", "CreditStatus", "899731", "Terms")
 PERSONAL = ("TESTER", "PAT", "billing@acme-tacos.example", "A. REPRESENTATIVE")
@@ -104,6 +111,7 @@ def test_refresh_updates_details_but_not_our_labels(client, world):
     with responses.RequestsMock() as rsps:
         rsps.post(PESTPAC_TOKEN_URL, json={"access_token": "t"})
         rsps.get(f"{PESTPAC_BASE}/BillTos/175101", body=json.dumps(changed))
+        rsps.add_callback(responses.GET, LOCATIONS_URL, locations_callback())
         resp = client.post(f"/v1/bill-tos/{world.bill_to_a}/refresh", headers=admin)
     assert resp.status_code == 200
     body = resp.json()

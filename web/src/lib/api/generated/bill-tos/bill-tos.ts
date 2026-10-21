@@ -25,8 +25,10 @@ import type {
 
 import type {
   BillToRead,
+  BillToSynced,
   BillToUpdate,
-  HTTPValidationError
+  HTTPValidationError,
+  LocationRead
 } from '../model';
 
 import { bffFetch } from '../../fetcher';
@@ -274,7 +276,7 @@ export const useBillTosUpdateBillTo = <TError = HTTPValidationError,
       return useMutation(getBillTosUpdateBillToMutationOptions(options), queryClient);
     }
     export type billTosRefreshBillToResponse200 = {
-  data: BillToRead
+  data: BillToSynced
   status: 200
 }
 
@@ -299,7 +301,7 @@ export const getBillTosRefreshBillToUrl = (billToId: string,) => {
 }
 
 /**
- * Re-fetch identifying details from PestPac.
+ * Re-fetch the bill-to's details and locations from PestPac.
  * @summary Refresh Bill To
  */
 export const billTosRefreshBillTo = async (billToId: string, options?: Parameters<typeof bffFetch>[1]): Promise<billTosRefreshBillToResponseSuccess> => {
@@ -364,3 +366,121 @@ export const useBillTosRefreshBillTo = <TError = HTTPValidationError,
       > => {
       return useMutation(getBillTosRefreshBillToMutationOptions(options), queryClient);
     }
+    export type billTosListLocationsResponse200 = {
+  data: LocationRead[]
+  status: 200
+}
+
+export type billTosListLocationsResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type billTosListLocationsResponseSuccess = (billTosListLocationsResponse200) & {
+  headers: Headers;
+};
+export type billTosListLocationsResponseError = (billTosListLocationsResponse422) & {
+  headers: Headers;
+};
+
+export const getBillTosListLocationsUrl = (billToId: string,) => {
+
+
+
+
+  return `/v1/bill-tos/${billToId}/locations`
+}
+
+/**
+ * Service locations synced from PestPac, current ones first.
+ * @summary List Locations
+ */
+export const billTosListLocations = async (billToId: string, options?: Parameters<typeof bffFetch>[1]): Promise<billTosListLocationsResponseSuccess> => {
+
+  return bffFetch<billTosListLocationsResponseSuccess>(getBillTosListLocationsUrl(billToId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getBillTosListLocationsQueryKey = (billToId: string,) => {
+    return [
+    `/v1/bill-tos/${billToId}/locations`
+    ] as const;
+    }
+
+
+export const getBillTosListLocationsQueryOptions = <TData = Awaited<ReturnType<typeof billTosListLocations>>, TError = HTTPValidationError>(billToId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListLocations>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getBillTosListLocationsQueryKey(billToId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof billTosListLocations>>> = ({ signal }) => billTosListLocations(billToId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: billToId !== null && billToId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof billTosListLocations>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type BillTosListLocationsQueryResult = NonNullable<Awaited<ReturnType<typeof billTosListLocations>>>
+export type BillTosListLocationsQueryError = HTTPValidationError
+
+
+export function useBillTosListLocations<TData = Awaited<ReturnType<typeof billTosListLocations>>, TError = HTTPValidationError>(
+ billToId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListLocations>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof billTosListLocations>>,
+          TError,
+          Awaited<ReturnType<typeof billTosListLocations>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBillTosListLocations<TData = Awaited<ReturnType<typeof billTosListLocations>>, TError = HTTPValidationError>(
+ billToId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListLocations>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof billTosListLocations>>,
+          TError,
+          Awaited<ReturnType<typeof billTosListLocations>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBillTosListLocations<TData = Awaited<ReturnType<typeof billTosListLocations>>, TError = HTTPValidationError>(
+ billToId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListLocations>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Locations
+ */
+
+export function useBillTosListLocations<TData = Awaited<ReturnType<typeof billTosListLocations>>, TError = HTTPValidationError>(
+ billToId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListLocations>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getBillTosListLocationsQueryOptions(billToId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
