@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
+import { CheckCircle2, XCircle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -41,6 +42,29 @@ export function ConnectionStatusBadge({ conn }: { conn: PestPacConnectionRead })
   if (conn.status === "verified") return <Badge variant="success">Verified</Badge>;
   if (conn.status === "failed") return <Badge variant="destructive">Failed</Badge>;
   return <Badge variant="warning">Not verified</Badge>;
+}
+
+/** The outcome of a save or test, shown next to the button that triggered it. */
+function ConnectionResult({ conn }: { conn: PestPacConnectionRead }) {
+  if (conn.status === "verified") {
+    return (
+      <Alert variant="success" role="status">
+        <CheckCircle2 aria-hidden />
+        <AlertDescription>
+          Connected to {conn.pestpac_company_name ?? "PestPac"}
+          {conn.pestpac_company_id != null && ` (CompanyID ${conn.pestpac_company_id})`}.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+  return (
+    <Alert variant="destructive" role="alert">
+      <XCircle aria-hidden />
+      <AlertDescription>
+        Saved, but the connection test failed: {conn.last_error ?? "unknown error"}
+      </AlertDescription>
+    </Alert>
+  );
 }
 
 function ConnectionForm({ operatorId, conn }: { operatorId: string; conn: PestPacConnectionRead }) {
@@ -138,6 +162,11 @@ function ConnectionForm({ operatorId, conn }: { operatorId: string; conn: PestPa
           {save.isPending ? "Saving and testing…" : "Save & test"}
         </Button>
       </div>
+      {save.isSuccess && (
+        <div className="sm:col-span-2">
+          <ConnectionResult conn={save.data.data} />
+        </div>
+      )}
       {save.isError && (
         <Alert variant="destructive" className="sm:col-span-2">
           <AlertDescription>{errorMessage(save.error)}</AlertDescription>
@@ -206,6 +235,9 @@ export function PestPacConnectionPanel({ operatorId }: { operatorId: string }) {
                 {verify.isPending ? "Testing…" : "Test connection"}
               </Button>
             </div>
+          )}
+          {verify.isSuccess && verify.data.data.status === "verified" && (
+            <ConnectionResult conn={verify.data.data} />
           )}
           {verify.isError && (
             <Alert variant="destructive">

@@ -1,21 +1,33 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { API_URL, checkCsrf, setSessionCookies, type TokenPair } from "@/lib/server/session";
+import {
+  API_URL,
+  apiUnreachable,
+  checkCsrf,
+  setSessionCookies,
+  upstreamError,
+  type TokenPair,
+} from "@/lib/server/session";
 
 export async function POST(req: NextRequest) {
   if (!checkCsrf(req, { sessionBound: false })) {
     return NextResponse.json({ detail: "CSRF check failed" }, { status: 403 });
   }
 
-  const upstream = await fetch(`${API_URL}/v1/auth/login`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: await req.text(),
-    cache: "no-store",
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${API_URL}/v1/auth/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: await req.text(),
+      cache: "no-store",
+    });
+  } catch (error) {
+    return apiUnreachable(error);
+  }
 
   if (!upstream.ok) {
-    return NextResponse.json(await upstream.json(), { status: upstream.status });
+    return NextResponse.json(await upstreamError(upstream), { status: upstream.status });
   }
 
   // Tokens go into HttpOnly cookies only; the browser gets no token in the body.

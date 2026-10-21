@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   ACCESS_COOKIE,
   API_URL,
+  apiUnreachable,
   REFRESH_COOKIE,
   checkCsrf,
   clearSessionCookies,
@@ -17,7 +18,12 @@ const BLOCKED = new Set(["v1/auth/login", "v1/auth/refresh", "v1/auth/logout"]);
 const FORWARDED_REQUEST_HEADERS = ["accept", "content-type"];
 const FORWARDED_RESPONSE_HEADERS = ["content-type", "cache-control", "etag"];
 
-async function forward(req: NextRequest, path: string, body: ArrayBuffer | undefined, access?: string) {
+async function forward(
+  req: NextRequest,
+  path: string,
+  body: ArrayBuffer | undefined,
+  access?: string,
+) {
   const headers = new Headers();
   for (const name of FORWARDED_REQUEST_HEADERS) {
     const value = req.headers.get(name);
@@ -43,14 +49,18 @@ async function handler(req: NextRequest, ctx: RouteContext<"/api/bff/[...path]">
   }
 
   const body = ["GET", "HEAD"].includes(req.method) ? undefined : await req.arrayBuffer();
-  let upstream = await forward(req, path, body, req.cookies.get(ACCESS_COOKIE)?.value);
-
+  let upstream: Response;
   // Access token missing or expired: refresh once, then retry.
   let rotated: TokenPair | null = null;
   const refreshToken = req.cookies.get(REFRESH_COOKIE)?.value;
-  if (upstream.status === 401 && refreshToken) {
-    rotated = await refreshTokens(refreshToken);
-    if (rotated) upstream = await forward(req, path, body, rotated.access_token);
+  try {
+    upstream = await forward(req, path, body, req.cookies.get(ACCESS_COOKIE)?.value);
+    if (upstream.status === 401 && refreshToken) {
+      rotated = await refreshTokens(refreshToken);
+      if (rotated) upstream = await forward(req, path, body, rotated.access_token);
+    }
+  } catch (error) {
+    return apiUnreachable(error);
   }
 
   const headers = new Headers();

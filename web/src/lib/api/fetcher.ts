@@ -20,7 +20,13 @@ export const bffFetch = async <T>(url: string, options: RequestInit = {}): Promi
 
   const res = await fetch(`/api/bff${url}`, { ...options, headers, credentials: "same-origin" });
   const text = await res.text();
-  const data: unknown = text ? JSON.parse(text) : undefined;
+  let data: unknown;
+  try {
+    data = text ? JSON.parse(text) : undefined;
+  } catch {
+    // Non-JSON body (e.g. a plain "Internal Server Error"): keep the text as the detail.
+    data = { detail: text };
+  }
 
   if (!res.ok) throw new ApiError(res.status, data);
   return { data, status: res.status, headers: res.headers } as T;

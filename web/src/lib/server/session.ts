@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { NextRequest, NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 import { CSRF_COOKIE, CSRF_HEADER } from "@/lib/csrf";
 
@@ -8,6 +8,24 @@ export const ACCESS_COOKIE = "cp_access";
 export const REFRESH_COOKIE = "cp_refresh";
 
 export const API_URL = process.env.API_URL ?? "http://127.0.0.1:8001";
+
+/** FastAPI's error body as JSON, falling back to its text (e.g. a plain "Internal Server Error"). */
+export async function upstreamError(res: Response): Promise<{ detail: unknown }> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { detail: text || `API returned ${res.status}` };
+  }
+}
+
+export function apiUnreachable(error: unknown) {
+  console.error("FastAPI unreachable:", error);
+  return NextResponse.json(
+    { detail: "The portal API is unavailable. Try again shortly." },
+    { status: 502 },
+  );
+}
 
 const secure = process.env.NODE_ENV === "production";
 const REFRESH_MAX_AGE = 60 * 60 * 24 * 14;

@@ -17,12 +17,33 @@ class SecretDecryptionError(Exception):
     pass
 
 
+GENERATE_HINT = (
+    'Generate one with: python -c "from cryptography.fernet import Fernet; '
+    'print(Fernet.generate_key().decode())"'
+)
+
+
 @lru_cache
 def _fernet() -> MultiFernet:
     keys = [k.strip() for k in get_settings().app_encryption_keys.split(",") if k.strip()]
     if not keys:
-        raise RuntimeError("APP_ENCRYPTION_KEYS is not set")
-    return MultiFernet([Fernet(k) for k in keys])
+        raise RuntimeError(f"APP_ENCRYPTION_KEYS is not set. {GENERATE_HINT}")
+    fernets = []
+    for position, key in enumerate(keys, start=1):
+        try:
+            fernets.append(Fernet(key))
+        except ValueError:
+            # Never echo the key itself.
+            raise RuntimeError(
+                f"APP_ENCRYPTION_KEYS key #{position} is not a valid Fernet key "
+                f"(must be 44 url-safe base64 characters; got {len(key)}). {GENERATE_HINT}"
+            ) from None
+    return MultiFernet(fernets)
+
+
+def validate_keys() -> None:
+    """Fail fast at startup instead of on the first credential save."""
+    _fernet()
 
 
 def encrypt(plaintext: str) -> str:
