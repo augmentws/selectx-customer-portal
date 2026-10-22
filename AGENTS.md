@@ -82,6 +82,15 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - Redeliveries (same operator, body hash, and timestamp) are stored once. The worker clears raw bodies after `WEBHOOK_RAW_RETENTION_DAYS` (30); the row stays. No object storage.
 - Processing is a stub: events stay `received`. Planned handlers are listed in `app/services/webhooks.py`.
 
+## LLM Data Clean-up (OpenRouter)
+
+- `app/integrations/openrouter/` wraps OpenRouter's chat completions (`POST {OPENROUTER_BASE_URL}/chat/completions`). One platform-wide key, `OPENROUTER_API_KEY`, from settings; never per operator, never committed. Only the backend calls it.
+- Models are OpenRouter ids chosen per task or call, falling back to `OPENROUTER_DEFAULT_MODEL`; there is no hard-coded default model.
+- Clean-up work is an `LLMTask` (instructions + Pydantic output model) run with `app.services.llm_tasks.run_task`: JSON-schema `response_format`, routed only to providers that support it (`provider.require_parameters`), validated, one retry with the validation errors. Results carry the serving model and token/cost usage.
+- The client retries 408/429/502/503 and network errors with backoff, and treats an `error` in a 200 body as a failure. Prompts and completions are logged only with `OPENROUTER_DEBUG_BODIES=true`.
+- Tests mock OpenRouter with `responses`; they never call the real API.
+- Stub: nothing calls these yet (`ADDRESS_CLEANUP` is the example task). Wire tasks into the worker, not request handlers, so slow model calls don't block requests.
+
 ## Authorization (RBAC)
 
 - Permissions decide what users can see and do, at both API and UI layers. Never check role names in routes or components.

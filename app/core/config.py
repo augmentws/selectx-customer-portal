@@ -41,6 +41,17 @@ class Settings(BaseSettings):
     webhook_max_body_bytes: int = Field(default=1_000_000, ge=1)
     webhook_raw_retention_days: int = Field(default=30, ge=1)
 
+    # OpenRouter (LLM data clean-up). One platform-wide key; models are chosen per task or call.
+    openrouter_api_key: str = ""
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    # OpenRouter model id used when a call doesn't name one; empty means every call must.
+    openrouter_default_model: str = ""
+    openrouter_timeout_seconds: float = Field(default=60.0, gt=0)
+    openrouter_max_retries: int = Field(default=2, ge=0)
+    openrouter_app_title: str = "SELECTX Customer Portal"
+    # Logs prompts and completions (customer data). Local debugging only.
+    openrouter_debug_bodies: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:
