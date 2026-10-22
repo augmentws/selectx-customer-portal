@@ -30,6 +30,8 @@ class PestPacConnection(Base):
     password_enc: Mapped[str] = mapped_column(Text)
     api_key_enc: Mapped[str] = mapped_column(Text)
     api_key_last4: Mapped[str] = mapped_column(String(4))
+    # Signs webhook deliveries (HMAC-SHA256). Optional; unsigned events are flagged, not refused.
+    webhook_secret_enc: Mapped[str | None] = mapped_column(Text)
 
     status: Mapped[ConnectionStatus] = mapped_column(
         Enum(ConnectionStatus, name="pestpac_connection_status"),

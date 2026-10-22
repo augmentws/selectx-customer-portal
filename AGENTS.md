@@ -33,6 +33,7 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - `GET/PATCH /v1/bill-tos/{id}`, `POST /v1/bill-tos/{id}/refresh`, `GET /v1/bill-tos/{id}/locations`, `GET /v1/bill-tos/{id}/service-orders`, `POST /v1/bill-tos/{id}/service-orders/sync`, `GET /v1/bill-tos/{id}/sync-jobs`
 - `GET /v1/locations/{id}`, `GET /v1/locations/{id}/notes`, `GET /v1/locations/{id}/service-orders`, `POST /v1/locations/{id}/service-orders/sync`
 - `GET /v1/service-orders/{id}`, `GET /v1/service-orders/{id}/notes`, `GET /v1/sync-jobs/{id}`
+- `POST /v1/webhooks/pestpac` (public; PestPac webhook deliveries)
 - `GET /v1/companies/{id}/bill-tos/lookup`
 - `GET/PUT /v1/operators/{id}/pestpac-connection`, `POST /v1/operators/{id}/pestpac-connection/verify`
 - `GET/POST /v1/tenants/{id}/members`, `PATCH/DELETE /v1/tenants/{id}/members/{user_id}`
@@ -71,6 +72,15 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - `CreatedByUser` links to a technician by username when there is one; otherwise it stays a raw username.
 - PestPac calls have timeouts. Request/response bodies contain customer data and are logged only when `PESTPAC_DEBUG_BODIES=true` (local debugging).
 - Tests mock PestPac with `responses` (`pestpac` fixture in `tests/conftest.py`); they must never call the real API.
+
+## PestPac Webhooks
+
+- `POST /v1/webhooks/pestpac` is public (no session); the only route exempt from the access matrix besides auth. It answers 200 whether an event was stored, dropped, or a redelivery, so callers can't probe which bill-tos are onboarded; 400 for a malformed envelope, 413 above `WEBHOOK_MAX_BODY_BYTES`.
+- Envelope: `TenantId` (matched to `pestpac_tenant_id`), `EntityType`, `EntityId`, `Action`, `EntityBody`. Captured: Bill-To, Employee, Location, Note (create/update/delete) and Service Order (create/update/post/delete); everything else is dropped.
+- Signature: HMAC-SHA256 of the serialized `EntityBody` plus the `timestamputc` header, in `signature` headers, keyed by the operator's optional, write-only webhook secret (encrypted on `pestpac_connections`). Report mode: the result (`valid`/`invalid`/`missing`/`no_secret`) is recorded, never refused, until the scheme is confirmed against real deliveries.
+- Only events matching the bill-to rule are stored in `webhook_events`: the bill-to (or the body's `BillToID`) is onboarded and active, or the entity is one we already hold (deletes may lack a body). Employees always match: technicians are operator-wide. Note body fields (`LocationID`, `OrderID`) are assumed until a sample confirms them.
+- Redeliveries (same operator, body hash, and timestamp) are stored once. The worker clears raw bodies after `WEBHOOK_RAW_RETENTION_DAYS` (30); the row stays. No object storage.
+- Processing is a stub: events stay `received`. Planned handlers are listed in `app/services/webhooks.py`.
 
 ## Authorization (RBAC)
 
@@ -149,7 +159,7 @@ cd web && cp .env.example .env.local && pnpm install && pnpm dev
 
 ## Change Discipline
 
-- Keep work focused on the current scope: tenants, RBAC, companies, and bill-to onboarding; the PestPac service-order webhook capture is next. Don't build deferred features (customer logins, custom roles, regions, branches, theming, frontend test tooling) unless the user advances scope, but keep designs extensible for them.
+- Keep work focused on the current scope: tenants, RBAC, companies, and bill-to onboarding; PestPac webhook capture is stubbed (stored, not processed); its handlers are next. Don't build deferred features (customer logins, custom roles, regions, branches, theming, frontend test tooling) unless the user advances scope, but keep designs extensible for them.
 - Add an Alembic migration for every persistent schema change.
 - Preserve user changes and unrelated work already in the repository.
 - Update this file when an architectural or product decision is explicitly changed.

@@ -16,6 +16,7 @@ export interface PestPacConnectionRead {
   has_client_secret?: boolean;
   has_password?: boolean;
   api_key_last4?: string | null;
+  has_webhook_secret?: boolean;
   status?: ConnectionStatus | null;
   last_verified_at?: string | null;
   last_error?: string | null;

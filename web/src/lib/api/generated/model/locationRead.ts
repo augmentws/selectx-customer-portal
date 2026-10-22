@@ -25,4 +25,5 @@ export interface LocationRead {
   pestpac_active: boolean;
   removed_at: string | null;
   pestpac_fetched_at: string;
+  open_order_count?: number;
 }

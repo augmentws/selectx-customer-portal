@@ -69,6 +69,8 @@ def save_connection(
     if data.api_key is not None:
         conn.api_key_enc = encrypt(data.api_key)
         conn.api_key_last4 = data.api_key[-4:]
+    if data.webhook_secret is not None:
+        conn.webhook_secret_enc = encrypt(data.webhook_secret)
     mark_unverified(conn)
     conn.updated_by = user_id
     db.commit()

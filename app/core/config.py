@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     sync_job_stale_minutes: int = Field(default=10, ge=1)
     sync_job_max_attempts: int = Field(default=3, ge=1)
 
+    # PestPac webhooks (POST /v1/webhooks/pestpac).
+    webhook_max_body_bytes: int = Field(default=1_000_000, ge=1)
+    webhook_raw_retention_days: int = Field(default=30, ge=1)
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -22,4 +22,5 @@ export interface PestPacConnectionWrite {
   client_secret?: string | null;
   password?: string | null;
   api_key?: string | null;
+  webhook_secret?: string | null;
 }

@@ -22,7 +22,7 @@ import {
 } from "@/lib/api/generated/pestpac/pestpac";
 import { usePermissions } from "@/lib/permissions";
 
-const SECRET_FIELDS = ["client_secret", "password", "api_key"] as const;
+const SECRET_FIELDS = ["client_secret", "password", "api_key", "webhook_secret"] as const;
 
 function makeSchema(configured: boolean) {
   // Secrets are required on first setup; afterwards an empty field keeps the stored value.
@@ -33,6 +33,8 @@ function makeSchema(configured: boolean) {
     client_secret: secret,
     password: secret,
     api_key: secret,
+    // Optional: signs PestPac webhook deliveries.
+    webhook_secret: z.string().max(1024),
   });
 }
 type FormValues = z.infer<ReturnType<typeof makeSchema>>;
@@ -85,6 +87,7 @@ function ConnectionForm({ operatorId, conn }: { operatorId: string; conn: PestPa
       client_secret: "",
       password: "",
       api_key: "",
+      webhook_secret: "",
     },
   });
 
@@ -151,6 +154,19 @@ function ConnectionForm({ operatorId, conn }: { operatorId: string; conn: PestPa
           {...register("api_key")}
         />
         {errors.api_key && <p className="text-sm text-destructive">{errors.api_key.message}</p>}
+      </div>
+      <div className="flex flex-col gap-2 sm:col-span-2">
+        <Label htmlFor="pp-webhook-secret">Webhook secret (optional)</Label>
+        <Input
+          id="pp-webhook-secret"
+          type="password"
+          autoComplete="new-password"
+          placeholder={conn.has_webhook_secret ? "•••• saved" : undefined}
+          {...register("webhook_secret")}
+        />
+        {errors.webhook_secret && (
+          <p className="text-sm text-destructive">{errors.webhook_secret.message}</p>
+        )}
         {conn.configured && (
           <p className="text-sm text-muted-foreground">
             Leave secret fields empty to keep the saved values.

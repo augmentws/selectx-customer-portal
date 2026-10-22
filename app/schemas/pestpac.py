@@ -16,6 +16,8 @@ class PestPacConnectionWrite(BaseModel):
     client_secret: str | None = Field(default=None, min_length=1, max_length=1024)
     password: str | None = Field(default=None, min_length=1, max_length=1024)
     api_key: str | None = Field(default=None, min_length=4, max_length=1024)
+    # Optional, and not part of verification. Omit to keep the stored one.
+    webhook_secret: str | None = Field(default=None, min_length=1, max_length=1024)
 
 
 class PestPacConnectionRead(BaseModel):
@@ -28,6 +30,7 @@ class PestPacConnectionRead(BaseModel):
     has_client_secret: bool = False
     has_password: bool = False
     api_key_last4: str | None = None
+    has_webhook_secret: bool = False
     status: ConnectionStatus | None = None
     last_verified_at: datetime | None = None
     last_error: str | None = None

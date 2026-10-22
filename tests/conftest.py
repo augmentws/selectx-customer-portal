@@ -74,9 +74,9 @@ def _clean_tables():
     with engine.begin() as conn:
         conn.execute(
             text(
-                "TRUNCATE notes, sync_jobs, service_orders, technicians, locations, "
-                "pestpac_connections, bill_tos, companies, memberships, auth_sessions, "
-                "credentials, users"
+                "TRUNCATE webhook_events, notes, sync_jobs, service_orders, technicians, "
+                "locations, pestpac_connections, bill_tos, companies, memberships, "
+                "auth_sessions, credentials, users"
             )
         )
         conn.execute(text("DELETE FROM roles WHERE tenant_id IS NOT NULL"))

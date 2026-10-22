@@ -11,6 +11,7 @@ from app.api.v1 import (
     roles,
     service_orders,
     sync_jobs,
+    webhooks,
 )
 
 router = APIRouter(prefix="/v1")
@@ -24,3 +25,4 @@ router.include_router(sync_jobs.router)
 router.include_router(members.router)
 router.include_router(pestpac_connection.router)
 router.include_router(roles.router)
+router.include_router(webhooks.router)

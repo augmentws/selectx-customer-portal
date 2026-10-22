@@ -1,0 +1,201 @@
+import hashlib
+import hmac
+import json
+from datetime import UTC, datetime, timedelta
+
+import pytest
+from sqlalchemy import select, update
+
+from app.db.session import SessionLocal
+from app.models import PestPacConnection, WebhookEvent
+from app.security.secrets import encrypt
+from app.services.webhooks import purge_raw_bodies
+from tests.conftest import ONBOARDED_BILL_TO, pestpac_order
+
+URL = "/v1/webhooks/pestpac"
+TENANT = "115060"  # operator A
+SECRET = "webhook-secret-a"
+TIMESTAMP = "2026-10-21T22:24:30Z"
+STORE = 900001  # a location of the onboarded bill-to
+
+
+def envelope(entity_type: str, entity_id: int, action: str, body: dict | None) -> dict:
+    return {
+        "TenantId": TENANT,
+        "EntityType": entity_type,
+        "EntityId": entity_id,
+        "Action": action,
+        "Url": f"https://api.workwave.com/pestpac/v1/x/{entity_id}",
+        "EntityBody": body,
+    }
+
+
+def sign(body: dict | None, timestamp: str = TIMESTAMP, secret: str = SECRET) -> str:
+    message = (json.dumps(body) + timestamp).encode()
+    return hmac.new(secret.encode(), message, hashlib.sha256).hexdigest().upper()
+
+
+def post(client, payload: dict, *, signature: str | None = None, timestamp: str = TIMESTAMP):
+    headers = {"Content-Type": "application/json", "timestamputc": timestamp}
+    if signature is not None:
+        headers["signature"] = signature
+    return client.post(URL, content=json.dumps(payload), headers=headers)
+
+
+def events() -> list[WebhookEvent]:
+    with SessionLocal() as db:
+        return list(db.scalars(select(WebhookEvent).order_by(WebhookEvent.received_at)))
+
+
+@pytest.fixture
+def secret(world):
+    with SessionLocal() as db:
+        db.execute(
+            update(PestPacConnection)
+            .where(PestPacConnection.operator_id == world.op_a)
+            .values(webhook_secret_enc=encrypt(SECRET))
+        )
+        db.commit()
+
+
+def order_event(bill_to_id: int = ONBOARDED_BILL_TO, action: str = "Update") -> dict:
+    return envelope("Service Order", 1552079, action, pestpac_order(1552079, STORE, bill_to_id))
+
+
+def test_onboarded_service_order_is_stored_with_valid_signature(client, onboarded, secret):
+    payload = order_event()
+    resp = post(client, payload, signature=sign(payload["EntityBody"]))
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "accepted"}
+    [event] = events()
+    assert (event.entity, event.action, event.pestpac_entity_id) == (
+        "service_order",
+        "update",
+        1552079,
+    )
+    assert event.pestpac_bill_to_id == ONBOARDED_BILL_TO
+    assert event.pestpac_location_id == STORE
+    assert event.signature_status == "valid"
+    assert event.status == "received"
+    assert json.loads(event.raw_body) == payload
+
+
+def test_events_outside_onboarded_bill_tos_are_not_stored(client, onboarded, secret):
+    payload = order_event(bill_to_id=999999)
+    assert post(client, payload, signature=sign(payload["EntityBody"])).status_code == 200
+    assert events() == []
+
+
+@pytest.mark.parametrize(
+    ("signature", "expected"),
+    [("0" * 64, "invalid"), (None, "missing")],
+)
+def test_bad_signatures_are_recorded_not_refused(client, onboarded, secret, signature, expected):
+    assert post(client, order_event(), signature=signature).status_code == 200
+    assert [e.signature_status for e in events()] == [expected]
+
+
+def test_operator_without_a_secret_is_flagged(client, onboarded):
+    payload = order_event()
+    post(client, payload, signature=sign(payload["EntityBody"]))
+    assert [e.signature_status for e in events()] == ["no_secret"]
+
+
+def test_redelivery_is_stored_once(client, onboarded, secret):
+    payload = order_event()
+    for _ in range(2):
+        assert post(client, payload, signature=sign(payload["EntityBody"])).status_code == 200
+    assert len(events()) == 1
+
+
+def test_unknown_tenant_is_dropped(client, onboarded):
+    payload = order_event() | {"TenantId": "999999"}
+    assert post(client, payload).status_code == 200
+    assert events() == []
+
+
+@pytest.mark.parametrize(
+    ("entity_type", "action"),
+    [("Service Order", "Archive"), ("Invoice", "Create"), ("Bill To", "Post")],
+)
+def test_uncaptured_types_and_actions_are_dropped(client, onboarded, entity_type, action):
+    payload = envelope(entity_type, ONBOARDED_BILL_TO, action, {"BillToID": ONBOARDED_BILL_TO})
+    assert post(client, payload).status_code == 200
+    assert events() == []
+
+
+@pytest.mark.parametrize(
+    ("payload", "stored"),
+    [
+        (envelope("Bill To", ONBOARDED_BILL_TO, "Update", {"BillToID": ONBOARDED_BILL_TO}), True),
+        (envelope("Bill To", 123, "Update", {"BillToID": 123}), False),
+        (envelope("Location", 555, "Create", {"BillToID": ONBOARDED_BILL_TO}), True),
+        (envelope("Location", 555, "Create", {"BillToID": 123}), False),
+        # A delete may come without a body: matched because we hold the location.
+        (envelope("Location", STORE, "Delete", None), True),
+        (envelope("Note", 77, "Create", {"LocationID": STORE}), True),
+        (envelope("Note", 77, "Create", {"LocationID": 123}), False),
+        # Technicians are operator-wide, so employees always match.
+        (envelope("Employee", 1332, "Update", {"TechID": 1332}), True),
+        (envelope("Service Order", 1, "Post", pestpac_order(1, STORE, ONBOARDED_BILL_TO)), True),
+    ],
+)
+def test_bill_to_rule_per_entity(client, onboarded, payload, stored):
+    assert post(client, payload).status_code == 200
+    assert len(events()) == (1 if stored else 0)
+
+
+@pytest.mark.parametrize(
+    "content",
+    ["not json", "[]", json.dumps({"TenantId": TENANT, "EntityType": "Note", "Action": "Create"})],
+)
+def test_malformed_envelopes_are_rejected(client, onboarded, content):
+    resp = client.post(URL, content=content, headers={"Content-Type": "application/json"})
+    assert resp.status_code == 400
+    assert events() == []
+
+
+def test_oversized_bodies_are_rejected(client, monkeypatch):
+    from app.core.config import get_settings
+
+    monkeypatch.setenv("WEBHOOK_MAX_BODY_BYTES", "100")
+    get_settings.cache_clear()
+    try:
+        resp = client.post(URL, content="x" * 200, headers={"Content-Type": "application/json"})
+    finally:
+        monkeypatch.undo()
+        get_settings.cache_clear()
+    assert resp.status_code == 413
+
+
+def test_raw_bodies_are_cleared_after_retention(client, onboarded):
+    post(client, order_event())
+    post(client, order_event(action="Post"))
+    old, recent = events()
+    with SessionLocal() as db:
+        db.execute(
+            update(WebhookEvent)
+            .where(WebhookEvent.id == old.id)
+            .values(received_at=datetime.now(UTC) - timedelta(days=31))
+        )
+        db.commit()
+        assert purge_raw_bodies(db) == 1
+    by_id = {e.id: e for e in events()}
+    assert by_id[old.id].raw_body is None and by_id[old.id].raw_body_purged_at is not None
+    assert by_id[recent.id].raw_body is not None
+
+
+def test_webhook_secret_is_write_only(client, world, pestpac):
+    from tests.conftest import headers_for
+
+    admin = headers_for(client, world.emails["admin_a"])
+    url = f"/v1/operators/{world.op_a}/pestpac-connection"
+    assert client.get(url, headers=admin).json()["has_webhook_secret"] is False
+    resp = client.put(
+        url,
+        json={"client_id": "client-a", "username": "api-user-a", "webhook_secret": SECRET},
+        headers=admin,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["has_webhook_secret"] is True
+    assert SECRET not in resp.text

@@ -11,6 +11,12 @@ from app.models.service_order import (
 )
 from app.models.tenant import Tenant, TenantKind
 from app.models.user import AuthSession, Credential, User
+from app.models.webhook import (
+    SignatureStatus,
+    WebhookEntity,
+    WebhookEvent,
+    WebhookEventStatus,
+)
 
 __all__ = [
     "AuthSession",
@@ -24,6 +30,7 @@ __all__ = [
     "PestPacConnection",
     "Permission",
     "Role",
+    "SignatureStatus",
     "ServiceOrder",
     "SyncJob",
     "SyncJobKind",
@@ -32,5 +39,8 @@ __all__ = [
     "Tenant",
     "TenantKind",
     "User",
+    "WebhookEntity",
+    "WebhookEvent",
+    "WebhookEventStatus",
     "role_permissions",
 ]

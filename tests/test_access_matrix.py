@@ -274,6 +274,8 @@ def test_every_v1_route_is_in_the_matrix():
         ("POST", "/v1/auth/logout"),
         ("POST", "/v1/auth/password"),
         ("GET", "/v1/auth/me"),
+        # Public: PestPac holds no session (tests/test_webhooks.py).
+        ("POST", "/v1/webhooks/pestpac"),
     }
     routes = {
         (method.upper(), path)

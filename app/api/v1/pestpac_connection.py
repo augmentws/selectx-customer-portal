@@ -36,6 +36,7 @@ def _read(operator: Tenant, conn: PestPacConnection | None) -> PestPacConnection
         has_client_secret=bool(conn.client_secret_enc),
         has_password=bool(conn.password_enc),
         api_key_last4=conn.api_key_last4,
+        has_webhook_secret=bool(conn.webhook_secret_enc),
         status=conn.status,
         last_verified_at=conn.last_verified_at,
         last_error=conn.last_error,

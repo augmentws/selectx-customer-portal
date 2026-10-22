@@ -1,4 +1,4 @@
-"""Background worker: runs queued service-order sync jobs.
+"""Background worker: runs queued service-order sync jobs and clears expired webhook bodies.
 
     python -m app.worker            # run until stopped (Ctrl-C / SIGTERM)
     python -m app.worker --once     # run queued jobs, then exit
@@ -15,7 +15,7 @@ import time
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.security.secrets import validate_keys
-from app.services import sync_jobs
+from app.services import sync_jobs, webhooks
 
 log = logging.getLogger("app.worker")
 
@@ -48,6 +48,16 @@ def run_pending() -> int:
     return ran
 
 
+PURGE_INTERVAL_SECONDS = 3600
+
+
+def purge_webhook_bodies() -> None:
+    with SessionLocal() as db:
+        cleared = webhooks.purge_raw_bodies(db)
+    if cleared:
+        log.info("Cleared %s expired webhook bodies", cleared)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--once", action="store_true", help="run queued jobs, then exit")
@@ -64,10 +74,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.once:
         run_pending()
+        purge_webhook_bodies()
         return 0
     poll = get_settings().worker_poll_seconds
     log.info("Worker started; polling every %ss", poll)
+    last_purge = float("-inf")
     while not _Stop.requested:
+        if time.monotonic() - last_purge >= PURGE_INTERVAL_SECONDS:
+            purge_webhook_bodies()
+            last_purge = time.monotonic()
         if run_pending() == 0:
             time.sleep(poll)
     return 0
