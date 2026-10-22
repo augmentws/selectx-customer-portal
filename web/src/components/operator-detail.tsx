@@ -87,7 +87,9 @@ function CompaniesTab({ operatorId }: { operatorId: string }) {
       {companies.isPending && <p className="text-muted-foreground">Loading…</p>}
       {companies.isError && (
         <Alert variant="destructive">
-          <AlertDescription>{errorMessage(companies.error, "Could not load companies.")}</AlertDescription>
+          <AlertDescription>
+            {errorMessage(companies.error, "Could not load companies.")}
+          </AlertDescription>
         </Alert>
       )}
       {companies.data && (
@@ -138,14 +140,14 @@ export function OperatorDetail() {
           {op.name}
           {!op.is_active && <Badge variant="outline">Inactive</Badge>}
         </h1>
-        <p className="text-muted-foreground">
-          PestPac tenant {op.pestpac_tenant_id}
-        </p>
+        <p className="text-muted-foreground">PestPac tenant {op.pestpac_tenant_id}</p>
       </div>
 
       <Tabs defaultValue={initialTab}>
         <TabsList>
-          {can("companies:read", operatorId) && <TabsTrigger value="companies">Companies</TabsTrigger>}
+          {can("companies:read", operatorId) && (
+            <TabsTrigger value="companies">Companies</TabsTrigger>
+          )}
           {can("members:read", operatorId) && <TabsTrigger value="members">Members</TabsTrigger>}
           {can("pestpac_connection:read", operatorId) && (
             <TabsTrigger value="pestpac">PestPac API</TabsTrigger>

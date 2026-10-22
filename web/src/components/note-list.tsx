@@ -38,7 +38,7 @@ export function NoteList({
               </span>
             )}
           </div>
-          <p className="mt-1 whitespace-pre-line text-sm">{note.note || "(empty note)"}</p>
+          <p className="mt-1 text-sm whitespace-pre-line">{note.note || "(empty note)"}</p>
         </li>
       ))}
     </ul>

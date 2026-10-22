@@ -152,7 +152,9 @@ export function MembersPanel({ tenantId, roleScope }: { tenantId: string; roleSc
       {members.isPending && <p className="text-muted-foreground">Loading…</p>}
       {members.isError && (
         <Alert variant="destructive">
-          <AlertDescription>{errorMessage(members.error, "Could not load members.")}</AlertDescription>
+          <AlertDescription>
+            {errorMessage(members.error, "Could not load members.")}
+          </AlertDescription>
         </Alert>
       )}
       {members.data && (
@@ -175,7 +177,11 @@ export function MembersPanel({ tenantId, roleScope }: { tenantId: string; roleSc
                     value={m.role}
                     disabled={changeRole.isPending}
                     onChange={(e) =>
-                      changeRole.mutate({ tenantId, userId: m.user_id, data: { role: e.target.value } })
+                      changeRole.mutate({
+                        tenantId,
+                        userId: m.user_id,
+                        data: { role: e.target.value },
+                      })
                     }
                   >
                     {roles.map((r) => (

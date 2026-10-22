@@ -39,7 +39,10 @@ function LocationRow({ location }: { location: LocationRead }) {
   return (
     <li className={removed ? "p-4 text-muted-foreground" : "p-4"}>
       <div className="flex flex-wrap items-center gap-2">
-        <Link href={`/locations/${location.id}`} className="font-medium text-primary hover:underline">
+        <Link
+          href={`/locations/${location.id}`}
+          className="font-medium text-primary hover:underline"
+        >
           {location.pestpac_company ?? "Unnamed location"}
         </Link>
         {(location.open_order_count ?? 0) > 0 && (

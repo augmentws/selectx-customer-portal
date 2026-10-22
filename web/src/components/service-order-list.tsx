@@ -46,18 +46,12 @@ function Instructions({ label, text }: { label: string; text: string | null }) {
   return (
     <div>
       <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
-      <dd className="whitespace-pre-line text-sm">{text}</dd>
+      <dd className="text-sm whitespace-pre-line">{text}</dd>
     </div>
   );
 }
 
-function OrderRow({
-  order,
-  locationName,
-}: {
-  order: ServiceOrderRead;
-  locationName?: string;
-}) {
+function OrderRow({ order, locationName }: { order: ServiceOrderRead; locationName?: string }) {
   const [open, setOpen] = useState(false);
   const hasInstructions =
     order.location_instructions || order.service_instructions || order.order_instructions;

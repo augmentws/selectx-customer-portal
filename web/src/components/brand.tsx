@@ -31,7 +31,10 @@ export function BrandBand({
 }) {
   return (
     <section
-      className={cn("flex flex-col justify-center bg-ink px-8 py-12 text-white sm:px-12", className)}
+      className={cn(
+        "flex flex-col justify-center bg-ink px-8 py-12 text-white sm:px-12",
+        className,
+      )}
     >
       <h1 className="max-w-md text-4xl sm:text-5xl">{title}</h1>
       <div aria-hidden className="mt-6 h-1 w-16 bg-highlight" />

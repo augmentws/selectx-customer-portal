@@ -133,7 +133,9 @@ export function LocationDetail() {
         {notes.isPending && <p className="text-muted-foreground">Loading…</p>}
         {notes.isError && (
           <Alert variant="destructive">
-            <AlertDescription>{errorMessage(notes.error, "Could not load notes.")}</AlertDescription>
+            <AlertDescription>
+              {errorMessage(notes.error, "Could not load notes.")}
+            </AlertDescription>
           </Alert>
         )}
         {notes.data && (

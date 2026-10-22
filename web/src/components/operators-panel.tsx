@@ -100,7 +100,9 @@ export function OperatorsPanel() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-3xl">Operators</h1>
-        <p className="text-muted-foreground">Operating entities, each linked to a PestPac tenant.</p>
+        <p className="text-muted-foreground">
+          Operating entities, each linked to a PestPac tenant.
+        </p>
       </div>
 
       {platformTenantId && (
@@ -112,7 +114,9 @@ export function OperatorsPanel() {
       {operators.isPending && <p className="text-muted-foreground">Loading…</p>}
       {operators.isError && (
         <Alert variant="destructive">
-          <AlertDescription>{errorMessage(operators.error, "Could not load operators.")}</AlertDescription>
+          <AlertDescription>
+            {errorMessage(operators.error, "Could not load operators.")}
+          </AlertDescription>
         </Alert>
       )}
       {operators.data && (

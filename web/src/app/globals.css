@@ -161,9 +161,9 @@
   /* Headlines: Oswald, uppercase, tight leading (docs/design-guidance.md §4). */
   h1,
   h2 {
-    @apply font-heading font-bold uppercase leading-[1.1] tracking-normal;
+    @apply font-heading leading-[1.1] font-bold tracking-normal uppercase;
   }
   h3 {
-    @apply font-heading font-bold leading-[1.15];
+    @apply font-heading leading-[1.15] font-bold;
   }
 }

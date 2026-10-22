@@ -98,9 +98,7 @@ function ConnectionForm({ operatorId, conn }: { operatorId: string; conn: PestPa
         client_id: values.client_id,
         username: values.username,
         // Empty secret fields are omitted so the stored values are kept.
-        ...Object.fromEntries(
-          SECRET_FIELDS.filter((f) => values[f]).map((f) => [f, values[f]]),
-        ),
+        ...Object.fromEntries(SECRET_FIELDS.filter((f) => values[f]).map((f) => [f, values[f]])),
       },
     });
     SECRET_FIELDS.forEach((f) => resetField(f));
@@ -207,7 +205,9 @@ export function PestPacConnectionPanel({ operatorId }: { operatorId: string }) {
   if (connection.isError) {
     return (
       <Alert variant="destructive">
-        <AlertDescription>{errorMessage(connection.error, "Could not load PestPac access.")}</AlertDescription>
+        <AlertDescription>
+          {errorMessage(connection.error, "Could not load PestPac access.")}
+        </AlertDescription>
       </Alert>
     );
   }

@@ -30,7 +30,9 @@ function counts(job: SyncJobRead, key: "orders" | "notes"): Counts {
   const value = job.progress[key];
   if (typeof value !== "object" || value === null) return {};
   return Object.fromEntries(
-    Object.entries(value).filter((entry): entry is [string, number] => typeof entry[1] === "number"),
+    Object.entries(value).filter(
+      (entry): entry is [string, number] => typeof entry[1] === "number",
+    ),
   );
 }
 
@@ -169,7 +171,9 @@ export function SyncJobPanel({
       )}
       {jobs.isError && (
         <Alert variant="destructive">
-          <AlertDescription>{errorMessage(jobs.error, "Could not load sync status.")}</AlertDescription>
+          <AlertDescription>
+            {errorMessage(jobs.error, "Could not load sync status.")}
+          </AlertDescription>
         </Alert>
       )}
     </div>

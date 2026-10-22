@@ -71,9 +71,7 @@ export function ChangePasswordForm() {
             <div key={name} className="flex flex-col gap-2">
               <Label htmlFor={name}>{label}</Label>
               <Input id={name} type="password" autoComplete={autoComplete} {...register(name)} />
-              {errors[name] && (
-                <p className="text-sm text-destructive">{errors[name]?.message}</p>
-              )}
+              {errors[name] && <p className="text-sm text-destructive">{errors[name]?.message}</p>}
             </div>
           ))}
           <Button type="submit" disabled={change.isPending}>
