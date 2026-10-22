@@ -3,15 +3,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 
+import { BillToLocations } from "@/components/bill-to-locations";
 import { BillToDetailLines } from "@/components/bill-to-onboarding";
 import { LocationSyncResult } from "@/components/location-sync-result";
-import {
-  type OrderStatusFilter,
-  OrderStatusSelect,
-  ServiceOrderList,
-} from "@/components/service-order-list";
+import { type OrderStatusFilter, OrderStatusSelect } from "@/components/service-order-list";
 import { SyncJobPanel } from "@/components/sync-job-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -21,66 +18,11 @@ import { errorMessage } from "@/lib/api/errors";
 import {
   getBillTosGetBillToQueryKey,
   getBillTosListLocationsQueryKey,
-  getBillTosListServiceOrdersQueryKey,
   useBillTosGetBillTo,
   useBillTosListLocations,
-  useBillTosListServiceOrders,
   useBillTosRefreshBillTo,
 } from "@/lib/api/generated/bill-tos/bill-tos";
-import type { LocationRead } from "@/lib/api/generated/model";
 import { usePermissions } from "@/lib/permissions";
-
-function LocationRow({ location }: { location: LocationRead }) {
-  const removed = location.removed_at !== null;
-  const street = [location.address, location.address2].filter(Boolean).join(", ");
-  const place = [location.city, [location.state, location.zip].filter(Boolean).join(" ")]
-    .filter(Boolean)
-    .join(", ");
-  return (
-    <li className={removed ? "p-4 text-muted-foreground" : "p-4"}>
-      <div className="flex flex-wrap items-center gap-2">
-        <Link
-          href={`/locations/${location.id}`}
-          className="font-medium text-primary hover:underline"
-        >
-          {location.pestpac_company ?? "Unnamed location"}
-        </Link>
-        {(location.open_order_count ?? 0) > 0 && (
-          <Badge variant="secondary">
-            {location.open_order_count} open {location.open_order_count === 1 ? "order" : "orders"}
-          </Badge>
-        )}
-        <span className="text-sm text-muted-foreground">
-          LocationID {location.pestpac_location_id}
-          {location.pestpac_location_code && ` · code ${location.pestpac_location_code}`}
-        </span>
-        {removed && <Badge variant="outline">No longer under this bill-to</Badge>}
-        {!removed && !location.pestpac_active && (
-          <Badge variant="warning">Inactive in PestPac</Badge>
-        )}
-      </div>
-      <div className="mt-1 grid gap-x-6 text-sm sm:grid-cols-3">
-        <span>
-          {street}
-          {street && place && <br />}
-          {place}
-        </span>
-        <span>
-          {location.phone}
-          {location.phone && location.email && <br />}
-          {location.email && (
-            <a href={`mailto:${location.email}`} className="text-primary hover:underline">
-              {location.email}
-            </a>
-          )}
-        </span>
-        <span className="text-muted-foreground">
-          {[location.account_type, location.pestpac_type].filter(Boolean).join(" · ")}
-        </span>
-      </div>
-    </li>
-  );
-}
 
 export function BillToDetail() {
   const { billToId } = useParams<{ billToId: string }>();
@@ -89,17 +31,12 @@ export function BillToDetail() {
   const billTo = useBillTosGetBillTo(billToId);
   const locations = useBillTosListLocations(billToId);
   const [status, setStatus] = useState<OrderStatusFilter>("open");
-  const orders = useBillTosListServiceOrders(billToId, { status });
-  const locationNames = useMemo(
-    () =>
-      new Map(
-        (locations.data?.data ?? []).map((l) => [l.id, l.pestpac_company ?? "Unnamed location"]),
-      ),
-    [locations.data],
-  );
   const onSynced = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: getBillTosListServiceOrdersQueryKey(billToId) });
     queryClient.invalidateQueries({ queryKey: getBillTosListLocationsQueryKey(billToId) });
+    // Expanded locations' orders (keys are `/v1/locations/{id}/service-orders`).
+    queryClient.invalidateQueries({
+      predicate: (q) => String(q.queryKey[0]).endsWith("/service-orders"),
+    });
   }, [queryClient, billToId]);
   const refresh = useBillTosRefreshBillTo({
     mutation: {
@@ -175,35 +112,11 @@ export function BillToDetail() {
 
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl">Service orders</h2>
+          <h2 className="text-xl">Locations and service orders</h2>
           <OrderStatusSelect value={status} onChange={setStatus} />
         </div>
         <SyncJobPanel billToId={billToId} canSync={canWrite && b.is_active} onFinished={onSynced} />
-        <ServiceOrderList query={orders} status={status} locationNames={locationNames} />
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-xl">Locations ({b.location_count})</h2>
-        {locations.isPending && <p className="text-muted-foreground">Loading…</p>}
-        {locations.isError && (
-          <Alert variant="destructive">
-            <AlertDescription>
-              {errorMessage(locations.error, "Could not load locations.")}
-            </AlertDescription>
-          </Alert>
-        )}
-        {locations.data && (
-          <ul className="divide-y divide-border border border-border bg-card">
-            {locations.data.data.length === 0 && (
-              <li className="p-4 text-muted-foreground">
-                PestPac lists no locations under this bill-to.
-              </li>
-            )}
-            {locations.data.data.map((location) => (
-              <LocationRow key={location.id} location={location} />
-            ))}
-          </ul>
-        )}
+        <BillToLocations locations={locations} status={status} />
       </section>
     </div>
   );

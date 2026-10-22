@@ -36,7 +36,8 @@ def fetch_location_notes(
     section = client.custom_endpoint(f"/Locations/{pestpac_location_id}/notes")
     by_id: dict[int, PestPacNoteContent] = {}
     for page_number in range(settings.pestpac_max_pages):
-        response = _get(section, params={"skip": page_number * take, "take": take})
+        # This endpoint pages with skip/top; it ignores the `take` the /pageable endpoints use.
+        response = _get(section, params={"skip": page_number * take, "top": take})
         if response.status_code != 200:
             raise PestPacUnavailableError(
                 f"PestPac /Locations/{pestpac_location_id}/notes returned {response.status_code}"

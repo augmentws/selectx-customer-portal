@@ -269,11 +269,13 @@ def pestpac():
 
             location_id = int(LOCATION_NOTES_URL.search(request.url).group(1))
             query = parse_qs(urlparse(request.url).query)
-            skip, take = int(query["skip"][0]), int(query["take"][0])
+            if "top" not in query:  # PestPac ignores `take` here; make that a loud failure
+                return 400, {}, "{}"
+            skip, top = int(query["skip"][0]), int(query["top"][0])
             value = rsps.notes_by_location.get(location_id, [])
             if isinstance(value, int):
                 return value, {}, "{}"
-            return 200, {}, json.dumps(value[skip : skip + take])
+            return 200, {}, json.dumps(value[skip : skip + top])
 
         def note_detail(request):
             note_id = int(NOTE_URL.search(request.url).group(1))

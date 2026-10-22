@@ -51,7 +51,16 @@ function Instructions({ label, text }: { label: string; text: string | null }) {
   );
 }
 
-function OrderRow({ order, locationName }: { order: ServiceOrderRead; locationName?: string }) {
+export function OrderRow({
+  order,
+  locationName,
+  showLocation = true,
+}: {
+  order: ServiceOrderRead;
+  locationName?: string;
+  /** Off when the order is already listed under its location. */
+  showLocation?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const hasInstructions =
     order.location_instructions || order.service_instructions || order.order_instructions;
@@ -84,14 +93,14 @@ function OrderRow({ order, locationName }: { order: ServiceOrderRead; locationNa
           )}
         </span>
         <span className="text-muted-foreground">
-          {order.location_id ? (
+          {!showLocation ? null : order.location_id ? (
             <Link href={`/locations/${order.location_id}`} className="text-primary hover:underline">
               {locationName ?? `LocationID ${order.pestpac_location_id}`}
             </Link>
           ) : (
             `LocationID ${order.pestpac_location_id}`
           )}
-          <br />
+          {showLocation && <br />}
           OrderID {order.pestpac_order_id}
         </span>
       </div>
