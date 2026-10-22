@@ -19,6 +19,7 @@ os.environ["PESTPAC_DEBUG_BODIES"] = "false"
 import json  # noqa: E402
 import re  # noqa: E402
 import uuid  # noqa: E402
+from datetime import UTC, datetime  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 import pytest  # noqa: E402
@@ -35,8 +36,13 @@ from app.models import (  # noqa: E402
     BillTo,
     Company,
     ConnectionStatus,
+    Location,
     Membership,
     PestPacConnection,
+    ServiceOrder,
+    SyncJob,
+    SyncJobKind,
+    SyncJobStatus,
     Tenant,
     TenantKind,
 )
@@ -68,8 +74,8 @@ def _clean_tables():
     with engine.begin() as conn:
         conn.execute(
             text(
-                "TRUNCATE locations, pestpac_connections, bill_tos, companies, memberships, "
-                "auth_sessions, "
+                "TRUNCATE notes, sync_jobs, service_orders, technicians, locations, "
+                "pestpac_connections, bill_tos, companies, memberships, auth_sessions, "
                 "credentials, users"
             )
         )
@@ -103,6 +109,72 @@ def pestpac_locations(bill_to_id: int, items: list[dict] | None = None) -> list[
         {**item, "BillToID": bill_to_id}
         for item in (items if items is not None else LOCATIONS_FIXTURE)
     ]
+
+
+# Sample service order (GET /ServiceOrders/{id} item), with the tech's username replaced.
+SERVICE_ORDER_FIXTURE = json.loads(
+    (Path(__file__).parent / "fixtures" / "pestpac_service_order.json").read_text()
+)
+
+
+def pestpac_order(order_id: int, location_id: int, bill_to_id: int, **overrides) -> dict:
+    return {
+        **SERVICE_ORDER_FIXTURE,
+        "OrderID": order_id,
+        "LocationID": location_id,
+        "BillToID": bill_to_id,
+        **overrides,
+    }
+
+
+# Sample GET /lookups/Employees/technicians/{techId} record, with personal details replaced.
+TECHNICIAN_FIXTURE = json.loads(
+    (Path(__file__).parent / "fixtures" / "pestpac_technician.json").read_text()
+)
+TECHNICIAN_URL = re.compile(re.escape(PESTPAC_BASE) + r"/lookups/Employees/technicians/(\d+)$")
+
+TECHNICIANS_URL = re.compile(re.escape(PESTPAC_BASE) + r"/lookups/Employees/technicians$")
+LOCATION_NOTES_URL = re.compile(re.escape(PESTPAC_BASE) + r"/Locations/(\d+)/notes")
+NOTE_URL = re.compile(re.escape(PESTPAC_BASE) + r"/Notes/(\d+)$")
+
+
+def pestpac_note(note_id: int, *, code="SERVICE", text="Service: RAMP MONITOR", user="TECH01"):
+    """A GET /Locations/{id}/notes item (no associations)."""
+    return {
+        "NoteID": note_id,
+        "BillToID": None,
+        "LocationID": None,
+        "NoteDate": "2026-10-14T03:43:24",
+        "NoteCode": code,
+        "Note": text,
+        "CreatedByUser": user,
+        "AlertExpirationDate": None,
+        "ShowOnPortal": False,
+        "WWID": None,
+        "NoteOriginType": None,
+    }
+
+
+def pestpac_note_detail(item: dict, *, location_id=None, order_id=None, invoice_id=None) -> dict:
+    """GET /Notes/{id} for a list item, with its associations."""
+    detail = {
+        k: v for k, v in item.items() if k not in ("BillToID", "LocationID", "NoteOriginType")
+    }
+    detail["Associations"] = {
+        "LocationID": location_id,
+        "ContactID": None,
+        "BillToID": None,
+        "TaskID": None,
+        "OrderID": order_id,
+        "SalesLeadID": None,
+        "InvoiceID": invoice_id,
+        "CallID": None,
+    }
+    return detail
+
+
+LOCATION_ORDERS_URL = re.compile(re.escape(PESTPAC_BASE) + r"/Locations/(\d+)/serviceOrders$")
+SERVICE_ORDER_URL = re.compile(re.escape(PESTPAC_BASE) + r"/ServiceOrders/(\d+)$")
 
 
 LOCATIONS_URL = re.compile(re.escape(PESTPAC_BASE) + r"/BillTos/(\d+)/locations/pageable")
@@ -145,6 +217,72 @@ def pestpac():
             responses.GET, re.compile(re.escape(PESTPAC_BASE) + r"/BillTos/\d+$"), bill_to
         )
         rsps.add_callback(responses.GET, LOCATIONS_URL, locations_callback())
+
+        # Open orders per PestPac LocationID; tests set entries (a list, or an int status).
+        rsps.orders_by_location = {}
+
+        def location_orders(request):
+            location_id = int(LOCATION_ORDERS_URL.search(request.url).group(1))
+            value = rsps.orders_by_location.get(location_id, [])
+            if isinstance(value, int):
+                return value, {}, "{}"
+            return 200, {}, json.dumps(value)
+
+        def single_order(request):
+            order_id = int(SERVICE_ORDER_URL.search(request.url).group(1))
+            for orders in rsps.orders_by_location.values():
+                if isinstance(orders, list):
+                    for order in orders:
+                        if order["OrderID"] == order_id:
+                            return 200, {}, json.dumps(order)
+            return 404, {}, "{}"
+
+        # Technicians PestPac knows, by TechID; others 404.
+        rsps.technicians = {TECHNICIAN_FIXTURE["TechID"]: TECHNICIAN_FIXTURE}
+
+        def technician(request):
+            tech_id = int(TECHNICIAN_URL.search(request.url).group(1))
+            body = rsps.technicians.get(tech_id)
+            return (200, {}, json.dumps(body)) if body else (404, {}, "{}")
+
+        rsps.add_callback(responses.GET, TECHNICIAN_URL, technician)
+        # The seeding list: by default everyone in rsps.technicians. Tests can set a list
+        # (e.g. []) or an int status code.
+        rsps.technicians_listed = None
+
+        def technicians_list(request):
+            listed = rsps.technicians_listed
+            if isinstance(listed, int):
+                return listed, {}, "{}"
+            body = list(rsps.technicians.values()) if listed is None else listed
+            return 200, {}, json.dumps(body)
+
+        rsps.add_callback(responses.GET, TECHNICIANS_URL, technicians_list)
+
+        # Notes: list items per PestPac LocationID (paged), and details by NoteID.
+        rsps.notes_by_location = {}
+        rsps.note_details = {}
+
+        def location_notes(request):
+            from urllib.parse import parse_qs, urlparse
+
+            location_id = int(LOCATION_NOTES_URL.search(request.url).group(1))
+            query = parse_qs(urlparse(request.url).query)
+            skip, take = int(query["skip"][0]), int(query["take"][0])
+            value = rsps.notes_by_location.get(location_id, [])
+            if isinstance(value, int):
+                return value, {}, "{}"
+            return 200, {}, json.dumps(value[skip : skip + take])
+
+        def note_detail(request):
+            note_id = int(NOTE_URL.search(request.url).group(1))
+            body = rsps.note_details.get(note_id)
+            return (200, {}, json.dumps(body)) if body else (404, {}, "{}")
+
+        rsps.add_callback(responses.GET, LOCATION_NOTES_URL, location_notes)
+        rsps.add_callback(responses.GET, NOTE_URL, note_detail)
+        rsps.add_callback(responses.GET, LOCATION_ORDERS_URL, location_orders)
+        rsps.add_callback(responses.GET, SERVICE_ORDER_URL, single_order)
         yield rsps
 
 
@@ -175,6 +313,9 @@ class World:
     company_b: uuid.UUID
     emails: dict[str, str]
     user_ids: dict[str, uuid.UUID]
+    location_a: uuid.UUID
+    sync_job_a: uuid.UUID
+    service_order_a: uuid.UUID
 
 
 ACTORS = ("platform_admin", "admin_a", "staff_a", "admin_b", "no_role")
@@ -245,6 +386,36 @@ def world() -> World:
             description="Company-level billing",
         )
         db.add(bill_to_a)
+        db.flush()
+        location_a = Location(
+            operator_id=op_a.id,
+            bill_to_id=bill_to_a.id,
+            pestpac_location_id=800001,
+            pestpac_company="ACME TACOS - STORE #1",
+            pestpac_active=True,
+            pestpac_fetched_at=datetime.now(UTC),
+        )
+        db.add(location_a)
+        db.flush()
+        sync_job_a = SyncJob(
+            operator_id=op_a.id,
+            kind=SyncJobKind.bill_to_service_orders,
+            status=SyncJobStatus.succeeded,
+            bill_to_id=bill_to_a.id,
+            progress={},
+            attempts=1,
+        )
+        db.add(sync_job_a)
+        service_order_a = ServiceOrder(
+            operator_id=op_a.id,
+            bill_to_id=bill_to_a.id,
+            location_id=location_a.id,
+            pestpac_order_id=700001,
+            pestpac_location_id=800001,
+            posted=False,
+            pestpac_fetched_at=datetime.now(UTC),
+        )
+        db.add(service_order_a)
         db.commit()
         return World(
             platform_id=platform.id,
@@ -255,4 +426,23 @@ def world() -> World:
             company_b=company_b.id,
             emails=emails,
             user_ids=user_ids,
+            location_a=location_a.id,
+            sync_job_a=sync_job_a.id,
+            service_order_a=service_order_a.id,
         )
+
+
+ONBOARDED_BILL_TO = 180020
+
+
+@pytest.fixture
+def onboarded(client, world, pestpac):
+    """Bill-to 180020 under company A, with its three fixture locations synced."""
+    admin = headers_for(client, world.emails["admin_a"])
+    resp = client.post(
+        f"/v1/companies/{world.company_a}/bill-tos",
+        json={"pestpac_bill_to_id": ONBOARDED_BILL_TO},
+        headers=admin,
+    )
+    assert resp.status_code == 201
+    return {"headers": admin, "bill_to_id": resp.json()["id"]}

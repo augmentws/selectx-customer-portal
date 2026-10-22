@@ -3,6 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
+from app.models import SyncJobKind, SyncJobStatus
 from app.schemas.auth import PASSWORD_MIN_LENGTH
 from app.schemas.pestpac import LocationSyncSummary
 from app.security.permissions import RoleScope
@@ -141,6 +142,8 @@ class LocationRead(BaseModel):
     pestpac_active: bool
     removed_at: datetime | None
     pestpac_fetched_at: datetime
+    # Orders PestPac still lists as open (not yet billed) for this location.
+    open_order_count: int = 0
 
 
 class MemberCreate(BaseModel):
@@ -181,3 +184,65 @@ class RoleRead(BaseModel):
     description: str
     scope: RoleScope
     permissions: list[str]
+
+
+class ServiceOrderRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    bill_to_id: uuid.UUID
+    location_id: uuid.UUID | None
+    pestpac_order_id: int
+    pestpac_location_id: int
+    order_number: str | None
+    service_code: str | None
+    description: str | None
+    work_date: datetime | None
+    tech_name: str | None
+    tech_id: int | None
+    technician_id: uuid.UUID | None
+    # Resolved technician's name, or tech_name when the lookup hasn't succeeded yet.
+    technician_name: str | None
+    location_instructions: str | None
+    service_instructions: str | None
+    order_instructions: str | None
+    pestpac_invoice_id: int | None
+    posted: bool
+    posted_at: datetime | None
+    closed_at: datetime | None
+    pestpac_fetched_at: datetime
+    last_event_at: datetime | None
+
+
+class SyncJobRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    kind: SyncJobKind
+    status: SyncJobStatus
+    bill_to_id: uuid.UUID
+    location_id: uuid.UUID | None
+    progress: dict
+    error: str | None
+    attempts: int
+    created_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+
+
+class NoteRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    pestpac_note_id: int
+    note_date: datetime | None
+    note_code: str | None
+    note: str | None
+    created_by_user: str | None
+    # Technician's name when the author is a known technician, else created_by_user.
+    created_by_name: str | None
+    show_on_portal: bool
+    location_id: uuid.UUID | None
+    service_order_id: uuid.UUID | None
+    pestpac_order_id: int | None
+    pestpac_invoice_id: int | None

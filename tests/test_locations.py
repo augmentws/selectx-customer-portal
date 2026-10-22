@@ -231,4 +231,12 @@ def _assert_not_onboarded(pestpac_bill_to_id: int) -> None:
             )
             == 0
         )
-        assert db.scalar(select(func.count()).select_from(Location)) == 0
+        fixture_ids = [loc["LocationID"] for loc in LOCATIONS_FIXTURE]
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(Location)
+                .where(Location.pestpac_location_id.in_(fixture_ids))
+            )
+            == 0
+        )

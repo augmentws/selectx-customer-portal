@@ -1,4 +1,5 @@
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -7,10 +8,17 @@ from app.api.v1._pestpac_errors import pestpac_errors
 from app.db.session import get_db
 from app.models import BillTo
 from app.schemas.pestpac import LocationSyncSummary
-from app.schemas.tenancy import BillToRead, BillToSynced, BillToUpdate, LocationRead
+from app.schemas.tenancy import (
+    BillToRead,
+    BillToSynced,
+    BillToUpdate,
+    LocationRead,
+    ServiceOrderRead,
+    SyncJobRead,
+)
 from app.security.access import AccessScope, get_scope
 from app.security.permissions import Perm
-from app.services import locations, tenancy
+from app.services import locations, service_orders, sync_jobs, tenancy
 
 router = APIRouter(prefix="/bill-tos", tags=["bill_tos"])
 
@@ -75,4 +83,50 @@ def list_locations(
     """Service locations synced from PestPac, current ones first."""
     bill_to = _bill_to_or_404(db, bill_to_id)
     scope.require(Perm.bill_tos_read, bill_to.operator_id, read_perm=Perm.bill_tos_read)
-    return locations.list_locations(db, bill_to.id)
+    rows = locations.list_locations(db, bill_to.id)
+    counts = service_orders.open_order_counts(db, [loc.id for loc in rows])
+    return [
+        LocationRead.model_validate(loc).model_copy(
+            update={"open_order_count": counts.get(loc.id, 0)}
+        )
+        for loc in rows
+    ]
+
+
+@router.get("/{bill_to_id}/service-orders", response_model=list[ServiceOrderRead])
+def list_service_orders(
+    bill_to_id: uuid.UUID,
+    status: Literal["open", "closed", "all"] = "open",
+    db: Session = Depends(get_db),
+    scope: AccessScope = Depends(get_scope),
+):
+    """Our copies of the bill-to's service orders; `closed` means billed (no longer in PestPac)."""
+    bill_to = _bill_to_or_404(db, bill_to_id)
+    scope.require(Perm.bill_tos_read, bill_to.operator_id, read_perm=Perm.bill_tos_read)
+    return service_orders.list_orders(db, bill_to_id=bill_to.id, status=status)
+
+
+@router.post(
+    "/{bill_to_id}/service-orders/sync",
+    response_model=SyncJobRead,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def sync_service_orders(
+    bill_to_id: uuid.UUID, db: Session = Depends(get_db), scope: AccessScope = Depends(get_scope)
+):
+    """Queue a sync of every location's open orders. Returns the already-active job if one is
+    queued or running for this bill-to."""
+    bill_to = _bill_to_or_404(db, bill_to_id)
+    scope.require(Perm.bill_tos_write, bill_to.operator_id, read_perm=Perm.bill_tos_read)
+    job = sync_jobs.enqueue_bill_to(db, bill_to, requested_by=scope.user_id)
+    db.commit()
+    return job
+
+
+@router.get("/{bill_to_id}/sync-jobs", response_model=list[SyncJobRead])
+def list_sync_jobs(
+    bill_to_id: uuid.UUID, db: Session = Depends(get_db), scope: AccessScope = Depends(get_scope)
+):
+    bill_to = _bill_to_or_404(db, bill_to_id)
+    scope.require(Perm.bill_tos_read, bill_to.operator_id, read_perm=Perm.bill_tos_read)
+    return sync_jobs.jobs_for_bill_to(db, bill_to.id)

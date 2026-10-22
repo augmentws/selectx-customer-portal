@@ -1,0 +1,20 @@
+{
+  "EmployeeID": 2325,
+  "UserID": 1561,
+  "TechID": 1332,
+  "DefaultBranch": "SELECT EXTERMINATING",
+  "Active": true,
+  "IsUser": true,
+  "IsTech": true,
+  "Username": "TECH01",
+  "Email": "tech.one@personal.example",
+  "LastName": "Tech",
+  "FirstName": "Pat",
+  "Phone": "555-010-0199",
+  "BirthDate": "1900-01-01T00:00:00",
+  "HireDate": "2026-07-14T00:00:00",
+  "TerminationDate": null,
+  "BranchAssignments": [{"BranchID": 1, "Name": "SELECT EXTERMINATING", "Active": true}],
+  "Roles": ["TECH"],
+  "PrimaryEmergencyContact": {"Name": "EMERGENCY PERSON", "Relationship": "", "Phone": "555-010-0198", "AlternatePhone": ""}
+}

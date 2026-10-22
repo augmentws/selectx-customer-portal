@@ -106,6 +106,66 @@ CASES = [
         _all(404, platform_admin=200, admin_a=200, staff_a=200),
     ),
     Case(
+        "list service orders of bill-to A",
+        "GET",
+        lambda w: f"/v1/bill-tos/{w.bill_to_a}/service-orders",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "sync service orders of bill-to A",
+        "POST",
+        lambda w: f"/v1/bill-tos/{w.bill_to_a}/service-orders/sync",
+        _all(404, platform_admin=202, admin_a=202, staff_a=403),
+    ),
+    Case(
+        "list sync jobs of bill-to A",
+        "GET",
+        lambda w: f"/v1/bill-tos/{w.bill_to_a}/sync-jobs",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "list service orders of a location in A",
+        "GET",
+        lambda w: f"/v1/locations/{w.location_a}/service-orders",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "sync service orders of a location in A",
+        "POST",
+        lambda w: f"/v1/locations/{w.location_a}/service-orders/sync",
+        _all(404, platform_admin=202, admin_a=202, staff_a=403),
+    ),
+    Case(
+        "get a location in A",
+        "GET",
+        lambda w: f"/v1/locations/{w.location_a}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "list notes of a location in A",
+        "GET",
+        lambda w: f"/v1/locations/{w.location_a}/notes",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "get a service order of A",
+        "GET",
+        lambda w: f"/v1/service-orders/{w.service_order_a}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "list notes of a service order of A",
+        "GET",
+        lambda w: f"/v1/service-orders/{w.service_order_a}/notes",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "get a sync job of A",
+        "GET",
+        lambda w: f"/v1/sync-jobs/{w.sync_job_a}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
         "get bill-to A",
         "GET",
         lambda w: f"/v1/bill-tos/{w.bill_to_a}",
@@ -234,6 +294,9 @@ _PLACEHOLDER_WORLD = World(
     company_b="{company_id}",  # type: ignore[arg-type]
     emails={},
     user_ids={actor: "{user_id}" for actor in ACTORS},  # type: ignore[misc]
+    location_a="{location_id}",  # type: ignore[arg-type]
+    sync_job_a="{job_id}",  # type: ignore[arg-type]
+    service_order_a="{order_id}",  # type: ignore[arg-type]
 )
 
 

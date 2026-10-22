@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     pestpac_page_size: int = Field(default=50, ge=1, le=500)
     pestpac_max_pages: int = Field(default=200, ge=1)
 
+    # Background worker (python -m app.worker).
+    worker_poll_seconds: float = Field(default=5.0, gt=0)
+    sync_job_stale_minutes: int = Field(default=10, ge=1)
+    sync_job_max_attempts: int = Field(default=3, ge=1)
+
 
 @lru_cache
 def get_settings() -> Settings:

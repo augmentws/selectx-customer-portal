@@ -14,7 +14,7 @@ from app.schemas.tenancy import (
     OperatorCreate,
     OperatorUpdate,
 )
-from app.services import locations, pestpac_connection
+from app.services import locations, pestpac_connection, sync_jobs
 from app.services.errors import ConflictError
 from app.services.rbac import get_platform_tenant
 
@@ -191,6 +191,8 @@ def onboard_bill_to(
     db.add(bill_to)
     db.flush()
     summary = locations.apply_locations(db, bill_to, fetched_locations)
+    # Pull the new bill-to's open service orders in the background.
+    sync_jobs.enqueue_bill_to(db, bill_to, requested_by=onboarded_by)
     db.commit()
     return bill_to, summary
 

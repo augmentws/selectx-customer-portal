@@ -30,7 +30,10 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - Auth: `POST /v1/auth/login`, `/refresh`, `/logout`, `/password`; `GET /v1/auth/me` (includes memberships and permissions)
 - `GET/POST /v1/operators`, `GET/PATCH /v1/operators/{id}`, `GET/POST /v1/operators/{id}/companies`
 - `GET/PATCH /v1/companies/{id}`, `GET/POST /v1/companies/{id}/bill-tos`
-- `GET/PATCH /v1/bill-tos/{id}`, `POST /v1/bill-tos/{id}/refresh`, `GET /v1/bill-tos/{id}/locations`, `GET /v1/companies/{id}/bill-tos/lookup`
+- `GET/PATCH /v1/bill-tos/{id}`, `POST /v1/bill-tos/{id}/refresh`, `GET /v1/bill-tos/{id}/locations`, `GET /v1/bill-tos/{id}/service-orders`, `POST /v1/bill-tos/{id}/service-orders/sync`, `GET /v1/bill-tos/{id}/sync-jobs`
+- `GET /v1/locations/{id}`, `GET /v1/locations/{id}/notes`, `GET /v1/locations/{id}/service-orders`, `POST /v1/locations/{id}/service-orders/sync`
+- `GET /v1/service-orders/{id}`, `GET /v1/service-orders/{id}/notes`, `GET /v1/sync-jobs/{id}`
+- `GET /v1/companies/{id}/bill-tos/lookup`
 - `GET/PUT /v1/operators/{id}/pestpac-connection`, `POST /v1/operators/{id}/pestpac-connection/verify`
 - `GET/POST /v1/tenants/{id}/members`, `PATCH/DELETE /v1/tenants/{id}/members/{user_id}`
 - `GET /v1/roles`, `GET /v1/permissions`
@@ -56,6 +59,16 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - Onboarding and refresh also sync the bill-to's locations from `GET /BillTos/{id}/locations/pageable` (bare JSON array; a short page ends paging; `PESTPAC_PAGE_SIZE` default 50, `PESTPAC_MAX_PAGES` cap; a page that doesn't advance is an error). Everything is fetched before anything is written, in one transaction.
 - Locations are upserted by `(operator_id, LocationID)`: moved locations are reassigned to their new bill-to, and ones PestPac stops listing get `removed_at` (never deleted; service orders will reference them). Kept fields are whitelisted in `PestPacLocationDetails`: LocationCode, Company (the location's name), address, phone, email, Type, AccountType, latitude/longitude, Active. Contact names and user-defined fields (which include staff names) are not stored.
 - Locations are read with `bill_tos:read` via `GET /v1/bill-tos/{id}/locations`.
+
+## Service Orders, Technicians, and Notes
+
+- PestPac lists only *open* service orders, per location (`GET /Locations/{id}/serviceOrders`, not paged). `service_orders` is our permanent copy, keyed by `(operator_id, OrderID)`: open (`posted` false) → worked (`Posted` flips true; `posted_at` records when we first saw it) → billed (PestPac stops listing it; `closed_at`). Never delete service orders. Only orders whose BillToID is an onboarded, active bill-to are stored.
+- Stored order fields: OrderID, OrderNumber, ServiceCode, Description, WorkDate (PestPac local wall-clock time, no timezone), Tech1, TechID1, Location/Service/Order instructions, Posted, and the InvoiceID learned from the order's notes. No pricing, tax, scheduling windows, or user-defined fields.
+- Syncs run in the background worker, `python -m app.worker` (`--once` to drain the queue). `sync_jobs` are claimed with `FOR UPDATE SKIP LOCKED`; stale running jobs are retried up to `SYNC_JOB_MAX_ATTEMPTS`. Each location commits on its own; jobs end `succeeded`, `partial`, or `failed`. Onboarding a bill-to queues its first sync.
+- Each job first seeds technicians from `GET /lookups/Employees/technicians` (not paged; not fatal on failure); `GET /lookups/Employees/technicians/{techId}` is the per-job, once-per-tech fallback. A technician problem never fails an order. Store only TechID, EmployeeID, username, first/last name, and Active.
+- Notes: one `notes` row per NoteID, mirroring PestPac (a note can be associated with several objects). Objects we model get real foreign keys (`location_id`, `bill_to_id`, `service_order_id`, `created_by_technician_id`); every association is also kept as its raw PestPac id. Don't create per-object note tables.
+- Each location's full note history is synced: `GET /Locations/{id}/notes` (skip/take paged), then `GET /Notes/{id}` once per new note for its associations. Known notes are refreshed from the list without a detail call. Posted orders without an InvoiceID have their notes' associations re-checked on later syncs. Notes are synced after the location's orders commit; a notes failure never undoes them.
+- `CreatedByUser` links to a technician by username when there is one; otherwise it stays a raw username.
 - PestPac calls have timeouts. Request/response bodies contain customer data and are logged only when `PESTPAC_DEBUG_BODIES=true` (local debugging).
 - Tests mock PestPac with `responses` (`pestpac` fixture in `tests/conftest.py`); they must never call the real API.
 
@@ -130,6 +143,7 @@ docker compose up -d postgres
 pipenv run alembic upgrade head
 pipenv run python -m app.bootstrap
 pipenv run uvicorn app.main:app --reload --port 8001
+pipenv run python -m app.worker          # separate terminal: background syncs
 cd web && cp .env.example .env.local && pnpm install && pnpm dev
 ```
 
