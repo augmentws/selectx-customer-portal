@@ -28,6 +28,11 @@ def test_me_lists_memberships_and_permissions(client, world):
             "tenant_name": "Operator A",
             "tenant_kind": "operator",
             "role": "operator_staff",
-            "permissions": ["bill_tos:read", "companies:read", "operators:read"],
+            "permissions": [
+                "bill_tos:read",
+                "companies:read",
+                "operators:read",
+                "reports:read",
+            ],
         }
     ]

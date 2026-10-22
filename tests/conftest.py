@@ -39,6 +39,7 @@ from app.models import (  # noqa: E402
     Location,
     Membership,
     PestPacConnection,
+    ReportTemplate,
     ServiceOrder,
     SyncJob,
     SyncJobKind,
@@ -74,8 +75,8 @@ def _clean_tables():
     with engine.begin() as conn:
         conn.execute(
             text(
-                "TRUNCATE webhook_events, notes, sync_jobs, service_orders, technicians, "
-                "locations, pestpac_connections, bill_tos, companies, memberships, "
+                "TRUNCATE report_templates, webhook_events, notes, sync_jobs, service_orders, "
+                "technicians, locations, pestpac_connections, bill_tos, companies, memberships, "
                 "auth_sessions, credentials, users"
             )
         )
@@ -316,6 +317,7 @@ class World:
     location_a: uuid.UUID
     sync_job_a: uuid.UUID
     service_order_a: uuid.UUID
+    report_template_a: uuid.UUID
 
 
 ACTORS = ("platform_admin", "admin_a", "staff_a", "admin_b", "no_role")
@@ -416,6 +418,15 @@ def world() -> World:
             pestpac_fetched_at=datetime.now(UTC),
         )
         db.add(service_order_a)
+        report_template_a = ReportTemplate(
+            operator_id=op_a.id,
+            company_id=company_a.id,
+            name="Service summary",
+            html="<h1>{{ company.name }}</h1><p>{{ location.name }}</p>",
+            version=1,
+            is_active=True,
+        )
+        db.add(report_template_a)
         db.commit()
         return World(
             platform_id=platform.id,
@@ -429,6 +440,7 @@ def world() -> World:
             location_a=location_a.id,
             sync_job_a=sync_job_a.id,
             service_order_a=service_order_a.id,
+            report_template_a=report_template_a.id,
         )
 
 

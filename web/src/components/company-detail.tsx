@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 
 import { BillToDetailLines, OnboardBillToCard } from "@/components/bill-to-onboarding";
 import { LocationSyncResult } from "@/components/location-sync-result";
+import { ReportTemplatesSection } from "@/components/report-templates";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -148,6 +149,10 @@ export function CompanyDetail() {
           ))}
         </ul>
       )}
+
+      <Can perm="reports:read" tenantId={c.operator_id}>
+        <ReportTemplatesSection companyId={companyId} operatorId={c.operator_id} />
+      </Can>
     </div>
   );
 }

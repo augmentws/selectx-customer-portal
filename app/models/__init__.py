@@ -2,6 +2,7 @@ from app.models.customer import BillTo, Company, Location
 from app.models.note import Note
 from app.models.pestpac import ConnectionStatus, PestPacConnection
 from app.models.rbac import Membership, Permission, Role, role_permissions
+from app.models.report import ReportTemplate
 from app.models.service_order import (
     ServiceOrder,
     SyncJob,
@@ -29,6 +30,7 @@ __all__ = [
     "Note",
     "PestPacConnection",
     "Permission",
+    "ReportTemplate",
     "Role",
     "SignatureStatus",
     "ServiceOrder",

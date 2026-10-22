@@ -1,0 +1,172 @@
+"""PDF reports from customer-specific HTML templates.
+
+Templates are Jinja, rendered in a sandbox (no access to Python internals) with
+StrictUndefined (a misspelled variable is an error, not a blank) and autoescaping. They see
+only the whitelisted fields in `app.schemas.reports.ReportContext`, as plain dicts.
+
+WeasyPrint converts the HTML to PDF. Its URL fetcher allows only data: URIs, so a template
+can't make the server request anything: images, stylesheets, and fonts must be embedded.
+"""
+
+import uuid
+from datetime import UTC, datetime
+
+import weasyprint
+from jinja2 import StrictUndefined, TemplateError
+from jinja2.sandbox import SandboxedEnvironment
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+from weasyprint.urls import URLFetcher
+
+from app.models import BillTo, Company, Location, ReportTemplate, Tenant
+from app.schemas.reports import (
+    ReportBillTo,
+    ReportCompany,
+    ReportContext,
+    ReportLocation,
+    ReportOperator,
+    ReportTemplateCreate,
+    ReportTemplateUpdate,
+)
+
+_env = SandboxedEnvironment(autoescape=True, undefined=StrictUndefined)
+
+
+class TemplateRenderError(ValueError):
+    """The template doesn't compile or fails to render. The message is safe to show admins."""
+
+
+def _describe(exc: TemplateError) -> str:
+    line = getattr(exc, "lineno", None)
+    return f"{type(exc).__name__}{f' on line {line}' if line else ''}: {exc.message or exc}"
+
+
+def render_html(html: str, context: ReportContext) -> str:
+    try:
+        template = _env.from_string(html)
+        return template.render(context.model_dump(mode="python"))
+    except TemplateError as exc:
+        raise TemplateRenderError(_describe(exc)) from exc
+    except (ArithmeticError, AttributeError, LookupError, TypeError, ValueError) as exc:
+        # Errors raised by template expressions themselves, e.g. {{ 1 / 0 }}.
+        raise TemplateRenderError(f"{type(exc).__name__}: {exc}") from exc
+
+
+def html_to_pdf(html: str) -> bytes:
+    fetcher = URLFetcher(allowed_protocols={"data"}, allow_redirects=False)
+    return weasyprint.HTML(string=html, url_fetcher=fetcher).write_pdf()
+
+
+def sample_context() -> ReportContext:
+    """Placeholder data with every field set, used to check a template when it's saved."""
+    return ReportContext(
+        operator=ReportOperator(name="Select Exterminating"),
+        company=ReportCompany(name="Sample Company"),
+        bill_to=ReportBillTo(
+            pestpac_bill_to_id=100000,
+            name="Sample Company · 1 Main St, New York",
+            description="Sample bill-to",
+            pestpac_bill_to_code="SAMPLE",
+            pestpac_company="SAMPLE COMPANY",
+            address="1 MAIN ST",
+            address2=None,
+            city="NEW YORK",
+            state="NY",
+            zip="10001",
+            phone="212-555-0100",
+        ),
+        location=ReportLocation(
+            pestpac_location_id=200000,
+            pestpac_location_code="SAMPLE-1",
+            name="SAMPLE COMPANY - STORE #1",
+            address="1 MAIN ST",
+            address2="FL 2",
+            city="NEW YORK",
+            state="NY",
+            zip="10001",
+            phone="212-555-0101",
+            email="store1@example.com",
+            pestpac_type="ENTERPRISE",
+            account_type="Commercial",
+            latitude=40.75,
+            longitude=-73.99,
+        ),
+        generated_at=datetime.now(UTC),
+    )
+
+
+def check_template(html: str) -> None:
+    """Raise TemplateRenderError unless the template renders against the sample data."""
+    render_html(html, sample_context())
+
+
+def build_context(db: Session, location: Location) -> ReportContext:
+    bill_to = db.get(BillTo, location.bill_to_id)
+    company = db.get(Company, bill_to.company_id)
+    operator = db.get(Tenant, location.operator_id)
+    return ReportContext(
+        operator=ReportOperator(name=operator.name),
+        company=ReportCompany(name=company.name),
+        bill_to=ReportBillTo.model_validate(bill_to, from_attributes=True),
+        location=ReportLocation(
+            name=location.pestpac_company,
+            **{
+                field: getattr(location, field)
+                for field in ReportLocation.model_fields
+                if field != "name"
+            },
+        ),
+        generated_at=datetime.now(UTC),
+    )
+
+
+def render_pdf(db: Session, html: str, location: Location) -> bytes:
+    return html_to_pdf(render_html(html, build_context(db, location)))
+
+
+def location_company_id(db: Session, location: Location) -> uuid.UUID:
+    return db.scalar(select(BillTo.company_id).where(BillTo.id == location.bill_to_id))
+
+
+def list_templates(
+    db: Session, company_id: uuid.UUID, *, include_inactive: bool = False
+) -> list[ReportTemplate]:
+    query = select(ReportTemplate).where(ReportTemplate.company_id == company_id)
+    if not include_inactive:
+        query = query.where(ReportTemplate.is_active.is_(True))
+    return list(db.scalars(query.order_by(ReportTemplate.name, ReportTemplate.id)))
+
+
+def create_template(
+    db: Session, company: Company, data: ReportTemplateCreate, user_id: uuid.UUID
+) -> ReportTemplate:
+    check_template(data.html)
+    template = ReportTemplate(
+        operator_id=company.operator_id,
+        company_id=company.id,
+        name=data.name,
+        description=data.description,
+        html=data.html,
+        version=1,
+        is_active=True,
+        created_by=user_id,
+        updated_by=user_id,
+    )
+    db.add(template)
+    db.commit()
+    return template
+
+
+def update_template(
+    db: Session, template: ReportTemplate, data: ReportTemplateUpdate, user_id: uuid.UUID
+) -> ReportTemplate:
+    changes = data.model_dump(exclude_unset=True)
+    if "html" in changes:
+        check_template(changes["html"])
+        if changes["html"] != template.html:
+            template.version += 1
+    for field, value in changes.items():
+        setattr(template, field, value)
+    template.updated_by = user_id
+    db.commit()
+    return template

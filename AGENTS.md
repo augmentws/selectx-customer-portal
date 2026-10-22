@@ -18,7 +18,7 @@ This repository holds the backend API and the single web application:
 
 ## Backend Architecture
 
-Use Python 3.14, FastAPI, SQLAlchemy, Alembic, Pipenv, PostgreSQL, and Docker Compose. The local database is named `customer_portal` (tests use `customer_portal_test`). Local ports: PostgreSQL 5433, FastAPI 8001, Next.js 3001.
+Use Python 3.14, FastAPI, SQLAlchemy, Alembic, Pipenv, PostgreSQL, and Docker Compose. PDF reports use Jinja2 and WeasyPrint (system dependency: Pango). The local database is named `customer_portal` (tests use `customer_portal_test`). Local ports: PostgreSQL 5433, FastAPI 8001, Next.js 3001.
 
 FastAPI is the authority for domain behavior, authentication, authorization, sessions, and auditing. Do not move domain logic into the UI or its proxy layer.
 
@@ -38,6 +38,7 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - `GET/PUT /v1/operators/{id}/pestpac-connection`, `POST /v1/operators/{id}/pestpac-connection/verify`
 - `GET/POST /v1/tenants/{id}/members`, `PATCH/DELETE /v1/tenants/{id}/members/{user_id}`
 - `GET /v1/roles`, `GET /v1/permissions`
+- Reports: `GET/POST /v1/companies/{id}/report-templates`, `GET/PATCH /v1/report-templates/{id}`, `GET /v1/locations/{id}/reports/{template_id}` (PDF), `POST /v1/locations/{id}/report-preview` (PDF)
 
 ## Tenancy and Data Model
 
@@ -90,6 +91,14 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - The client retries 408/429/502/503 and network errors with backoff, and treats an `error` in a 200 body as a failure. Prompts and completions are logged only with `OPENROUTER_DEBUG_BODIES=true`.
 - Tests mock OpenRouter with `responses`; they never call the real API.
 - Stub: nothing calls these yet (`ADDRESS_CLEANUP` is the example task). Wire tasks into the worker, not request handlers, so slow model calls don't block requests.
+
+## PDF Reports
+
+- `report_templates` are per company (any number), HTML with inline CSS, written only by platform admins (`report_templates:write`); every system role has `reports:read` to list them and generate PDFs. Deactivate with `is_active`; `version` increments when the HTML changes. Generated PDFs are not stored or logged.
+- Templates are Jinja rendered by `app/services/reports.py` in a `SandboxedEnvironment` with autoescaping and `StrictUndefined`. Saving test-renders against `sample_context()`; render errors are 422 with the Jinja message.
+- Templates see only `ReportContext` in `app/schemas/reports.py` (operator, company, bill-to, location, `generated_at` in UTC), passed as plain dicts. To expose more data, add fields there and in `build_context`; never pass ORM objects to templates.
+- WeasyPrint renders the PDF with a URL fetcher limited to `data:` URIs: images, fonts, and stylesheets must be embedded, and nothing is fetched over the network or from disk. It needs Pango installed on the host.
+- A location only renders its own company's active templates (404 otherwise). The BFF forwards `content-disposition`; the web app fetches PDFs with `web/src/lib/api/pdf.ts`, since the generated client reads bodies as text.
 
 ## Authorization (RBAC)
 

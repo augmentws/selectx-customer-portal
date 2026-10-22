@@ -244,6 +244,45 @@ CASES = [
         lambda w: f"/v1/operators/{w.op_a}/pestpac-connection/verify",
         _all(404, platform_admin=200, admin_a=200, staff_a=403),
     ),
+    Case(
+        "list report templates of company A",
+        "GET",
+        lambda w: f"/v1/companies/{w.company_a}/report-templates",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "create report template in company A",
+        "POST",
+        lambda w: f"/v1/companies/{w.company_a}/report-templates",
+        _all(404, platform_admin=201, admin_a=403, staff_a=403),
+        lambda w: {"name": "Visit report", "html": "<p>{{ location.city }}</p>"},
+    ),
+    Case(
+        "get report template A",
+        "GET",
+        lambda w: f"/v1/report-templates/{w.report_template_a}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "update report template A",
+        "PATCH",
+        lambda w: f"/v1/report-templates/{w.report_template_a}",
+        _all(404, platform_admin=200, admin_a=403, staff_a=403),
+        lambda w: {"name": "Renamed report"},
+    ),
+    Case(
+        "generate report for location A",
+        "GET",
+        lambda w: f"/v1/locations/{w.location_a}/reports/{w.report_template_a}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "preview report for location A",
+        "POST",
+        lambda w: f"/v1/locations/{w.location_a}/report-preview",
+        _all(404, platform_admin=200, admin_a=403, staff_a=403),
+        lambda w: {"html": "<p>{{ location.name }}</p>"},
+    ),
     Case("list roles", "GET", lambda w: "/v1/roles", _all(200, staff_a=403, no_role=403)),
     Case(
         "list permissions", "GET", lambda w: "/v1/permissions", _all(200, staff_a=403, no_role=403)
@@ -299,6 +338,7 @@ _PLACEHOLDER_WORLD = World(
     location_a="{location_id}",  # type: ignore[arg-type]
     sync_job_a="{job_id}",  # type: ignore[arg-type]
     service_order_a="{order_id}",  # type: ignore[arg-type]
+    report_template_a="{template_id}",  # type: ignore[arg-type]
 )
 
 

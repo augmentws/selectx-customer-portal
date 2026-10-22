@@ -16,7 +16,7 @@ import {
 const BLOCKED = new Set(["v1/auth/login", "v1/auth/refresh", "v1/auth/logout"]);
 
 const FORWARDED_REQUEST_HEADERS = ["accept", "content-type"];
-const FORWARDED_RESPONSE_HEADERS = ["content-type", "cache-control", "etag"];
+const FORWARDED_RESPONSE_HEADERS = ["content-type", "content-disposition", "cache-control", "etag"];
 
 async function forward(
   req: NextRequest,

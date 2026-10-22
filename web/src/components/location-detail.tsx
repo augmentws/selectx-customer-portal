@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useState } from "react";
 
 import { NoteList } from "@/components/note-list";
+import { LocationReports } from "@/components/report-templates";
 import {
   type OrderStatusFilter,
   OrderStatusSelect,
@@ -119,6 +120,21 @@ export function LocationDetail() {
           )}
         </CardContent>
       </Card>
+
+      {b && can("reports:read", b.operator_id) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Reports</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <LocationReports
+              companyId={b.company_id}
+              locationId={loc.id}
+              pestpacLocationId={loc.pestpac_location_id}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">

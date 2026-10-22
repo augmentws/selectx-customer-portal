@@ -8,6 +8,7 @@ from app.api.v1 import (
     members,
     operators,
     pestpac_connection,
+    reports,
     roles,
     service_orders,
     sync_jobs,
@@ -24,5 +25,6 @@ router.include_router(service_orders.router)
 router.include_router(sync_jobs.router)
 router.include_router(members.router)
 router.include_router(pestpac_connection.router)
+router.include_router(reports.router)
 router.include_router(roles.router)
 router.include_router(webhooks.router)

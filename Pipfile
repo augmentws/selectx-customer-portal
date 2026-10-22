@@ -16,6 +16,8 @@ email-validator = "*"
 requests = "*"
 python-dotenv = "*"
 cryptography = "*"
+jinja2 = "*"
+weasyprint = "*"
 
 [dev-packages]
 pytest = "*"

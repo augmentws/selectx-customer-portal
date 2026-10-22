@@ -10,7 +10,7 @@ FastAPI backend + Next.js (App Router) BFF frontend. See `AGENTS.md` for the arc
 
 ## Prerequisites
 
-Python 3.14, Pipenv, Node 22+, pnpm, Docker.
+Python 3.14, Pipenv, Node 22+, pnpm, Docker, and Pango for PDF reports (WeasyPrint): `brew install pango` on macOS, `apt install libpango-1.0-0 libpangoft2-1.0-0` on Debian/Ubuntu.
 
 ## First run
 

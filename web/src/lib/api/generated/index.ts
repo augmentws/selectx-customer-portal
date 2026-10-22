@@ -6,6 +6,7 @@ export * from './locations/locations';
 export * from './members/members';
 export * from './operators/operators';
 export * from './pestpac/pestpac';
+export * from './reports/reports';
 export * from './roles/roles';
 export * from './service-orders/service-orders';
 export * from './sync-jobs/sync-jobs';
