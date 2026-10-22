@@ -3,9 +3,16 @@
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useCallback, useMemo, useState } from "react";
 
 import { BillToDetailLines } from "@/components/bill-to-onboarding";
 import { LocationSyncResult } from "@/components/location-sync-result";
+import {
+  type OrderStatusFilter,
+  OrderStatusSelect,
+  ServiceOrderList,
+} from "@/components/service-order-list";
+import { SyncJobPanel } from "@/components/sync-job-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,8 +21,10 @@ import { errorMessage } from "@/lib/api/errors";
 import {
   getBillTosGetBillToQueryKey,
   getBillTosListLocationsQueryKey,
+  getBillTosListServiceOrdersQueryKey,
   useBillTosGetBillTo,
   useBillTosListLocations,
+  useBillTosListServiceOrders,
   useBillTosRefreshBillTo,
 } from "@/lib/api/generated/bill-tos/bill-tos";
 import type { LocationRead } from "@/lib/api/generated/model";
@@ -30,7 +39,14 @@ function LocationRow({ location }: { location: LocationRead }) {
   return (
     <li className={removed ? "p-4 text-muted-foreground" : "p-4"}>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-medium">{location.pestpac_company ?? "Unnamed location"}</span>
+        <Link href={`/locations/${location.id}`} className="font-medium text-primary hover:underline">
+          {location.pestpac_company ?? "Unnamed location"}
+        </Link>
+        {(location.open_order_count ?? 0) > 0 && (
+          <Badge variant="secondary">
+            {location.open_order_count} open {location.open_order_count === 1 ? "order" : "orders"}
+          </Badge>
+        )}
         <span className="text-sm text-muted-foreground">
           LocationID {location.pestpac_location_id}
           {location.pestpac_location_code && ` · code ${location.pestpac_location_code}`}
@@ -69,6 +85,19 @@ export function BillToDetail() {
   const { can } = usePermissions();
   const billTo = useBillTosGetBillTo(billToId);
   const locations = useBillTosListLocations(billToId);
+  const [status, setStatus] = useState<OrderStatusFilter>("open");
+  const orders = useBillTosListServiceOrders(billToId, { status });
+  const locationNames = useMemo(
+    () =>
+      new Map(
+        (locations.data?.data ?? []).map((l) => [l.id, l.pestpac_company ?? "Unnamed location"]),
+      ),
+    [locations.data],
+  );
+  const onSynced = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: getBillTosListServiceOrdersQueryKey(billToId) });
+    queryClient.invalidateQueries({ queryKey: getBillTosListLocationsQueryKey(billToId) });
+  }, [queryClient, billToId]);
   const refresh = useBillTosRefreshBillTo({
     mutation: {
       onSuccess: () => {
@@ -140,6 +169,15 @@ export function BillToDetail() {
           )}
         </CardContent>
       </Card>
+
+      <section className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl">Service orders</h2>
+          <OrderStatusSelect value={status} onChange={setStatus} />
+        </div>
+        <SyncJobPanel billToId={billToId} canSync={canWrite && b.is_active} onFinished={onSynced} />
+        <ServiceOrderList query={orders} status={status} locationNames={locationNames} />
+      </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-xl">Locations ({b.location_count})</h2>
