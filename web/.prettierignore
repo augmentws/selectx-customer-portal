@@ -1,0 +1,9 @@
+# Generated: regenerate instead of formatting.
+src/lib/api/generated/
+openapi.json
+next-env.d.ts
+# shadcn primitives keep the generator's style.
+src/components/ui/
+.next/
+node_modules/
+pnpm-lock.yaml
