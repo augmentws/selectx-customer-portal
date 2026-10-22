@@ -31,6 +31,7 @@ def test_me_lists_memberships_and_permissions(client, world):
             "permissions": [
                 "bill_tos:read",
                 "companies:read",
+                "dashboards:read",
                 "operators:read",
                 "reports:read",
             ],

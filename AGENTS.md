@@ -38,6 +38,7 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - `GET/PUT /v1/operators/{id}/pestpac-connection`, `POST /v1/operators/{id}/pestpac-connection/verify`
 - `GET/POST /v1/tenants/{id}/members`, `PATCH/DELETE /v1/tenants/{id}/members/{user_id}`
 - `GET /v1/roles`, `GET /v1/permissions`
+- Dashboard: `GET /v1/companies/{id}/dashboard?bill_to_id=`
 - Reports: `GET/POST /v1/companies/{id}/report-templates`, `GET/PATCH /v1/report-templates/{id}`, `GET /v1/locations/{id}/reports/{template_id}` (PDF), `POST /v1/locations/{id}/report-preview` (PDF)
 
 ## Tenancy and Data Model
@@ -99,6 +100,12 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - Templates see only `ReportContext` in `app/schemas/reports.py` (operator, company, bill-to, location, `generated_at` in UTC), passed as plain dicts. To expose more data, add fields there and in `build_context`; never pass ORM objects to templates.
 - WeasyPrint renders the PDF with a URL fetcher limited to `data:` URIs: images, fonts, and stylesheets must be embedded, and nothing is fetched over the network or from disk. It needs Pango installed on the host.
 - A location only renders its own company's active templates (404 otherwise). The BFF forwards `content-disposition`; the web app fetches PDFs with `web/src/lib/api/pdf.ts`, since the generated client reads bodies as text.
+
+## Program Dashboard
+
+- Plan: `docs/customer-dashboard-plan.md` (billing is separate: `docs/billing-dashboard-plan.md`). The current dashboard is a stub for Select staff (`dashboards:read`, all system roles) showing service activity only; findings, programs, and risk tabs are labelled placeholders naming the plan phase that fills them.
+- `app/services/dashboard.py` aggregates in SQL and returns summaries, never raw order rows. A "service" is a worked (`posted`) order dated by WorkDate; worked orders PestPac no longer lists count as billed.
+- Charts use the shadcn chart component (Recharts) with semantic `--chart-*` tokens; every chart has a table view, single-series charts use `--chart-1`.
 
 ## Authorization (RBAC)
 

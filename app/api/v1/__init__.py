@@ -4,6 +4,7 @@ from app.api.v1 import (
     auth,
     bill_tos,
     companies,
+    dashboard,
     locations,
     members,
     operators,
@@ -19,6 +20,7 @@ router = APIRouter(prefix="/v1")
 router.include_router(auth.router)
 router.include_router(operators.router)
 router.include_router(companies.router)
+router.include_router(dashboard.router)
 router.include_router(bill_tos.router)
 router.include_router(locations.router)
 router.include_router(service_orders.router)

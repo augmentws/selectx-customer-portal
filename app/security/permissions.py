@@ -22,6 +22,7 @@ class Perm(enum.StrEnum):
     pestpac_connection_write = "pestpac_connection:write"
     reports_read = "reports:read"
     report_templates_write = "report_templates:write"
+    dashboards_read = "dashboards:read"
 
 
 PERMISSION_DESCRIPTIONS: dict[Perm, str] = {
@@ -38,6 +39,7 @@ PERMISSION_DESCRIPTIONS: dict[Perm, str] = {
     Perm.pestpac_connection_write: "Set up and test PestPac API credentials",
     Perm.reports_read: "View report templates and generate reports",
     Perm.report_templates_write: "Create and edit report templates",
+    Perm.dashboards_read: "View program dashboards",
 }
 
 
@@ -76,6 +78,7 @@ SYSTEM_ROLES: dict[SystemRole, tuple[RoleScope, str, frozenset[Perm]]] = {
                 Perm.pestpac_connection_read,
                 Perm.pestpac_connection_write,
                 Perm.reports_read,
+                Perm.dashboards_read,
             }
         ),
     ),
@@ -83,7 +86,13 @@ SYSTEM_ROLES: dict[SystemRole, tuple[RoleScope, str, frozenset[Perm]]] = {
         RoleScope.operator,
         "Read-only access to one operator's companies and bill-tos",
         frozenset(
-            {Perm.operators_read, Perm.companies_read, Perm.bill_tos_read, Perm.reports_read}
+            {
+                Perm.operators_read,
+                Perm.companies_read,
+                Perm.bill_tos_read,
+                Perm.reports_read,
+                Perm.dashboards_read,
+            }
         ),
     ),
 }

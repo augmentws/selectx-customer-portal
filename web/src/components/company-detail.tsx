@@ -1,6 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
+import { LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
@@ -9,7 +10,7 @@ import { LocationSyncResult } from "@/components/location-sync-result";
 import { ReportTemplatesSection } from "@/components/report-templates";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { errorMessage } from "@/lib/api/errors";
 import {
   useBillTosRefreshBillTo,
@@ -21,6 +22,7 @@ import {
   useCompaniesListBillTos,
 } from "@/lib/api/generated/companies/companies";
 import { Can, usePermissions } from "@/lib/permissions";
+import { cn } from "@/lib/utils";
 
 export function CompanyDetail() {
   const { companyId } = useParams<{ companyId: string }>();
@@ -61,6 +63,15 @@ export function CompanyDetail() {
         <p className="text-muted-foreground">
           Bill-tos onboarded to the portal. Service orders are captured only for these.
         </p>
+        <Can perm="dashboards:read" tenantId={c.operator_id}>
+          <Link
+            href={`/companies/${companyId}/dashboard`}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-3")}
+          >
+            <LayoutDashboard aria-hidden />
+            Dashboard
+          </Link>
+        </Can>
       </div>
 
       <Can perm="bill_tos:write" tenantId={c.operator_id}>

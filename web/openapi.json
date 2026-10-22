@@ -753,6 +753,73 @@
         }
       }
     },
+    "/v1/companies/{company_id}/dashboard": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Get Company Dashboard",
+        "operationId": "dashboard-get_company_dashboard",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Company Id"
+            }
+          },
+          {
+            "name": "bill_to_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Limit to one bill-to",
+              "title": "Bill To Id"
+            },
+            "description": "Limit to one bill-to"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyDashboard"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/bill-tos/{bill_to_id}": {
       "get": {
         "tags": [
@@ -2826,6 +2893,76 @@
         ],
         "title": "CompanyCreate"
       },
+      "CompanyDashboard": {
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "bill_to_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bill To Id"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "headline": {
+            "$ref": "#/components/schemas/DashboardHeadline"
+          },
+          "services_by_month": {
+            "items": {
+              "$ref": "#/components/schemas/MonthCount"
+            },
+            "type": "array",
+            "title": "Services By Month"
+          },
+          "services_by_code": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceCodeCount"
+            },
+            "type": "array",
+            "title": "Services By Code"
+          },
+          "top_technicians": {
+            "items": {
+              "$ref": "#/components/schemas/TechnicianCount"
+            },
+            "type": "array",
+            "title": "Top Technicians"
+          },
+          "stores": {
+            "items": {
+              "$ref": "#/components/schemas/StoreRow"
+            },
+            "type": "array",
+            "title": "Stores"
+          }
+        },
+        "type": "object",
+        "required": [
+          "company_id",
+          "bill_to_id",
+          "as_of",
+          "headline",
+          "services_by_month",
+          "services_by_code",
+          "top_technicians",
+          "stores"
+        ],
+        "title": "CompanyDashboard",
+        "description": "Service activity for a company, or one of its bill-tos. Findings, programs, and risk\nmetrics are not available yet (see docs/customer-dashboard-plan.md)."
+      },
       "CompanyRead": {
         "properties": {
           "id": {
@@ -2900,6 +3037,75 @@
           "failed"
         ],
         "title": "ConnectionStatus"
+      },
+      "DashboardHeadline": {
+        "properties": {
+          "locations": {
+            "type": "integer",
+            "title": "Locations"
+          },
+          "locations_serviced": {
+            "type": "integer",
+            "title": "Locations Serviced"
+          },
+          "services": {
+            "type": "integer",
+            "title": "Services"
+          },
+          "open_orders": {
+            "type": "integer",
+            "title": "Open Orders"
+          },
+          "awaiting_billing": {
+            "type": "integer",
+            "title": "Awaiting Billing"
+          },
+          "billed": {
+            "type": "integer",
+            "title": "Billed"
+          },
+          "technicians": {
+            "type": "integer",
+            "title": "Technicians"
+          },
+          "first_service": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Service"
+          },
+          "last_service": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Service"
+          }
+        },
+        "type": "object",
+        "required": [
+          "locations",
+          "locations_serviced",
+          "services",
+          "open_orders",
+          "awaiting_billing",
+          "billed",
+          "technicians",
+          "first_service",
+          "last_service"
+        ],
+        "title": "DashboardHeadline"
       },
       "HTTPValidationError": {
         "properties": {
@@ -3373,6 +3579,24 @@
           "permissions"
         ],
         "title": "MembershipGrant"
+      },
+      "MonthCount": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "services": {
+            "type": "integer",
+            "title": "Services"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "services"
+        ],
+        "title": "MonthCount"
       },
       "NoteRead": {
         "properties": {
@@ -4232,6 +4456,31 @@
         "title": "RoleScope",
         "description": "Which kind of tenant a role may be assigned on."
       },
+      "ServiceCodeCount": {
+        "properties": {
+          "service_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Code"
+          },
+          "services": {
+            "type": "integer",
+            "title": "Services"
+          }
+        },
+        "type": "object",
+        "required": [
+          "service_code",
+          "services"
+        ],
+        "title": "ServiceCodeCount"
+      },
       "ServiceOrderRead": {
         "properties": {
           "id": {
@@ -4471,6 +4720,131 @@
         ],
         "title": "ServiceOrderRead"
       },
+      "StoreRow": {
+        "properties": {
+          "location_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Location Id"
+          },
+          "bill_to_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Bill To Id"
+          },
+          "pestpac_location_id": {
+            "type": "integer",
+            "title": "Pestpac Location Id"
+          },
+          "store_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Store Number"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "pestpac_active": {
+            "type": "boolean",
+            "title": "Pestpac Active"
+          },
+          "services": {
+            "type": "integer",
+            "title": "Services"
+          },
+          "open_orders": {
+            "type": "integer",
+            "title": "Open Orders"
+          },
+          "last_service": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Service"
+          }
+        },
+        "type": "object",
+        "required": [
+          "location_id",
+          "bill_to_id",
+          "pestpac_location_id",
+          "store_number",
+          "name",
+          "city",
+          "state",
+          "latitude",
+          "longitude",
+          "pestpac_active",
+          "services",
+          "open_orders",
+          "last_service"
+        ],
+        "title": "StoreRow"
+      },
       "SyncJobKind": {
         "type": "string",
         "enum": [
@@ -4585,6 +4959,44 @@
           "failed"
         ],
         "title": "SyncJobStatus"
+      },
+      "TechnicianCount": {
+        "properties": {
+          "technician_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Technician Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "services": {
+            "type": "integer",
+            "title": "Services"
+          }
+        },
+        "type": "object",
+        "required": [
+          "technician_id",
+          "name",
+          "services"
+        ],
+        "title": "TechnicianCount"
       },
       "TenantKind": {
         "type": "string",

@@ -245,6 +245,12 @@ CASES = [
         _all(404, platform_admin=200, admin_a=200, staff_a=403),
     ),
     Case(
+        "dashboard of company A",
+        "GET",
+        lambda w: f"/v1/companies/{w.company_a}/dashboard",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
         "list report templates of company A",
         "GET",
         lambda w: f"/v1/companies/{w.company_a}/report-templates",

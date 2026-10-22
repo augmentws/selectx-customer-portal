@@ -1,6 +1,7 @@
 export * from './auth/auth';
 export * from './bill-tos/bill-tos';
 export * from './companies/companies';
+export * from './dashboard/dashboard';
 export * from './health/health';
 export * from './locations/locations';
 export * from './members/members';
