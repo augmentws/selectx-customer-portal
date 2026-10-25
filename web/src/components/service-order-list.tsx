@@ -56,6 +56,7 @@ export function OrderRow({
   locationName,
   showLocation = true,
   actions,
+  compact = false,
 }: {
   order: ServiceOrderRead;
   locationName?: string;
@@ -63,6 +64,9 @@ export function OrderRow({
   actions?: React.ReactNode;
   /** Off when the order is already listed under its location. */
   showLocation?: boolean;
+  /** Two lines (for long lists): the order and its location, then date, service, and
+   * technician. Instructions and notes stay behind the disclosure either way. */
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const hasInstructions =
@@ -75,42 +79,65 @@ export function OrderRow({
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">Order {order.order_number ?? order.pestpac_order_id}</span>
         <OrderStatusBadge order={order} />
+        {compact && showLocation && order.location_id && (
+          <Link
+            href={`/locations/${order.location_id}`}
+            className="text-sm text-primary hover:underline"
+          >
+            {locationName ?? `LocationID ${order.pestpac_location_id}`}
+          </Link>
+        )}
         {order.pestpac_invoice_id !== null && (
           <span className="text-sm text-muted-foreground">Invoice {order.pestpac_invoice_id}</span>
         )}
         {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
       </div>
-      <div className="mt-1 grid gap-x-6 text-sm sm:grid-cols-3">
-        <span>
-          {formatPestPacDate(order.work_date, true) || "No work date"}
-          {order.service_code && (
-            <>
-              <br />
-              <span className="text-muted-foreground">{order.service_code}</span>
-            </>
-          )}
-        </span>
-        <span>
-          {order.technician_name ?? "No technician"}
-          {order.description && (
-            <>
-              <br />
-              <span className="text-muted-foreground">{order.description}</span>
-            </>
-          )}
-        </span>
-        <span className="text-muted-foreground">
-          {!showLocation ? null : order.location_id ? (
-            <Link href={`/locations/${order.location_id}`} className="text-primary hover:underline">
-              {locationName ?? `LocationID ${order.pestpac_location_id}`}
-            </Link>
-          ) : (
-            `LocationID ${order.pestpac_location_id}`
-          )}
-          {showLocation && <br />}
-          OrderID {order.pestpac_order_id}
-        </span>
-      </div>
+      {compact ? (
+        <p className="mt-1 text-sm text-muted-foreground">
+          {[
+            formatPestPacDate(order.work_date, true) || "No work date",
+            order.service_code,
+            order.technician_name ?? "No technician",
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      ) : (
+        <div className="mt-1 grid gap-x-6 text-sm sm:grid-cols-3">
+          <span>
+            {formatPestPacDate(order.work_date, true) || "No work date"}
+            {order.service_code && (
+              <>
+                <br />
+                <span className="text-muted-foreground">{order.service_code}</span>
+              </>
+            )}
+          </span>
+          <span>
+            {order.technician_name ?? "No technician"}
+            {order.description && (
+              <>
+                <br />
+                <span className="text-muted-foreground">{order.description}</span>
+              </>
+            )}
+          </span>
+          <span className="text-muted-foreground">
+            {!showLocation ? null : order.location_id ? (
+              <Link
+                href={`/locations/${order.location_id}`}
+                className="text-primary hover:underline"
+              >
+                {locationName ?? `LocationID ${order.pestpac_location_id}`}
+              </Link>
+            ) : (
+              `LocationID ${order.pestpac_location_id}`
+            )}
+            {showLocation && <br />}
+            OrderID {order.pestpac_order_id}
+          </span>
+        </div>
+      )}
       <details className="mt-2" onToggle={(e) => setOpen(e.currentTarget.open)}>
         <summary className="cursor-pointer text-sm text-primary hover:underline">
           {hasInstructions ? "Instructions and notes" : "Notes"}
@@ -164,6 +191,7 @@ export function ServiceOrderList({
   status,
   locationNames,
   showLocation = true,
+  actions,
 }: {
   query: {
     isPending: boolean;
@@ -176,6 +204,8 @@ export function ServiceOrderList({
   locationNames?: Map<string, string>;
   /** Off on a location's own page, where linking to the location goes nowhere. */
   showLocation?: boolean;
+  /** Per-order controls, shown at the right of each order's heading. */
+  actions?: (order: ServiceOrderRead) => React.ReactNode;
 }) {
   if (query.isPending) return <p className="text-muted-foreground">Loading…</p>;
   if (query.isError || !query.data) {
@@ -196,6 +226,7 @@ export function ServiceOrderList({
           key={order.id}
           order={order}
           showLocation={showLocation}
+          actions={actions?.(order)}
           locationName={order.location_id ? locationNames?.get(order.location_id) : undefined}
         />
       ))}

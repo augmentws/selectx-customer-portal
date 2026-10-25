@@ -248,11 +248,19 @@ class PostedServiceOrderRead(ServiceOrderRead):
     report_id: uuid.UUID | None
 
 
+class TechnicianOption(BaseModel):
+    id: uuid.UUID
+    name: str
+
+
 class PostedServiceOrderPage(BaseModel):
     items: list[PostedServiceOrderRead]
+    # Matching the filters; the choices below are over all the posted orders.
     total: int
     limit: int
     offset: int
+    technicians: list[TechnicianOption]
+    service_codes: list[str]
 
 
 class SyncJobRead(BaseModel):

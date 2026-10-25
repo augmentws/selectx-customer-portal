@@ -10,6 +10,7 @@ import { LocationDocuments } from "@/components/location-documents";
 import { LocationInvoices } from "@/components/location-invoices";
 import { LocationServiceReports } from "@/components/location-service-reports";
 import { NoteList } from "@/components/note-list";
+import { ReportAction, useServiceReportTemplates } from "@/components/report-action";
 import { LocationReports } from "@/components/report-templates";
 import {
   formatPestPacDate,
@@ -35,6 +36,7 @@ import {
   useLocationsListNotes,
   useLocationsListServiceOrders,
 } from "@/lib/api/generated/locations/locations";
+import { useReportsListServiceReports } from "@/lib/api/generated/reports/reports";
 import { usePermissions } from "@/lib/permissions";
 import { useUrlTab } from "@/lib/use-url-tab";
 
@@ -51,6 +53,18 @@ export function LocationDetail() {
   const billTo = useBillTosGetBillTo(billToId, { query: { enabled: billToId !== "" } });
   const orders = useLocationsListServiceOrders(locationId, { status });
   const notes = useLocationsListNotes(locationId);
+  const reports = useReportsListServiceReports(locationId);
+  const templates = useServiceReportTemplates(
+    billTo.data?.data.company_id,
+    billTo.data?.data.operator_id,
+  );
+  // An order's current version: the highest revision, preferring one that isn't superseded.
+  const rank = (r: { revision: number; status: string }) =>
+    r.revision * 2 + (r.status === "superseded" ? 0 : 1);
+  const reportByOrder = new Map<string, string>();
+  for (const r of [...(reports.data?.data ?? [])].sort((x, y) => rank(x) - rank(y))) {
+    reportByOrder.set(r.service_order_id, r.id);
+  }
   const l = location.data?.data;
   useDocumentTitle(
     l && (l.pestpac_company ?? `LocationID ${l.pestpac_location_id}`),
@@ -173,11 +187,7 @@ export function LocationDetail() {
                 <CardTitle>Reports</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-6">
-                <LocationServiceReports
-                  companyId={b.company_id}
-                  locationId={loc.id}
-                  canWrite={can("reports:write", b.operator_id)}
-                />
+                <LocationServiceReports locationId={loc.id} canStart={templates.length > 0} />
                 <LocationReports
                   companyId={b.company_id}
                   locationId={loc.id}
@@ -192,7 +202,19 @@ export function LocationDetail() {
           <div className="flex justify-end">
             <OrderStatusSelect value={status} onChange={setStatus} />
           </div>
-          <ServiceOrderList query={orders} status={status} showLocation={false} />
+          <ServiceOrderList
+            query={orders}
+            status={status}
+            showLocation={false}
+            actions={(order) => (
+              <ReportAction
+                orderId={order.id}
+                locationId={order.location_id}
+                reportId={reportByOrder.get(order.id)}
+                templates={templates}
+              />
+            )}
+          />
         </TabsContent>
 
         <TabsContent value="conditions" className="pt-4">

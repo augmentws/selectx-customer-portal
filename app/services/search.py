@@ -14,12 +14,12 @@ from app.models import BillTo, Company, Invoice, Location, ServiceOrder, Tenant,
 from app.schemas.search import SearchHit
 from app.security.access import AccessScope
 from app.security.permissions import Perm
+from app.services.service_orders import escape_like
 from app.services.trail import location_name
 
 
 def _like(q: str) -> str:
-    escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    return f"%{escaped}%"
+    return f"%{escape_like(q)}%"
 
 
 def _scoped(query: Select, column, operator_ids: set[uuid.UUID] | None) -> Select:

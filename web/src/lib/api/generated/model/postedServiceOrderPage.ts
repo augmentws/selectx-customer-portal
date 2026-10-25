@@ -5,10 +5,13 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { PostedServiceOrderRead } from './postedServiceOrderRead';
+import type { TechnicianOption } from './technicianOption';
 
 export interface PostedServiceOrderPage {
   items: PostedServiceOrderRead[];
   total: number;
   limit: number;
   offset: number;
+  technicians: TechnicianOption[];
+  service_codes: string[];
 }

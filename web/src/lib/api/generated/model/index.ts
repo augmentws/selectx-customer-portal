@@ -103,6 +103,7 @@ export * from './syncJobRead';
 export * from './syncJobReadProgress';
 export * from './syncJobStatus';
 export * from './technicianCount';
+export * from './technicianOption';
 export * from './templateField';
 export * from './templateFieldType';
 export * from './tenantKind';

@@ -14,11 +14,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import requests
-from sqlalchemy import exists, func, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.integrations.pestpac import PestPacAuthError, PestPacClient
-from app.models import BillTo, Invoice, Location, ServiceOrder
+from app.models import BillTo, Invoice, Location, ServiceOrder, Technician
 from app.schemas.pestpac import PestPacServiceOrderDetails, ServiceOrderSyncCounts
 from app.schemas.tenancy import LocationRead
 from app.services.pestpac_connection import PestPacUnavailableError
@@ -219,16 +219,8 @@ def list_orders(
     return orders
 
 
-def list_posted_orders(
-    db: Session,
-    *,
-    bill_to_id: uuid.UUID | None = None,
-    company_id: uuid.UUID | None = None,
-    limit: int = 50,
-    offset: int = 0,
-) -> tuple[list[tuple[ServiceOrder, str | None]], int]:
-    """Worked orders without a stored invoice, oldest first, with their location's name.
-    Invoiced ones are listed from their invoices instead (`invoices.list_invoices`)."""
+def _posted_orders(bill_to_id: uuid.UUID | None, company_id: uuid.UUID | None):
+    """Worked orders without a stored invoice, for one bill-to or a whole company."""
     query = select(ServiceOrder).where(
         ServiceOrder.posted.is_(True),
         ~exists().where(Invoice.service_order_id == ServiceOrder.id),
@@ -239,16 +231,80 @@ def list_posted_orders(
         query = query.where(
             ServiceOrder.bill_to_id.in_(select(BillTo.id).where(BillTo.company_id == company_id))
         )
+    return query
+
+
+def escape_like(q: str) -> str:
+    """`q` with LIKE wildcards made literal (the default escape character is backslash)."""
+    return q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def list_posted_orders(
+    db: Session,
+    *,
+    bill_to_id: uuid.UUID | None = None,
+    company_id: uuid.UUID | None = None,
+    q: str | None = None,
+    technician_id: uuid.UUID | None = None,
+    service_code: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[tuple[ServiceOrder, str | None]], int]:
+    """Worked orders without a stored invoice, oldest first, with their location's name.
+    Invoiced ones are listed from their invoices instead (`invoices.list_invoices`).
+
+    `q` matches the order number or OrderID exactly, or the location's name (which carries the
+    store number) anywhere."""
+    query = _posted_orders(bill_to_id, company_id).outerjoin(
+        Location, Location.id == ServiceOrder.location_id
+    )
+    if q and q.strip():
+        q = q.strip()
+        match = or_(
+            ServiceOrder.order_number == q,
+            Location.pestpac_company.ilike(f"%{escape_like(q)}%"),
+        )
+        if q.isdigit():
+            match = or_(match, ServiceOrder.pestpac_order_id == int(q))
+        query = query.where(match)
+    if technician_id is not None:
+        query = query.where(ServiceOrder.technician_id == technician_id)
+    if service_code is not None:
+        query = query.where(ServiceOrder.service_code == service_code)
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
     rows = db.execute(
         query.add_columns(Location.pestpac_company)
-        .outerjoin(Location, Location.id == ServiceOrder.location_id)
         .options(selectinload(ServiceOrder.technician))
         .order_by(ServiceOrder.work_date.asc().nulls_last(), ServiceOrder.id)
         .limit(limit)
         .offset(offset)
     ).all()
     return [(order, name) for order, name in rows], total
+
+
+def posted_order_facets(
+    db: Session, *, bill_to_id: uuid.UUID | None = None, company_id: uuid.UUID | None = None
+) -> tuple[list[tuple[uuid.UUID, str]], list[str]]:
+    """The technicians (id, name) and service codes among the unfiltered posted orders, for
+    the list's filter choices. Technicians not yet resolved from PestPac aren't offered."""
+    orders = _posted_orders(bill_to_id, company_id).subquery()
+    techs = db.execute(
+        select(Technician)
+        .where(Technician.id.in_(select(orders.c.technician_id)))
+        .order_by(Technician.first_name, Technician.last_name)
+    ).scalars()
+    codes = db.scalars(
+        select(orders.c.service_code)
+        .where(orders.c.service_code.is_not(None))
+        .distinct()
+        .order_by(orders.c.service_code)
+    )
+    return [(t.id, _technician_name(t)) for t in techs], list(codes)
+
+
+def _technician_name(t: Technician) -> str:
+    full = " ".join(p for p in (t.first_name, t.last_name) if p)
+    return full or t.username or f"TechID {t.pestpac_tech_id}"
 
 
 @dataclass(frozen=True)

@@ -6,6 +6,9 @@
  */
 
 export type CompaniesListPostedServiceOrdersParams = {
+q?: string | null;
+technician_id?: string | null;
+service_code?: string | null;
 /**
  * @minimum 1
  * @maximum 200

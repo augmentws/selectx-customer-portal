@@ -31,7 +31,10 @@ export function ReportTemplatesSection({
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl">Report templates</h2>
+        <p className="text-sm text-muted-foreground">
+          The company&apos;s PDF report templates. Those with report fields are used for service
+          reports.
+        </p>
         {canWrite && (
           <Link
             href={`/companies/${companyId}/report-templates/new`}

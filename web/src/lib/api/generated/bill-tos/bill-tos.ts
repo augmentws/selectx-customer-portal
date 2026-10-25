@@ -657,7 +657,8 @@ export const getBillTosListPostedServiceOrdersUrl = (billToId: string,
 }
 
 /**
- * The bill-to's worked orders (billed or not), oldest first.
+ * The bill-to's worked orders without a stored invoice, oldest first. `q` matches the
+ * order number or OrderID exactly, or the location's name (store number) anywhere.
  * @summary List Posted Service Orders
  */
 export const billTosListPostedServiceOrders = async (billToId: string,

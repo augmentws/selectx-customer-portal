@@ -537,7 +537,8 @@ export const getCompaniesListPostedServiceOrdersUrl = (companyId: string,
 }
 
 /**
- * Worked orders (billed or not) across all the company's bill-tos, oldest first.
+ * Worked orders without a stored invoice across all the company's bill-tos, oldest first,
+ * filtered as for a bill-to.
  * @summary List Posted Service Orders
  */
 export const companiesListPostedServiceOrders = async (companyId: string,

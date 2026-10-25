@@ -700,7 +700,7 @@
           "companies"
         ],
         "summary": "List Posted Service Orders",
-        "description": "Worked orders (billed or not) across all the company's bill-tos, oldest first.",
+        "description": "Worked orders without a stored invoice across all the company's bill-tos, oldest first,\nfiltered as for a bill-to.",
         "operationId": "companies-list_posted_service_orders",
         "security": [
           {
@@ -716,6 +716,57 @@
               "type": "string",
               "format": "uuid",
               "title": "Company Id"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "technician_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Technician Id"
+            }
+          },
+          {
+            "name": "service_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Service Code"
             }
           },
           {
@@ -1172,7 +1223,7 @@
           "bill_tos"
         ],
         "summary": "List Posted Service Orders",
-        "description": "The bill-to's worked orders (billed or not), oldest first.",
+        "description": "The bill-to's worked orders without a stored invoice, oldest first. `q` matches the\norder number or OrderID exactly, or the location's name (store number) anywhere.",
         "operationId": "bill_tos-list_posted_service_orders",
         "security": [
           {
@@ -1188,6 +1239,57 @@
               "type": "string",
               "format": "uuid",
               "title": "Bill To Id"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "technician_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Technician Id"
+            }
+          },
+          {
+            "name": "service_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Service Code"
             }
           },
           {
@@ -8145,6 +8247,20 @@
           "offset": {
             "type": "integer",
             "title": "Offset"
+          },
+          "technicians": {
+            "items": {
+              "$ref": "#/components/schemas/TechnicianOption"
+            },
+            "type": "array",
+            "title": "Technicians"
+          },
+          "service_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Service Codes"
           }
         },
         "type": "object",
@@ -8152,7 +8268,9 @@
           "items",
           "total",
           "limit",
-          "offset"
+          "offset",
+          "technicians",
+          "service_codes"
         ],
         "title": "PostedServiceOrderPage"
       },
@@ -10062,6 +10180,25 @@
           "services"
         ],
         "title": "TechnicianCount"
+      },
+      "TechnicianOption": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "TechnicianOption"
       },
       "TemplateField": {
         "properties": {

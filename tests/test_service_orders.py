@@ -7,6 +7,7 @@ from app import worker
 from app.db.session import SessionLocal
 from app.models import (
     ConnectionStatus,
+    Location,
     PestPacConnection,
     ServiceOrder,
     SyncJob,
@@ -428,3 +429,79 @@ def test_locations_report_open_worked_and_last_service(client, world):
         assert loc["open_order_count"] == 3
         assert loc["worked_order_count"] == 1
         assert loc["last_service_at"] == "2026-10-22T09:00:00"
+
+
+def test_posted_orders_filter_by_search_technician_and_service_code(client, world):
+    with SessionLocal() as db:
+        store = Location(
+            operator_id=world.op_a,
+            bill_to_id=world.bill_to_a,
+            pestpac_location_id=800077,
+            pestpac_company="ACME TACOS - STORE #77",
+            pestpac_active=True,
+            pestpac_fetched_at=datetime.now(UTC),
+        )
+        pat = Technician(
+            operator_id=world.op_a,
+            pestpac_tech_id=61,
+            first_name="Pat",
+            last_name="Tester",
+            pestpac_fetched_at=datetime.now(UTC),
+        )
+        db.add_all([store, pat])
+        db.flush()
+
+        def worked(order_id: int, location_id, *, code: str, tech=None) -> ServiceOrder:
+            return ServiceOrder(
+                operator_id=world.op_a,
+                bill_to_id=world.bill_to_a,
+                location_id=location_id,
+                pestpac_order_id=order_id,
+                pestpac_location_id=800001,
+                order_number=f"N{order_id}",
+                service_code=code,
+                technician_id=tech,
+                work_date=datetime(2026, 10, 1, 9, 0) + timedelta(days=order_id - 720000),
+                posted=True,
+                pestpac_fetched_at=datetime.now(UTC),
+            )
+
+        db.add_all(
+            [
+                worked(720001, world.location_a, code="RAMP MONITOR", tech=pat.id),
+                worked(720002, store.id, code="RAMP MONITOR"),
+                worked(720003, store.id, code="RCOMMERCIAL", tech=pat.id),
+            ]
+        )
+        db.commit()
+        pat_id = str(pat.id)
+
+    headers = headers_for(client, world.emails["staff_a"])
+
+    def ids(**params) -> list[int]:
+        for scope in (f"/v1/bill-tos/{world.bill_to_a}", f"/v1/companies/{world.company_a}"):
+            page = client.get(f"{scope}/posted-service-orders", params=params, headers=headers)
+            assert page.status_code == 200, page.text
+            body = page.json()
+            assert body["total"] == len(body["items"])
+            found = [o["pestpac_order_id"] for o in body["items"]]
+        return found
+
+    assert ids() == [720001, 720002, 720003]
+    assert ids(q="store #77") == [720002, 720003]  # the location's name, anywhere
+    assert ids(q="N720003") == [720003]  # order number, exactly
+    assert ids(q="720001") == [720001]  # OrderID
+    assert ids(q="72000") == []
+    assert ids(technician_id=pat_id) == [720001, 720003]
+    assert ids(service_code="RAMP MONITOR") == [720001, 720002]
+    assert ids(technician_id=pat_id, service_code="RCOMMERCIAL", q="#77") == [720003]
+
+    # The choices cover every posted order, whatever the filters.
+    page = client.get(
+        f"/v1/bill-tos/{world.bill_to_a}/posted-service-orders",
+        params={"q": "nothing matches"},
+        headers=headers,
+    ).json()
+    assert page["total"] == 0
+    assert page["technicians"] == [{"id": pat_id, "name": "Pat Tester"}]
+    assert page["service_codes"] == ["RAMP MONITOR", "RCOMMERCIAL"]

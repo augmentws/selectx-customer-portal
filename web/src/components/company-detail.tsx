@@ -6,7 +6,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { BillToDetailLines, OnboardBillToCard } from "@/components/bill-to-onboarding";
+import { AddDialog } from "@/components/add-dialog";
+import { BillToDetailLines, OnboardBillTo } from "@/components/bill-to-onboarding";
 import { LocationSyncResult } from "@/components/location-sync-result";
 import { InvoicedOrders } from "@/components/invoiced-orders";
 import { PostedServiceOrders } from "@/components/posted-service-orders";
@@ -27,12 +28,11 @@ import {
   useCompaniesListBillTos,
 } from "@/lib/api/generated/companies/companies";
 import { Can, usePermissions } from "@/lib/permissions";
-import { cn } from "@/lib/utils";
 import { useUrlTab } from "@/lib/use-url-tab";
 
 export function CompanyDetail() {
   const { companyId } = useParams<{ companyId: string }>();
-  const [tab, setTab] = useUrlTab(["bill-tos", "posted", "invoiced"], "bill-tos");
+  const [tab, setTab] = useUrlTab(["bill-tos", "posted", "invoiced", "templates"], "bill-tos");
   const queryClient = useQueryClient();
   const { can } = usePermissions();
   const company = useCompaniesGetCompany(companyId);
@@ -69,24 +69,36 @@ export function CompanyDetail() {
             onboarded from PestPac
           </p>
         )}
-        <Can perm="dashboards:read" tenantId={c.operator_id}>
-          <Link
-            href={`/companies/${companyId}/dashboard`}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-3")}
-          >
-            <LayoutDashboard aria-hidden />
-            Dashboard
-          </Link>
-        </Can>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Can perm="dashboards:read" tenantId={c.operator_id}>
+            <Link
+              href={`/companies/${companyId}/dashboard`}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              <LayoutDashboard aria-hidden />
+              Dashboard
+            </Link>
+          </Can>
+          <Can perm="bill_tos:write" tenantId={c.operator_id}>
+            <AddDialog
+              label="Onboard bill-to"
+              title="Onboard bill-to"
+              description="Look up a BillToID in PestPac, check its details, then onboard it."
+            >
+              {() => <OnboardBillTo companyId={companyId} operatorId={c.operator_id} />}
+            </AddDialog>
+          </Can>
+        </div>
       </div>
 
-      <Can perm="bill_tos:write" tenantId={c.operator_id}>
-        <OnboardBillToCard companyId={companyId} operatorId={c.operator_id} />
-      </Can>
-
-      {/* Invoiced orders need billing:read; a URL naming it falls back for others. */}
+      {/* Tabs the user can't see (by permission) fall back to Bill-tos when named in a URL. */}
       <Tabs
-        value={tab === "invoiced" && !can("billing:read", c.operator_id) ? "bill-tos" : tab}
+        value={
+          (tab === "invoiced" && !can("billing:read", c.operator_id)) ||
+          (tab === "templates" && !can("reports:read", c.operator_id))
+            ? "bill-tos"
+            : tab
+        }
         onValueChange={setTab}
       >
         <TabsList>
@@ -94,6 +106,9 @@ export function CompanyDetail() {
           <TabsTrigger value="posted">Posted service orders</TabsTrigger>
           {can("billing:read", c.operator_id) && (
             <TabsTrigger value="invoiced">Invoiced orders</TabsTrigger>
+          )}
+          {can("reports:read", c.operator_id) && (
+            <TabsTrigger value="templates">Report templates</TabsTrigger>
           )}
         </TabsList>
         <TabsContent value="bill-tos" className="flex flex-col gap-3 pt-4">
@@ -188,11 +203,12 @@ export function CompanyDetail() {
             <InvoicedOrders companyId={companyId} />
           </TabsContent>
         )}
+        {can("reports:read", c.operator_id) && (
+          <TabsContent value="templates" className="pt-4">
+            <ReportTemplatesSection companyId={companyId} operatorId={c.operator_id} />
+          </TabsContent>
+        )}
       </Tabs>
-
-      <Can perm="reports:read" tenantId={c.operator_id}>
-        <ReportTemplatesSection companyId={companyId} operatorId={c.operator_id} />
-      </Can>
     </div>
   );
 }

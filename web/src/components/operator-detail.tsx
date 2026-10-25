@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { AddDialog } from "@/components/add-dialog";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { MembersPanel } from "@/components/members-panel";
 import { PestPacConnectionPanel } from "@/components/pestpac-connection-panel";
@@ -15,7 +16,6 @@ import { WebhookEventsPanel } from "@/components/webhook-events-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -32,7 +32,7 @@ import { useUrlTab } from "@/lib/use-url-tab";
 
 const companySchema = z.object({ name: z.string().trim().min(1, "Name is required").max(200) });
 
-function CreateCompanyForm({ operatorId }: { operatorId: string }) {
+function CreateCompanyForm({ operatorId, onDone }: { operatorId: string; onDone: () => void }) {
   const queryClient = useQueryClient();
   const create = useOperatorsCreateCompany({
     mutation: {
@@ -50,35 +50,31 @@ function CreateCompanyForm({ operatorId }: { operatorId: string }) {
   } = useForm<z.infer<typeof companySchema>>({ resolver: zodResolver(companySchema) });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Add company</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form
-          onSubmit={handleSubmit(async (data) => {
-            await create.mutateAsync({ operatorId, data });
-            reset();
-          })}
-          className="flex items-end gap-3"
-          noValidate
-        >
-          <div className="flex flex-1 flex-col gap-2">
-            <Label htmlFor="company-name">Name</Label>
-            <Input id="company-name" {...register("name")} />
-            {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-          </div>
-          <Button type="submit" disabled={create.isPending}>
-            Add
-          </Button>
-        </form>
-        {create.isError && (
-          <Alert variant="destructive" className="mt-4">
-            <AlertDescription>{errorMessage(create.error)}</AlertDescription>
-          </Alert>
-        )}
-      </CardContent>
-    </Card>
+    <div>
+      <form
+        onSubmit={handleSubmit(async (data) => {
+          await create.mutateAsync({ operatorId, data });
+          reset();
+          onDone();
+        })}
+        className="flex items-end gap-3"
+        noValidate
+      >
+        <div className="flex flex-1 flex-col gap-2">
+          <Label htmlFor="company-name">Name</Label>
+          <Input id="company-name" {...register("name")} />
+          {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+        </div>
+        <Button type="submit" disabled={create.isPending}>
+          Add
+        </Button>
+      </form>
+      {create.isError && (
+        <Alert variant="destructive" className="mt-4">
+          <AlertDescription>{errorMessage(create.error)}</AlertDescription>
+        </Alert>
+      )}
+    </div>
   );
 }
 
@@ -87,7 +83,11 @@ function CompaniesTab({ operatorId }: { operatorId: string }) {
   return (
     <div className="flex flex-col gap-6">
       <Can perm="companies:write" tenantId={operatorId}>
-        <CreateCompanyForm operatorId={operatorId} />
+        <div className="flex justify-end">
+          <AddDialog label="Add company" title="Add company">
+            {(close) => <CreateCompanyForm operatorId={operatorId} onDone={close} />}
+          </AddDialog>
+        </div>
       </Can>
       {companies.isPending && <p className="text-muted-foreground">Loading…</p>}
       {companies.isError && (

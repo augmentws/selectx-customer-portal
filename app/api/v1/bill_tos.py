@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.v1._pestpac_errors import pestpac_errors
 from app.db.session import get_db
-from app.models import BillTo, ServiceOrder
+from app.models import BillTo
 from app.schemas.pestpac import LocationSyncSummary
 from app.schemas.tenancy import (
     BillToDetail,
@@ -18,6 +18,7 @@ from app.schemas.tenancy import (
     PostedServiceOrderRead,
     ServiceOrderRead,
     SyncJobRead,
+    TechnicianOption,
 )
 from app.security.access import AccessScope, get_scope
 from app.security.permissions import Perm
@@ -111,9 +112,44 @@ def list_service_orders(
     return service_orders.list_orders(db, bill_to_id=bill_to.id, status=status)
 
 
+class PostedOrderFilters:
+    """Query parameters shared by the bill-to and company posted-order lists."""
+
+    def __init__(
+        self,
+        q: str | None = Query(default=None, max_length=100),
+        technician_id: uuid.UUID | None = None,
+        service_code: str | None = Query(default=None, max_length=100),
+        limit: int = Query(default=50, ge=1, le=200),
+        offset: int = Query(default=0, ge=0),
+    ):
+        self.q = q
+        self.technician_id = technician_id
+        self.service_code = service_code
+        self.limit = limit
+        self.offset = offset
+
+
 def posted_order_page(
-    db: Session, rows: list[tuple[ServiceOrder, str | None]], total: int, limit: int, offset: int
+    db: Session,
+    filters: PostedOrderFilters,
+    *,
+    bill_to_id: uuid.UUID | None = None,
+    company_id: uuid.UUID | None = None,
 ) -> PostedServiceOrderPage:
+    rows, total = service_orders.list_posted_orders(
+        db,
+        bill_to_id=bill_to_id,
+        company_id=company_id,
+        q=filters.q,
+        technician_id=filters.technician_id,
+        service_code=filters.service_code,
+        limit=filters.limit,
+        offset=filters.offset,
+    )
+    techs, codes = service_orders.posted_order_facets(
+        db, bill_to_id=bill_to_id, company_id=company_id
+    )
     reports = service_reports.report_ids_for_orders(db, [order.id for order, _ in rows])
     items = [
         PostedServiceOrderRead.model_validate(
@@ -122,24 +158,28 @@ def posted_order_page(
         )
         for order, name in rows
     ]
-    return PostedServiceOrderPage(items=items, total=total, limit=limit, offset=offset)
+    return PostedServiceOrderPage(
+        items=items,
+        total=total,
+        limit=filters.limit,
+        offset=filters.offset,
+        technicians=[TechnicianOption(id=tid, name=name) for tid, name in techs],
+        service_codes=codes,
+    )
 
 
 @router.get("/{bill_to_id}/posted-service-orders", response_model=PostedServiceOrderPage)
 def list_posted_service_orders(
     bill_to_id: uuid.UUID,
-    limit: int = Query(default=50, ge=1, le=200),
-    offset: int = Query(default=0, ge=0),
+    filters: PostedOrderFilters = Depends(),
     db: Session = Depends(get_db),
     scope: AccessScope = Depends(get_scope),
 ):
-    """The bill-to's worked orders (billed or not), oldest first."""
+    """The bill-to's worked orders without a stored invoice, oldest first. `q` matches the
+    order number or OrderID exactly, or the location's name (store number) anywhere."""
     bill_to = _bill_to_or_404(db, bill_to_id)
     scope.require(Perm.bill_tos_read, bill_to.operator_id, read_perm=Perm.bill_tos_read)
-    rows, total = service_orders.list_posted_orders(
-        db, bill_to_id=bill_to.id, limit=limit, offset=offset
-    )
-    return posted_order_page(db, rows, total, limit, offset)
+    return posted_order_page(db, filters, bill_to_id=bill_to.id)
 
 
 @router.post(

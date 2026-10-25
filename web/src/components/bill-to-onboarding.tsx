@@ -11,7 +11,6 @@ import { LocationSyncResult } from "@/components/location-sync-result";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { errorMessage } from "@/lib/api/errors";
@@ -171,7 +170,9 @@ function ConfirmOnboarding({
   );
 }
 
-export function OnboardBillToCard({
+/** Look up a BillToID in PestPac, then onboard it to the company. Stays open after onboarding
+ * to show what was synced. */
+export function OnboardBillTo({
   companyId,
   operatorId,
 }: {
@@ -208,91 +209,86 @@ export function OnboardBillToCard({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Onboard bill-to</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {connection.data && !ready && (
-          <Alert>
-            <AlertDescription>
-              Set up and verify this operator&apos;s{" "}
-              <Link href={`/operators/${operatorId}?tab=pestpac`} className="underline">
-                PestPac API access
-              </Link>{" "}
-              before onboarding bill-tos. Each BillToID is looked up in PestPac.
-            </AlertDescription>
-          </Alert>
-        )}
-        {lastOnboarded && (
-          <LocationSyncResult
-            summary={lastOnboarded.locations_sync}
-            label={`Onboarded ${lastOnboarded.name}`}
-          />
-        )}
-        <fieldset disabled={!ready} className="contents">
-          <form
-            onSubmit={handleSubmit(({ pestpac_bill_to_id }) => {
-              setLastOnboarded(null);
-              setLookupId(pestpac_bill_to_id);
-            })}
-            className="flex items-end gap-3"
-            noValidate
-          >
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="billto-id">PestPac BillToID</Label>
-              <Input
-                id="billto-id"
-                inputMode="numeric"
-                className="w-48"
-                {...register("pestpac_bill_to_id")}
-              />
-            </div>
-            <Button type="submit" variant="secondary" disabled={lookup.isFetching}>
-              {lookup.isFetching ? "Looking up…" : "Look up"}
-            </Button>
-          </form>
-        </fieldset>
-        {errors.pestpac_bill_to_id && (
-          <p className="text-sm text-destructive">{errors.pestpac_bill_to_id.message}</p>
-        )}
+    <div className="flex flex-col gap-4">
+      {connection.data && !ready && (
+        <Alert>
+          <AlertDescription>
+            Set up and verify this operator&apos;s{" "}
+            <Link href={`/operators/${operatorId}?tab=pestpac`} className="underline">
+              PestPac API access
+            </Link>{" "}
+            before onboarding bill-tos. Each BillToID is looked up in PestPac.
+          </AlertDescription>
+        </Alert>
+      )}
+      {lastOnboarded && (
+        <LocationSyncResult
+          summary={lastOnboarded.locations_sync}
+          label={`Onboarded ${lastOnboarded.name}`}
+        />
+      )}
+      <fieldset disabled={!ready} className="contents">
+        <form
+          onSubmit={handleSubmit(({ pestpac_bill_to_id }) => {
+            setLastOnboarded(null);
+            setLookupId(pestpac_bill_to_id);
+          })}
+          className="flex items-end gap-3"
+          noValidate
+        >
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="billto-id">PestPac BillToID</Label>
+            <Input
+              id="billto-id"
+              inputMode="numeric"
+              className="w-48"
+              {...register("pestpac_bill_to_id")}
+            />
+          </div>
+          <Button type="submit" variant="secondary" disabled={lookup.isFetching}>
+            {lookup.isFetching ? "Looking up…" : "Look up"}
+          </Button>
+        </form>
+      </fieldset>
+      {errors.pestpac_bill_to_id && (
+        <p className="text-sm text-destructive">{errors.pestpac_bill_to_id.message}</p>
+      )}
 
-        {lookup.isError && (
-          <Alert variant="destructive">
-            <AlertDescription>{errorMessage(lookup.error)}</AlertDescription>
-          </Alert>
-        )}
+      {lookup.isError && (
+        <Alert variant="destructive">
+          <AlertDescription>{errorMessage(lookup.error)}</AlertDescription>
+        </Alert>
+      )}
 
-        {result && !lookup.isFetching && (
-          <div className="flex flex-col gap-4 border-t border-border pt-4">
-            <div className="flex items-center gap-2">
-              <span className="font-heading text-lg font-medium">
-                BillToID {result.details.pestpac_bill_to_id}
-              </span>
-              {result.onboarded_bill_to_id && (
-                <Badge variant="warning">
-                  {onboardedHere ? "Already onboarded here" : "Onboarded to another company"}
-                </Badge>
-              )}
-            </div>
-            <BillToDetailLines details={result.details} />
-            {result.onboarded_bill_to_id ? (
-              <div>
-                <Button type="button" variant="ghost" onClick={() => done()}>
-                  Look up another
-                </Button>
-              </div>
-            ) : (
-              <ConfirmOnboarding
-                key={result.details.pestpac_bill_to_id}
-                companyId={companyId}
-                lookup={result}
-                onDone={done}
-              />
+      {result && !lookup.isFetching && (
+        <div className="flex flex-col gap-4 border-t border-border pt-4">
+          <div className="flex items-center gap-2">
+            <span className="font-heading text-lg font-medium">
+              BillToID {result.details.pestpac_bill_to_id}
+            </span>
+            {result.onboarded_bill_to_id && (
+              <Badge variant="warning">
+                {onboardedHere ? "Already onboarded here" : "Onboarded to another company"}
+              </Badge>
             )}
           </div>
-        )}
-      </CardContent>
-    </Card>
+          <BillToDetailLines details={result.details} />
+          {result.onboarded_bill_to_id ? (
+            <div>
+              <Button type="button" variant="ghost" onClick={() => done()}>
+                Look up another
+              </Button>
+            </div>
+          ) : (
+            <ConfirmOnboarding
+              key={result.details.pestpac_bill_to_id}
+              companyId={companyId}
+              lookup={result}
+              onDone={done}
+            />
+          )}
+        </div>
+      )}
+    </div>
   );
 }
