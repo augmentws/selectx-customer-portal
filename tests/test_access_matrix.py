@@ -28,6 +28,8 @@ def _all(status: int, **overrides: int) -> dict[str, int]:
 
 CASES = [
     Case("list operators", "GET", lambda w: "/v1/operators", _all(200, no_role=403)),
+    # Search is open to anyone who can see an operator; results are scoped (tests/test_search.py).
+    Case("search", "GET", lambda w: "/v1/search?q=acme", _all(200, no_role=403)),
     Case(
         "create operator",
         "POST",

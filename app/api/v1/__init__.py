@@ -13,6 +13,7 @@ from app.api.v1 import (
     pestpac_connection,
     reports,
     roles,
+    search,
     service_orders,
     service_reports,
     sync_jobs,
@@ -36,5 +37,6 @@ router.include_router(pestpac_connection.router)
 router.include_router(reports.router)
 router.include_router(service_reports.router)
 router.include_router(roles.router)
+router.include_router(search.router)
 router.include_router(webhooks.router)
 router.include_router(webhook_events.router)

@@ -42,6 +42,7 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - `POST /v1/webhooks/gocanvas/{operator_id}` (public; also GET/PUT, not in the schema), `GET /v1/operators/{id}/gocanvas-requests`, `GET /v1/gocanvas-requests/{id}`
 - `GET /v1/operators/{id}/webhook-events` (filters incl. `entity_id`, `limit`/`offset`), `GET /v1/webhook-events/{id}` (with raw body)
 - `GET /v1/companies/{id}/bill-tos/lookup`
+- `GET /v1/search?q=` (header search; see Authorization)
 - `GET/PUT /v1/operators/{id}/pestpac-connection`, `POST /v1/operators/{id}/pestpac-connection/verify`
 - `GET/POST /v1/tenants/{id}/members`, `PATCH/DELETE /v1/tenants/{id}/members/{user_id}`
 - `GET /v1/roles`, `GET /v1/permissions`
@@ -172,6 +173,7 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - Nobody may grant a role holding permissions they don't have on that tenant; the last platform admin can't be removed.
 - New users are added with a temporary password and must change it before any other API call succeeds.
 - Every endpoint must appear in `tests/test_access_matrix.py` with the expected status for each actor; a test fails when a `/v1` route is missing from it.
+- Search (`GET /v1/search`, `app/services/search.py`) returns each kind only from operators where the caller holds the permission its page needs (operators and companies: their read permission; bill-tos, locations, and orders: `bill_tos:read`; invoices: `billing:read`), so a hit never leads to a 404. Names match anywhere (LIKE wildcards escaped); PestPac ids and order/invoice numbers match exactly. Orders and invoices open on their location's page.
 - UI: `usePermissions()` / `<Can>` in `web/src/lib/permissions.tsx` mirror the backend rule to hide or disable actions. They are not a security boundary.
 
 ## Authentication and Browser Security

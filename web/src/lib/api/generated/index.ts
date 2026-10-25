@@ -11,6 +11,7 @@ export * from './operators/operators';
 export * from './pestpac/pestpac';
 export * from './reports/reports';
 export * from './roles/roles';
+export * from './search/search';
 export * from './service-orders/service-orders';
 export * from './sync-jobs/sync-jobs';
 export * from './webhooks/webhooks';

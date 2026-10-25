@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { BrandLogo } from "@/components/brand";
+import { GlobalSearch } from "@/components/global-search";
 import { Button } from "@/components/ui/button";
 import { CSRF_HEADER, readCsrfToken } from "@/lib/csrf";
 import { usePermissions } from "@/lib/permissions";
@@ -30,25 +31,30 @@ export function AppHeader() {
 
   return (
     <header className="border-b-4 border-highlight bg-background">
-      <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-6">
-        <nav className="flex items-center gap-6">
+      <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
+        <nav className="flex shrink-0 items-center gap-6">
           <BrandLogo href={home} />
           {home === OPERATORS_HREF &&
             canAnywhere("operators:read") &&
             !me?.must_change_password && (
               <Link
                 href="/operators"
-                className="font-heading text-sm font-medium tracking-wide text-foreground uppercase hover:text-primary"
+                className="hidden font-heading text-sm font-medium tracking-wide text-foreground uppercase hover:text-primary sm:inline"
               >
                 Operators
               </Link>
             )}
         </nav>
-        <div className="flex items-center gap-3">
-          {me && <span className="text-sm text-muted-foreground">{me.email}</span>}
-          <Button variant="ghost" size="sm" onClick={logout}>
+        {canAnywhere("operators:read") && !me?.must_change_password && (
+          <div className="max-w-sm min-w-0 flex-1">
+            <GlobalSearch />
+          </div>
+        )}
+        <div className="flex shrink-0 items-center gap-3">
+          {me && <span className="hidden text-sm text-muted-foreground lg:inline">{me.email}</span>}
+          <Button variant="ghost" size="sm" onClick={logout} aria-label="Sign out">
             <LogOut aria-hidden />
-            Sign out
+            <span className="hidden sm:inline">Sign out</span>
           </Button>
         </div>
       </div>
