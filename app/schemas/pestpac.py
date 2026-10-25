@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 
 from pydantic import BaseModel, Field
 
@@ -168,6 +169,7 @@ _SERVICE_ORDER_TEXT_FIELDS: dict[str, tuple[str, int | None]] = {
     "LocationInstructions": ("location_instructions", None),
     "ServiceInstructions": ("service_instructions", None),
     "OrderInstructions": ("order_instructions", None),
+    "TechnicianComment": ("technician_comment", None),
 }
 
 
@@ -205,6 +207,7 @@ class PestPacServiceOrderDetails(BaseModel):
     location_instructions: str | None = None
     service_instructions: str | None = None
     order_instructions: str | None = None
+    technician_comment: str | None = None
     posted: bool = False
 
     @classmethod
@@ -222,6 +225,12 @@ class PestPacServiceOrderDetails(BaseModel):
             text = str(raw).strip() if raw is not None else ""
             values[attr] = (text[:max_len] if max_len else text) or None
         return cls.model_validate(values)
+
+
+class InvoiceSyncCounts(BaseModel):
+    orders_checked: int = 0  # worked orders without a stored invoice
+    stored: int = 0
+    not_invoiced: int = 0  # PestPac has no invoice for the order number yet
 
 
 class ServiceOrderSyncCounts(BaseModel):
@@ -328,3 +337,287 @@ class NoteSyncCounts(BaseModel):
     details_fetched: int = 0
     linked_to_orders: int = 0
     invoices_found: int = 0
+
+
+def _snake(name: str) -> str:
+    return "".join(f"_{c.lower()}" if c.isupper() and i else c.lower() for i, c in enumerate(name))
+
+
+class PestPacDocument(BaseModel):
+    """An item of GET /Locations/{id}/documents. Whitelisted; the (empty) URL isn't kept."""
+
+    document_type: str
+    pestpac_document_id: int
+    name: str | None = None
+    file_name: str | None = None
+    document_date: datetime | None = None
+    starting_effective_date: datetime | None = None
+    ending_effective_date: datetime | None = None
+    is_tech_photo: bool = False
+    include_on: dict[str, bool] = Field(default_factory=dict)
+    pestpac_order_id: int | None = None
+    pestpac_setup_id: int | None = None
+
+    @classmethod
+    def from_api(cls, body: dict) -> PestPacDocument:
+        def text(key: str, max_len: int) -> str | None:
+            raw = body.get(key)
+            value = str(raw).strip() if raw is not None else ""
+            return value[:max_len] or None
+
+        include_on = body.get("IncludeOn")
+        return cls(
+            document_type=str(body["DocumentType"])[:50],
+            pestpac_document_id=body["DocumentID"],
+            name=text("Name", 500),
+            file_name=text("FileName", 500),
+            document_date=_pestpac_local_datetime(body.get("Date")),
+            starting_effective_date=_pestpac_local_datetime(body.get("StartingEffectiveDate")),
+            ending_effective_date=_pestpac_local_datetime(body.get("EndingEffectiveDate")),
+            is_tech_photo=body.get("IsTechPhoto") is True,
+            include_on={
+                _snake(k): v
+                for k, v in (include_on.items() if isinstance(include_on, dict) else [])
+                if isinstance(v, bool)
+            },
+            pestpac_order_id=_int_or_none(body.get("OrderID")),
+            pestpac_setup_id=_int_or_none(body.get("SetupID")),
+        )
+
+
+def _text(body: dict, key: str, max_len: int | None) -> str | None:
+    raw = body.get(key)
+    value = str(raw).strip() if raw is not None else ""
+    return (value[:max_len] if max_len else value) or None
+
+
+class PestPacConditionSummary(BaseModel):
+    """An item of GET /Locations/{id}/conditions?status=Open. Whitelisted (StationID isn't
+    kept)."""
+
+    pestpac_issue_id: int
+    pestpac_location_id: int | None = None
+    pestpac_order_id: int | None = None
+    pestpac_area_id: int | None = None
+    area: str | None = None
+    area_hierarchy: str | None = None
+    condition_type: str | None = None
+    condition: str | None = None
+    action: str | None = None
+    detail: str | None = None
+    status: str | None = None
+    severity: str | None = None
+    responsibility: str | None = None
+    category: str | None = None
+    date_opened: datetime | None = None
+    date_closed: datetime | None = None
+
+    @classmethod
+    def _fields(cls, body: dict) -> dict:
+        return {
+            "pestpac_issue_id": body["IssueID"],
+            "pestpac_location_id": _int_or_none(body.get("LocationID")),
+            "pestpac_order_id": _int_or_none(body.get("OrderID")),
+            "pestpac_area_id": _int_or_none(body.get("AreaID")),
+            "area": _text(body, "Area", 200),
+            "area_hierarchy": _text(body, "AreaHierarchy", 500),
+            "condition_type": _text(body, "ConditionType", 100),
+            "condition": _text(body, "Condition", 500),
+            "action": _text(body, "Action", None),
+            "detail": _text(body, "Detail", 200),
+            "status": _text(body, "Status", 50),
+            "severity": _text(body, "Severity", 50),
+            "responsibility": _text(body, "Responsibility", 100),
+            "category": _text(body, "Category", 100),
+            "date_opened": _pestpac_local_datetime(body.get("DateOpened")),
+            "date_closed": _pestpac_local_datetime(body.get("DateClosed")),
+        }
+
+
+class PestPacConditionListItem(PestPacConditionSummary):
+    last_inspected_date: datetime | None = None
+
+    @classmethod
+    def from_api(cls, body: dict) -> PestPacConditionListItem:
+        return cls(
+            **cls._fields(body),
+            last_inspected_date=_pestpac_local_datetime(body.get("LastInspectedDate")),
+        )
+
+
+class PestPacInspection(BaseModel):
+    pestpac_order_id: int | None = None
+    detail_date: datetime | None = None
+    username: str | None = None
+    status: str | None = None
+    comment: str | None = None
+
+    @classmethod
+    def from_api(cls, body: dict) -> PestPacInspection:
+        return cls(
+            pestpac_order_id=_int_or_none(body.get("OrderID")),
+            detail_date=_pestpac_local_datetime(body.get("DetailDate")),
+            username=_text(body, "Username", 100),
+            status=_text(body, "Status", 50),
+            comment=_text(body, "Comment", None),
+        )
+
+
+class PestPacConditionDetails(PestPacConditionSummary):
+    """GET /Conditions/{id}: the condition with its inspections and documents."""
+
+    specific_area: str | None = None
+    opened_by_user: str | None = None
+    inspections: list[PestPacInspection] = Field(default_factory=list)
+    documents: list[PestPacDocument] = Field(default_factory=list)
+
+    @classmethod
+    def from_api(cls, body: dict) -> PestPacConditionDetails:
+        inspections = body.get("Inspections") or []
+        documents = body.get("Documents") or []
+        if not isinstance(inspections, list) or not isinstance(documents, list):
+            raise ValueError("Inspections and Documents must be lists")
+        return cls(
+            **cls._fields(body),
+            specific_area=_text(body, "SpecificArea", 200),
+            opened_by_user=_text(body, "OpenedByUser", 100),
+            inspections=[PestPacInspection.from_api(i) for i in inspections if isinstance(i, dict)],
+            documents=[
+                PestPacDocument.from_api(d)
+                for d in documents
+                if isinstance(d, dict) and "DocumentID" in d and "DocumentType" in d
+            ],
+        )
+
+
+class ConditionSyncCounts(BaseModel):
+    total: int = 0
+    added: int = 0
+    updated: int = 0
+    details_fetched: int = 0
+    closed: int = 0
+    removed: int = 0
+    documents_linked: int = 0
+
+
+class DocumentSyncCounts(BaseModel):
+    total: int = 0
+    added: int = 0
+    updated: int = 0
+    removed: int = 0
+    files_stored: int = 0
+    files_failed: int = 0
+    files_too_large: int = 0
+
+
+def _decimal_or_none(value: object) -> Decimal | None:
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        return None
+    try:
+        return Decimal(str(value))
+    except InvalidOperation:
+        return None
+
+
+class PestPacInvoiceLine(BaseModel):
+    service_code: str | None = None
+    description: str | None = None
+    cost: Decimal | None = None
+    unit_price: Decimal | None = None
+    quantity: Decimal | None = None
+    extended_price: Decimal | None = None
+    taxable: bool | None = None
+    gl_code: str | None = None
+
+    @classmethod
+    def from_api(cls, body: dict) -> PestPacInvoiceLine:
+        taxable = body.get("Taxable")
+        return cls(
+            service_code=_text(body, "ServiceCode", 100),
+            description=_text(body, "Description", 500),
+            cost=_decimal_or_none(body.get("Cost")),
+            unit_price=_decimal_or_none(body.get("UnitPrice")),
+            quantity=_decimal_or_none(body.get("Quantity")),
+            extended_price=_decimal_or_none(body.get("ExtendedPrice")),
+            taxable=taxable if isinstance(taxable, bool) else None,
+            gl_code=_text(body, "GLCode", 50),
+        )
+
+
+class PestPacInvoiceDetails(BaseModel):
+    """GET /Invoices/{id}, whitelisted: no tax details, contact names (ServiceLocation/BillTo),
+    branch, terms, user-defined fields, or technician pay. Only the position-1 technician's
+    TechID is kept."""
+
+    pestpac_invoice_id: int
+    pestpac_bill_to_id: int
+    pestpac_location_id: int | None = None
+    pestpac_setup_id: int | None = None
+    pestpac_order_id: int | None = None
+    pestpac_tech_id: int | None = None
+    invoice_number: str | None = None
+    order_number: str | None = None
+    service_code: str | None = None
+    description: str | None = None
+    total: Decimal | None = None
+    balance: Decimal | None = None
+    service_fee_total: Decimal | None = None
+    cost: Decimal | None = None
+    invoice_date: datetime | None = None
+    work_date: datetime | None = None
+    due_date: datetime | None = None
+    order_date: datetime | None = None
+    time_range: str | None = None
+    duration: int | None = None
+    invoice_type: str | None = None
+    order_type: str | None = None
+    origin: str | None = None
+    location_instructions: str | None = None
+    service_instructions: str | None = None
+    order_instructions: str | None = None
+    technician_comment: str | None = None
+    batch_number: int | None = None
+    lines: list[PestPacInvoiceLine] = Field(default_factory=list)
+
+    @classmethod
+    def from_api(cls, body: dict) -> PestPacInvoiceDetails:
+        bill_to_id = _int_or_none(body.get("BillToID"))
+        invoice_id = _int_or_none(body.get("InvoiceID"))
+        if invoice_id is None or bill_to_id is None:
+            raise ValueError("InvoiceID and BillToID are required")
+        lines = body.get("LineItems") or []
+        technicians = body.get("Technicians") or []
+        if not isinstance(lines, list) or not isinstance(technicians, list):
+            raise ValueError("LineItems and Technicians must be lists")
+        first = next((t for t in technicians if isinstance(t, dict) and t.get("Position") == 1), {})
+        return cls(
+            pestpac_invoice_id=invoice_id,
+            pestpac_bill_to_id=bill_to_id,
+            pestpac_location_id=_int_or_none(body.get("LocationID")),
+            pestpac_setup_id=_int_or_none(body.get("SetupID")),
+            pestpac_order_id=_int_or_none(body.get("OrderID")),
+            pestpac_tech_id=_int_or_none(first.get("TechID")),
+            invoice_number=_text(body, "InvoiceNumber", 50),
+            order_number=_text(body, "OrderNumber", 50),
+            service_code=_text(body, "ServiceCode", 100),
+            description=_text(body, "Description", 500),
+            total=_decimal_or_none(body.get("Total")),
+            balance=_decimal_or_none(body.get("Balance")),
+            service_fee_total=_decimal_or_none(body.get("ServiceFeeTotal")),
+            cost=_decimal_or_none(body.get("Cost")),
+            invoice_date=_pestpac_local_datetime(body.get("InvoiceDate")),
+            work_date=_pestpac_local_datetime(body.get("WorkDate")),
+            due_date=_pestpac_local_datetime(body.get("DueDate")),
+            order_date=_pestpac_local_datetime(body.get("OrderDate")),
+            time_range=_text(body, "TimeRange", 50),
+            duration=_int_or_none(body.get("Duration")),
+            invoice_type=_text(body, "InvoiceType", 50),
+            order_type=_text(body, "OrderType", 50),
+            origin=_text(body, "Origin", 50),
+            location_instructions=_text(body, "LocationInstructions", None),
+            service_instructions=_text(body, "ServiceInstructions", None),
+            order_instructions=_text(body, "OrderInstructions", None),
+            technician_comment=_text(body, "TechnicianComment", None),
+            batch_number=_int_or_none(body.get("BatchNumber")),
+            lines=[PestPacInvoiceLine.from_api(i) for i in lines if isinstance(i, dict)],
+        )

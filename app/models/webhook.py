@@ -2,7 +2,8 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, Index, String, Text, func
+from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -11,6 +12,7 @@ from app.db.base import Base
 class WebhookEntity(enum.StrEnum):
     bill_to = "bill_to"
     employee = "employee"
+    invoice = "invoice"
     location = "location"
     note = "note"
     service_order = "service_order"
@@ -24,7 +26,7 @@ class SignatureStatus(enum.StrEnum):
 
 
 class WebhookEventStatus(enum.StrEnum):
-    received = "received"  # stored, not processed yet (all events, while handlers are stubs)
+    received = "received"  # stored, not processed yet (entities without a handler stay here)
     processed = "processed"
     failed = "failed"
 
@@ -74,3 +76,41 @@ class WebhookEvent(Base):
         DateTime(timezone=True), server_default=func.now(), index=True
     )
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Who sent it: the connecting address (a proxy's, when behind one), the X-Forwarded-For
+    # header as sent (unverified), and the User-Agent.
+    client_ip: Mapped[str | None] = mapped_column(String(64))
+    forwarded_for: Mapped[str | None] = mapped_column(String(500))
+    user_agent: Mapped[str | None] = mapped_column(String(500))
+    # The sync the handler queued for this event, if any.
+    sync_job_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("sync_jobs.id", ondelete="SET NULL")
+    )
+
+
+class GoCanvasRequest(Base):
+    """A request received at an operator's GoCanvas webhook URL, stored as received (every one:
+    GoCanvas's format isn't known yet). Not processed. The raw body is cleared after
+    WEBHOOK_RAW_RETENTION_DAYS; the row stays."""
+
+    __tablename__ = "gocanvas_requests"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    operator_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+    )
+    method: Mapped[str] = mapped_column(String(10))
+    query_string: Mapped[str | None] = mapped_column(String(2000))
+    content_type: Mapped[str | None] = mapped_column(String(200))
+    # Request headers, minus credentials (Authorization, Cookie, API keys).
+    headers: Mapped[dict] = mapped_column(JSONB, default=dict)
+    client_ip: Mapped[str | None] = mapped_column(String(64))
+    forwarded_for: Mapped[str | None] = mapped_column(String(500))
+    user_agent: Mapped[str | None] = mapped_column(String(500))
+    body_size: Mapped[int] = mapped_column(Integer)
+    body_sha256: Mapped[str] = mapped_column(String(64))
+    # Decoded as UTF-8 (undecodable bytes replaced).
+    raw_body: Mapped[str | None] = mapped_column(Text)
+    raw_body_purged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )

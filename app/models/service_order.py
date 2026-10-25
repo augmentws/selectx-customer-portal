@@ -95,6 +95,7 @@ class ServiceOrder(Base):
     location_instructions: Mapped[str | None] = mapped_column(Text)
     service_instructions: Mapped[str | None] = mapped_column(Text)
     order_instructions: Mapped[str | None] = mapped_column(Text)
+    technician_comment: Mapped[str | None] = mapped_column(Text)
 
     # From the order's notes' associations once it has been invoiced.
     pestpac_invoice_id: Mapped[int | None] = mapped_column(BigInteger)
@@ -118,6 +119,9 @@ class ServiceOrder(Base):
 class SyncJobKind(enum.StrEnum):
     bill_to_service_orders = "bill_to_service_orders"
     location_service_orders = "location_service_orders"
+    # "Sync location": documents and conditions, on request.
+    bill_to_location_sync = "bill_to_location_sync"
+    location_sync = "location_sync"
 
 
 class SyncJobStatus(enum.StrEnum):

@@ -32,6 +32,7 @@ import type {
   StoreRow,
 } from "@/lib/api/generated/model";
 import { usePermissions } from "@/lib/permissions";
+import { useUrlTab } from "@/lib/use-url-tab";
 
 const DAY_MS = 864e5;
 const integer = new Intl.NumberFormat();
@@ -452,6 +453,10 @@ const PLACEHOLDERS = [
 
 export function CompanyDashboardView() {
   const { companyId } = useParams<{ companyId: string }>();
+  const [tab, setTab] = useUrlTab(
+    ["overview", "stores", ...PLACEHOLDERS.map((p) => p.value), "reports"],
+    "overview",
+  );
   const { can } = usePermissions();
   const [billToId, setBillToId] = useState("");
   const company = useCompaniesGetCompany(companyId);
@@ -512,7 +517,7 @@ export function CompanyDashboardView() {
         </Alert>
       )}
       {dashboard.data && (
-        <Tabs defaultValue="overview">
+        <Tabs value={tab} onValueChange={setTab}>
           <div className="overflow-x-auto">
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>

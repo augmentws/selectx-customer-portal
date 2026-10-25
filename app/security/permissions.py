@@ -21,8 +21,11 @@ class Perm(enum.StrEnum):
     pestpac_connection_read = "pestpac_connection:read"
     pestpac_connection_write = "pestpac_connection:write"
     reports_read = "reports:read"
+    reports_write = "reports:write"
     report_templates_write = "report_templates:write"
     dashboards_read = "dashboards:read"
+    webhooks_read = "webhooks:read"
+    billing_read = "billing:read"
 
 
 PERMISSION_DESCRIPTIONS: dict[Perm, str] = {
@@ -38,8 +41,11 @@ PERMISSION_DESCRIPTIONS: dict[Perm, str] = {
     Perm.pestpac_connection_read: "View PestPac API connection status",
     Perm.pestpac_connection_write: "Set up and test PestPac API credentials",
     Perm.reports_read: "View report templates and generate reports",
+    Perm.reports_write: "Create, edit, and finalize service reports",
     Perm.report_templates_write: "Create and edit report templates",
     Perm.dashboards_read: "View program dashboards",
+    Perm.webhooks_read: "View received PestPac webhook events",
+    Perm.billing_read: "View invoices and billed amounts",
 }
 
 
@@ -78,7 +84,10 @@ SYSTEM_ROLES: dict[SystemRole, tuple[RoleScope, str, frozenset[Perm]]] = {
                 Perm.pestpac_connection_read,
                 Perm.pestpac_connection_write,
                 Perm.reports_read,
+                Perm.reports_write,
                 Perm.dashboards_read,
+                Perm.webhooks_read,
+                Perm.billing_read,
             }
         ),
     ),

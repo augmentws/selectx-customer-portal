@@ -6,11 +6,13 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import select, update
 
+from app import worker
 from app.db.session import SessionLocal
-from app.models import PestPacConnection, WebhookEvent
+from app.models import BillTo, PestPacConnection, ServiceOrder, SyncJob, WebhookEntity, WebhookEvent
 from app.security.secrets import encrypt
+from app.services import webhook_handlers
 from app.services.webhooks import purge_raw_bodies
-from tests.conftest import ONBOARDED_BILL_TO, pestpac_order
+from tests.conftest import ONBOARDED_BILL_TO, WORLD_WEBHOOK_SHA, pestpac_order
 
 URL = "/v1/webhooks/pestpac"
 TENANT = "115060"  # operator A
@@ -44,7 +46,13 @@ def post(client, payload: dict, *, signature: str | None = None, timestamp: str 
 
 def events() -> list[WebhookEvent]:
     with SessionLocal() as db:
-        return list(db.scalars(select(WebhookEvent).order_by(WebhookEvent.received_at)))
+        return list(
+            db.scalars(
+                select(WebhookEvent)
+                .where(WebhookEvent.body_sha256 != WORLD_WEBHOOK_SHA)
+                .order_by(WebhookEvent.received_at)
+            )
+        )
 
 
 @pytest.fixture
@@ -60,6 +68,21 @@ def secret(world):
 
 def order_event(bill_to_id: int = ONBOARDED_BILL_TO, action: str = "Update") -> dict:
     return envelope("Service Order", 1552079, action, pestpac_order(1552079, STORE, bill_to_id))
+
+
+def test_sender_ip_and_user_agent_are_recorded(client, onboarded):
+    payload = order_event()
+    headers = {
+        "Content-Type": "application/json",
+        "timestamputc": TIMESTAMP,
+        "User-Agent": "PestPac-Webhooks/2",
+        "X-Forwarded-For": "198.51.100.7, 10.0.0.1",
+    }
+    assert client.post(URL, content=json.dumps(payload), headers=headers).status_code == 200
+    [event] = events()
+    assert event.user_agent == "PestPac-Webhooks/2"
+    assert event.forwarded_for == "198.51.100.7, 10.0.0.1"
+    assert event.client_ip  # the test client's address
 
 
 def test_onboarded_service_order_is_stored_with_valid_signature(client, onboarded, secret):
@@ -116,7 +139,8 @@ def test_unknown_tenant_is_dropped(client, onboarded):
 
 @pytest.mark.parametrize(
     ("entity_type", "action"),
-    [("Service Order", "Archive"), ("Invoice", "Create"), ("Bill To", "Post")],
+    # Invoices are captured now (any action); Payment stands in as an uncaptured type.
+    [("Service Order", "Archive"), ("Payment", "Create"), ("Bill To", "Post")],
 )
 def test_uncaptured_types_and_actions_are_dropped(client, onboarded, entity_type, action):
     payload = envelope(entity_type, ONBOARDED_BILL_TO, action, {"BillToID": ONBOARDED_BILL_TO})
@@ -199,3 +223,114 @@ def test_webhook_secret_is_write_only(client, world, pestpac):
     assert resp.status_code == 200
     assert resp.json()["has_webhook_secret"] is True
     assert SECRET not in resp.text
+
+
+# --- Processing (service order handler) ---
+
+
+def _posted_event(action: str = "Post", **body) -> dict:
+    order = pestpac_order(1552079, STORE, ONBOARDED_BILL_TO, Posted=True, **body)
+    return envelope("Service Order", 1552079, action, order)
+
+
+def _process() -> int:
+    worker._Stop.requested = False
+    return worker.run_pending_webhooks()
+
+
+def _order(pestpac_order_id: int) -> ServiceOrder | None:
+    with SessionLocal() as db:
+        return db.scalar(
+            select(ServiceOrder).where(ServiceOrder.pestpac_order_id == pestpac_order_id)
+        )
+
+
+def test_order_event_queues_its_location_and_the_sync_marks_it_worked(client, onboarded, pestpac):
+    worker._Stop.requested = False
+    worker.run_pending()  # the onboarding sync, before PestPac lists the order
+    pestpac.orders_by_location[STORE] = [
+        pestpac_order(1552079, STORE, ONBOARDED_BILL_TO, Posted=True)
+    ]
+    post(client, _posted_event())
+
+    assert _process() == 1
+    [event] = events()
+    assert event.status == "processed" and event.error is None and event.processed_at
+    with SessionLocal() as db:
+        job = db.get(SyncJob, event.sync_job_id)
+        assert job.kind == "location_service_orders" and job.status == "queued"
+
+    worker.run_pending()
+    order = _order(1552079)
+    assert order.posted and order.posted_at is not None
+
+
+def test_events_for_one_location_share_a_job(client, onboarded):
+    post(client, _posted_event(), timestamp="2026-10-21T22:24:30Z")
+    post(client, _posted_event("Update"), timestamp="2026-10-21T22:24:33Z")
+    assert _process() == 2
+    first, second = events()
+    assert first.sync_job_id is not None and first.sync_job_id == second.sync_job_id
+
+
+def test_order_at_an_unsynced_location_queues_the_bill_to(client, onboarded):
+    body = pestpac_order(1552079, 999999, ONBOARDED_BILL_TO, Posted=True)
+    post(client, envelope("Service Order", 1552079, "Post", body))
+    _process()
+    [event] = events()
+    with SessionLocal() as db:
+        assert db.get(SyncJob, event.sync_job_id).kind == "bill_to_service_orders"
+
+
+def test_order_without_a_target_is_failed_with_a_reason(client, world):
+    with SessionLocal() as db:
+        db.add(
+            WebhookEvent(
+                operator_id=world.op_a,
+                entity=WebhookEntity.service_order,
+                action="update",
+                pestpac_entity_id=4242,
+                signature_status="no_secret",
+                body_sha256="1" * 64,
+            )
+        )
+        db.commit()
+    _process()
+    [event] = events()
+    assert event.status == "failed" and event.sync_job_id is None
+    assert event.error == "No synced location or onboarded bill-to for this order"
+
+
+def test_delete_and_inactive_bill_to_are_processed_without_a_sync(client, onboarded):
+    body = pestpac_order(1552079, STORE, ONBOARDED_BILL_TO)
+    post(
+        client, envelope("Service Order", 1552079, "Delete", body), timestamp="2026-10-21T22:24:30Z"
+    )
+    post(client, _posted_event(), timestamp="2026-10-21T22:24:33Z")
+    with SessionLocal() as db:  # deactivated after the post event was stored
+        db.execute(update(BillTo).values(is_active=False))
+        db.commit()
+    assert _process() == 2
+    assert [(e.action, e.status, e.sync_job_id) for e in events()] == [
+        ("delete", "processed", None),
+        ("post", "processed", None),
+    ]
+
+
+def test_entities_without_a_handler_stay_received(client, onboarded):
+    note = {"NoteID": 77, "LocationID": STORE}
+    post(client, envelope("Note", 77, "Create", note))
+    assert _process() == 0
+    assert [e.status for e in events()] == ["received"]
+
+
+def test_handler_crash_is_recorded_not_retried(client, onboarded, monkeypatch):
+    def boom(db, event):
+        raise RuntimeError("bug")
+
+    monkeypatch.setattr(webhook_handlers, "process", boom)
+    post(client, _posted_event())
+    assert _process() == 1
+    [event] = events()
+    assert (event.status, event.error) == ("failed", "Handler error: RuntimeError")
+    assert _process() == 0

@@ -11,4 +11,6 @@ export type SyncJobKind = typeof SyncJobKind[keyof typeof SyncJobKind];
 export const SyncJobKind = {
   bill_to_service_orders: 'bill_to_service_orders',
   location_service_orders: 'location_service_orders',
+  bill_to_location_sync: 'bill_to_location_sync',
+  location_sync: 'location_sync',
 } as const;

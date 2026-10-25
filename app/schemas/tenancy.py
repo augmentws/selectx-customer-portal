@@ -206,12 +206,27 @@ class ServiceOrderRead(BaseModel):
     location_instructions: str | None
     service_instructions: str | None
     order_instructions: str | None
+    technician_comment: str | None
     pestpac_invoice_id: int | None
     posted: bool
     posted_at: datetime | None
     closed_at: datetime | None
     pestpac_fetched_at: datetime
     last_event_at: datetime | None
+
+
+class PostedServiceOrderRead(ServiceOrderRead):
+    # The location's PestPac Company (its name), for lists spanning locations.
+    location_name: str | None
+    # The order's service report, if one was started (an order has at most one).
+    report_id: uuid.UUID | None
+
+
+class PostedServiceOrderPage(BaseModel):
+    items: list[PostedServiceOrderRead]
+    total: int
+    limit: int
+    offset: int
 
 
 class SyncJobRead(BaseModel):
@@ -246,3 +261,70 @@ class NoteRead(BaseModel):
     service_order_id: uuid.UUID | None
     pestpac_order_id: int | None
     pestpac_invoice_id: int | None
+
+
+class DocumentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    document_type: str
+    pestpac_document_id: int
+    name: str | None
+    file_name: str | None
+    # PestPac local wall-clock time, as stored.
+    document_date: datetime | None
+    starting_effective_date: datetime | None
+    ending_effective_date: datetime | None
+    is_tech_photo: bool
+    include_on: dict[str, bool]
+    location_id: uuid.UUID | None
+    service_order_id: uuid.UUID | None
+    pestpac_order_id: int | None
+    has_file: bool
+    content_type: str | None
+    size_bytes: int | None
+    # Why the file isn't stored yet, if a download was tried.
+    file_error: str | None
+
+
+class ConditionInspectionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    service_order_id: uuid.UUID | None
+    pestpac_order_id: int | None
+    # PestPac local wall-clock time, as stored.
+    detail_date: datetime | None
+    username: str | None
+    status: str | None
+    comment: str | None
+
+
+class ConditionBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    pestpac_issue_id: int
+    location_id: uuid.UUID | None
+    service_order_id: uuid.UUID | None
+    pestpac_order_id: int | None
+    area: str | None
+    specific_area: str | None
+    area_hierarchy: str | None
+    condition_type: str | None
+    condition: str | None
+    action: str | None
+    detail: str | None
+    status: str | None
+    severity: str | None
+    responsibility: str | None
+    category: str | None
+    opened_by_user: str | None
+    # PestPac local wall-clock times, as stored.
+    date_opened: datetime | None
+    date_closed: datetime | None
+    last_inspected_date: datetime | None
+    inspections: list[ConditionInspectionRead]
+
+
+class ConditionRead(ConditionBase):
+    documents: list[DocumentRead]

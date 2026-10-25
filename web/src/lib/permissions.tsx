@@ -20,8 +20,11 @@ export type PermissionCode =
   | "pestpac_connection:read"
   | "pestpac_connection:write"
   | "reports:read"
+  | "reports:write"
   | "report_templates:write"
-  | "dashboards:read";
+  | "dashboards:read"
+  | "webhooks:read"
+  | "billing:read";
 
 export function permissionsOn(me: MeRead | undefined, tenantId: string | undefined): Set<string> {
   const perms = new Set<string>();

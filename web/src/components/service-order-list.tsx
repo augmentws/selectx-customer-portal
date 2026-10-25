@@ -55,15 +55,21 @@ export function OrderRow({
   order,
   locationName,
   showLocation = true,
+  actions,
 }: {
   order: ServiceOrderRead;
   locationName?: string;
+  /** Shown at the right of the order's heading. */
+  actions?: React.ReactNode;
   /** Off when the order is already listed under its location. */
   showLocation?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const hasInstructions =
-    order.location_instructions || order.service_instructions || order.order_instructions;
+    order.location_instructions ||
+    order.service_instructions ||
+    order.order_instructions ||
+    order.technician_comment;
   return (
     <li className="p-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -72,6 +78,7 @@ export function OrderRow({
         {order.pestpac_invoice_id !== null && (
           <span className="text-sm text-muted-foreground">Invoice {order.pestpac_invoice_id}</span>
         )}
+        {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
       </div>
       <div className="mt-1 grid gap-x-6 text-sm sm:grid-cols-3">
         <span>
@@ -114,6 +121,7 @@ export function OrderRow({
               <Instructions label="Location instructions" text={order.location_instructions} />
               <Instructions label="Service instructions" text={order.service_instructions} />
               <Instructions label="Order instructions" text={order.order_instructions} />
+              <Instructions label="Technician comment" text={order.technician_comment} />
             </dl>
           )}
           {/* Fetched only once opened. */}

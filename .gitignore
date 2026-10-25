@@ -11,6 +11,8 @@ htmlcov/
 .env
 .env.*
 !.env.example
+minio.license
+.data/
 
 # Node / Next.js
 node_modules/

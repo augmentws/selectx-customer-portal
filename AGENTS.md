@@ -18,7 +18,9 @@ This repository holds the backend API and the single web application:
 
 ## Backend Architecture
 
-Use Python 3.14, FastAPI, SQLAlchemy, Alembic, Pipenv, PostgreSQL, and Docker Compose. PDF reports use Jinja2 and WeasyPrint (system dependency: Pango). The local database is named `customer_portal` (tests use `customer_portal_test`). Local ports: PostgreSQL 5433, FastAPI 8001, Next.js 3001.
+Use Python 3.14, FastAPI, SQLAlchemy, Alembic, Pipenv, PostgreSQL, and Docker Compose. PDF reports use Jinja2 and WeasyPrint (system dependency: Pango). The local database is named `customer_portal` (tests use `customer_portal_test`). Local ports: PostgreSQL 5433, FastAPI 8001, Next.js 3001, MinIO 9000 (S3 API) and 9001 (console).
+
+Object storage is any S3-compatible service, reached only through the S3 API (no MinIO-specific SDK or features), so MinIO locally and R2 or S3 elsewhere are interchangeable. Locally it's MinIO (AIStor) in Docker Compose; its license (`minio.license`) and data directory (`.data/`) are gitignored. Document files are the only thing stored so far. The app uses its own MinIO user and bucket, not the root credentials.
 
 FastAPI is the authority for domain behavior, authentication, authorization, sessions, and auditing. Do not move domain logic into the UI or its proxy layer.
 
@@ -29,17 +31,23 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - `GET /health`
 - Auth: `POST /v1/auth/login`, `/refresh`, `/logout`, `/password`; `GET /v1/auth/me` (includes memberships and permissions)
 - `GET/POST /v1/operators`, `GET/PATCH /v1/operators/{id}`, `GET/POST /v1/operators/{id}/companies`
-- `GET/PATCH /v1/companies/{id}`, `GET/POST /v1/companies/{id}/bill-tos`
-- `GET/PATCH /v1/bill-tos/{id}`, `POST /v1/bill-tos/{id}/refresh`, `GET /v1/bill-tos/{id}/locations`, `GET /v1/bill-tos/{id}/service-orders`, `POST /v1/bill-tos/{id}/service-orders/sync`, `GET /v1/bill-tos/{id}/sync-jobs`
+- `GET/PATCH /v1/companies/{id}`, `GET/POST /v1/companies/{id}/bill-tos`, `GET /v1/companies/{id}/posted-service-orders`
+- `GET/PATCH /v1/bill-tos/{id}`, `POST /v1/bill-tos/{id}/refresh`, `GET /v1/bill-tos/{id}/locations`, `GET /v1/bill-tos/{id}/service-orders`, `GET /v1/bill-tos/{id}/posted-service-orders`, `POST /v1/bill-tos/{id}/service-orders/sync`, `GET /v1/bill-tos/{id}/sync-jobs`
 - `GET /v1/locations/{id}`, `GET /v1/locations/{id}/notes`, `GET /v1/locations/{id}/service-orders`, `POST /v1/locations/{id}/service-orders/sync`
+- Invoices (`billing:read`): `GET /v1/locations/{id}/invoices` (`limit`/`offset`), `GET /v1/invoices/{id}`, `GET /v1/bill-tos/{id}/invoiced-orders`, `GET /v1/companies/{id}/invoiced-orders` (each invoice with its service order)
+- Documents and conditions: `GET /v1/locations/{id}/documents`, `GET /v1/locations/{id}/conditions`, `GET /v1/documents/{id}/file`
+- "Sync location": `POST /v1/locations/{id}/sync`, `POST /v1/bill-tos/{id}/locations/sync`
 - `GET /v1/service-orders/{id}`, `GET /v1/service-orders/{id}/notes`, `GET /v1/sync-jobs/{id}`
 - `POST /v1/webhooks/pestpac` (public; PestPac webhook deliveries)
+- `POST /v1/webhooks/gocanvas/{operator_id}` (public; also GET/PUT, not in the schema), `GET /v1/operators/{id}/gocanvas-requests`, `GET /v1/gocanvas-requests/{id}`
+- `GET /v1/operators/{id}/webhook-events` (filters incl. `entity_id`, `limit`/`offset`), `GET /v1/webhook-events/{id}` (with raw body)
 - `GET /v1/companies/{id}/bill-tos/lookup`
 - `GET/PUT /v1/operators/{id}/pestpac-connection`, `POST /v1/operators/{id}/pestpac-connection/verify`
 - `GET/POST /v1/tenants/{id}/members`, `PATCH/DELETE /v1/tenants/{id}/members/{user_id}`
 - `GET /v1/roles`, `GET /v1/permissions`
 - Dashboard: `GET /v1/companies/{id}/dashboard?bill_to_id=`
 - Reports: `GET/POST /v1/companies/{id}/report-templates`, `GET/PATCH /v1/report-templates/{id}`, `GET /v1/locations/{id}/reports/{template_id}` (PDF), `POST /v1/locations/{id}/report-preview` (PDF)
+- Service reports: `GET/POST /v1/locations/{id}/service-reports`, `GET/PATCH /v1/service-reports/{id}`, `POST /v1/service-reports/{id}/draft`, `GET /v1/service-reports/{id}/preview` (HTML), `POST /v1/service-reports/{id}/finalize`, `POST /v1/service-reports/{id}/revise`, `GET /v1/service-reports/{id}/pdf`
 
 ## Tenancy and Data Model
 
@@ -66,23 +74,61 @@ Current API surface (keep the versioned shape unless a contract change is reques
 ## Service Orders, Technicians, and Notes
 
 - PestPac lists only *open* service orders, per location (`GET /Locations/{id}/serviceOrders`, not paged). `service_orders` is our permanent copy, keyed by `(operator_id, OrderID)`: open (`posted` false) → worked (`Posted` flips true; `posted_at` records when we first saw it) → billed (PestPac stops listing it; `closed_at`). Never delete service orders. Only orders whose BillToID is an onboarded, active bill-to are stored.
-- Stored order fields: OrderID, OrderNumber, ServiceCode, Description, WorkDate (PestPac local wall-clock time, no timezone), Tech1, TechID1, Location/Service/Order instructions, Posted, and the InvoiceID learned from the order's notes. No pricing, tax, scheduling windows, or user-defined fields.
+- Stored order fields: OrderID, OrderNumber, ServiceCode, Description, WorkDate (PestPac local wall-clock time, no timezone), Tech1, TechID1, Location/Service/Order instructions, TechnicianComment, Posted, and the InvoiceID learned from the order's notes. No pricing, tax, scheduling windows, or user-defined fields.
 - Syncs run in the background worker, `python -m app.worker` (`--once` to drain the queue). `sync_jobs` are claimed with `FOR UPDATE SKIP LOCKED`; stale running jobs are retried up to `SYNC_JOB_MAX_ATTEMPTS`. Each location commits on its own; jobs end `succeeded`, `partial`, or `failed`. Onboarding a bill-to queues its first sync.
 - Each job first seeds technicians from `GET /lookups/Employees/technicians` (not paged; not fatal on failure); `GET /lookups/Employees/technicians/{techId}` is the per-job, once-per-tech fallback. A technician problem never fails an order. Store only TechID, EmployeeID, username, first/last name, and Active.
 - Notes: one `notes` row per NoteID, mirroring PestPac (a note can be associated with several objects). Objects we model get real foreign keys (`location_id`, `bill_to_id`, `service_order_id`, `created_by_technician_id`); every association is also kept as its raw PestPac id. Don't create per-object note tables.
 - Each location's full note history is synced: `GET /Locations/{id}/notes` (paged with `skip`/`top`; it ignores `take`, unlike the `/pageable` endpoints), then `GET /Notes/{id}` once per new note for its associations. Known notes are refreshed from the list without a detail call. Posted orders without an InvoiceID have their notes' associations re-checked on later syncs. Notes are synced after the location's orders commit; a notes failure never undoes them.
+- Lists: a location's orders are shown oldest first (the newest 200); bill-to order lists newest first. "Posted service orders" (bill-to and company tabs) lists worked orders without a stored invoice, oldest first, paged with `limit`/`offset`, each with its `report_id` (Start report / Open report there). "Invoiced orders" (same pages, `billing:read`) lists invoices newest first, each with the order it bills.
 - `CreatedByUser` links to a technician by username when there is one; otherwise it stays a raw username.
 - PestPac calls have timeouts. Request/response bodies contain customer data and are logged only when `PESTPAC_DEBUG_BODIES=true` (local debugging).
 - Tests mock PestPac with `responses` (`pestpac` fixture in `tests/conftest.py`); they must never call the real API.
 
+## Invoices (billing)
+
+- Invoices are the one place we keep money: an explicit exception to "no pricing, tax, or balances" elsewhere. `invoices` (one per InvoiceID per operator; FKs to bill-to, location, service order, and technician; raw ids kept) and `invoice_lines` (replaced on every fetch). Whitelisted in `PestPacInvoiceDetails`: InvoiceID, LocationID, BillToID, SetupID, OrderID, InvoiceNumber, OrderNumber, ServiceCode, Description, Total, Balance, ServiceFeeTotal, Cost, Invoice/Work/Due/Order dates (PestPac wall-clock time), TimeRange, Duration, InvoiceType, OrderType, Origin, Location/Service/Order instructions, TechnicianComment, BatchNumber, and LineItems (code, description, cost, unit price, quantity, extended price, taxable, GL code). Never kept: tax details, contact names (ServiceLocation/BillTo), branch, terms, user-defined fields, the raw response, and technicians beyond position 1 or any technician pay (Commission, Bonus, Share). The position-1 TechID links to `technicians`.
+- Only invoices whose BillToID is an onboarded, active bill-to are stored. Never deleted: a delete webhook or a 404 sets `removed_at`.
+- Two ways in: an invoice webhook (any action captured; EntityType and body fields unconfirmed until a real delivery) makes the worker fetch `GET /Invoices/{id}`; and every order sync, after notes, searches `GET /Invoices?orderNumber=` for the location's worked orders that have no stored invoice (unbilled ones find nothing and are retried next sync; a failure makes the job `partial` but never undoes orders or notes). The search answers with the full invoice object (same shape as `GET /Invoices/{id}`, confirmed); only an exact OrderNumber match is kept. 404 means not invoiced yet (confirmed); any other answer that isn't an invoice fails the location's invoice step.
+- An invoice completes its order, without overwriting: sets `pestpac_invoice_id`, marks it worked if we never saw it posted, and fills an empty `technician_comment`.
+- Seen only with `billing:read` (platform and operator admins; not staff).
+
+## Documents
+
+- One `documents` table for every PestPac document, keyed by `(operator_id, document_type, DocumentID)` (ids may repeat across types). Like notes, modelled objects get foreign keys (`location_id`, `service_order_id`) and raw PestPac ids are kept. Whitelisted fields only: type, name, file name, date (PestPac wall-clock time), effective dates, tech-photo flag, `IncludeOn` flags (snake_cased; `portal` is PestPac's customer-visible flag), OrderID, SetupID. PestPac's `URL` is empty and isn't kept.
+- Synced by "Sync location" (`location_sync` / `bill_to_location_sync` jobs in the worker), on request and never as part of order syncs. It's the home for per-location syncs beyond orders and notes; add new ones there. Per location: `GET /Locations/{id}/documents?startDate={PESTPAC_DOCUMENTS_START_DATE}&includeConditionDocuments=true` (one unpaged array), then `GET /Documents/{id}/download?type={DocumentType}` for each file not stored yet. Files are fetched once.
+- Files go to object storage under `operators/{operator}/documents/{type}/{DocumentID}` (never the file name), through `app/storage.py` (S3 API only). Each stored file commits on its own. A file's own problem (error status, JSON instead of a file, over `DOCUMENT_MAX_BYTES`) is recorded in `file_error` and doesn't fail the location; too-large files aren't downloaded again. PestPac or storage being unreachable fails the location. Without `S3_BUCKET`, lists still sync and files wait.
+- Documents PestPac stops listing get `removed_at` (only those dated from the start date, since older ones aren't listed). Rows and files are never deleted.
+- Files are served by FastAPI with `bill_tos:read`: images and PDFs inline, everything else as an attachment, always with `nosniff`, and with `Content-Security-Policy: sandbox` on everything but PDFs (Chrome's PDF viewer refuses to load sandboxed: ERR_BLOCKED_BY_CLIENT), so a PestPac file can't run script on our origin. The BFF forwards those headers.
+- Downloads return the raw file with its content type (confirmed against PestPac: PDF, JPEG, PNG, MP4); a JSON body is treated as a failure, not stored.
+- Tests use the in-memory store from the autouse `storage` fixture; `S3_BUCKET` is cleared so they never reach a real store.
+
+## Conditions (issues)
+
+- `conditions` (one per IssueID per operator; FKs to location and service order, raw ids kept) and `condition_inspections`. PestPac gives inspections no id, so a condition's inspections are replaced whenever its details are fetched. Fields are whitelisted in `PestPacConditionSummary` / `PestPacConditionDetails` (StationID isn't kept); dates are PestPac wall-clock time.
+- "Sync location" runs, per location: documents list, then `GET /Locations/{id}/conditions?status=Open` (summaries), then `GET /Conditions/{id}` only for new conditions or when `LastInspectedDate` or status changed, then files. Conditions we hold as Open that drop off the list are fetched once more to record the closing; a 404 marks them `removed_at`. Never deleted.
+- A condition's `Documents` go into `documents` as usual (linked by `condition_id`, raw `pestpac_issue_id`); new ones get their files in the same run. The location documents list never marks a condition's documents removed.
+- The location's documents and conditions lists commit together; a failure rolls both back for that location only.
+
 ## PestPac Webhooks
 
 - `POST /v1/webhooks/pestpac` is public (no session); the only route exempt from the access matrix besides auth. It answers 200 whether an event was stored, dropped, or a redelivery, so callers can't probe which bill-tos are onboarded; 400 for a malformed envelope, 413 above `WEBHOOK_MAX_BODY_BYTES`.
-- Envelope: `TenantId` (matched to `pestpac_tenant_id`), `EntityType`, `EntityId`, `Action`, `EntityBody`. Captured: Bill-To, Employee, Location, Note (create/update/delete) and Service Order (create/update/post/delete); everything else is dropped.
+- Envelope: `TenantId` (matched to `pestpac_tenant_id`), `EntityType`, `EntityId`, `Action`, `EntityBody`. Captured: Bill-To, Employee, Location, Note (create/update/delete), Service Order (create/update/post/delete), and Invoice (any action); everything else is dropped.
 - Signature: HMAC-SHA256 of the serialized `EntityBody` plus the `timestamputc` header, in `signature` headers, keyed by the operator's optional, write-only webhook secret (encrypted on `pestpac_connections`). Report mode: the result (`valid`/`invalid`/`missing`/`no_secret`) is recorded, never refused, until the scheme is confirmed against real deliveries.
 - Only events matching the bill-to rule are stored in `webhook_events`: the bill-to (or the body's `BillToID`) is onboarded and active, or the entity is one we already hold (deletes may lack a body). Employees always match: technicians are operator-wide. Note body fields (`LocationID`, `OrderID`) are assumed until a sample confirms them.
 - Redeliveries (same operator, body hash, and timestamp) are stored once. The worker clears raw bodies after `WEBHOOK_RAW_RETENTION_DAYS` (30); the row stays. No object storage.
-- Processing is a stub: events stay `received`. Planned handlers are listed in `app/services/webhooks.py`.
+- Invoice events are captured with any action and handled as described under Invoices.
+- The worker processes stored events (`app/services/webhook_handlers.py`, oldest first, `SKIP LOCKED`). Service orders and invoices have handlers. Service orders: create/update/post queue the usual sync of the order's location (the body's LocationID, else our copy's location; a location we haven't synced queues the bill-to sync instead). The body is never written directly while signatures are only reported. Events share a job already queued or running for that location; `sync_job_id` records it. Delete and inactive bill-tos: `processed` with no sync. No target, or a handler bug: `failed` with the reason. Other entities stay `received`; their planned handlers are listed in `app/services/webhooks.py`.
+- Stored events are viewable with `webhooks:read` (platform and operator admins; bodies hold customer data) on the operator page's Webhooks tab. Dropped deliveries are never stored, so they can't be shown.
+
+## GoCanvas Webhooks
+
+- Each operator has its own public URL, `POST /v1/webhooks/gocanvas/{operator_id}` (GET and PUT are accepted too). Every request is stored in `gocanvas_requests` as received, since GoCanvas's format isn't known yet: method, query string, content type, headers minus credentials (Authorization, Cookie, API-key headers), body (UTF-8, undecodable bytes replaced; capped by `WEBHOOK_MAX_BODY_BYTES`, 413 above it), size and SHA-256, sender IP and user agent. Nothing is processed.
+- Answers 200 always; requests for an unknown or inactive operator aren't stored, so the URL can't probe operators. Raw bodies are cleared by the worker after `WEBHOOK_RAW_RETENTION_DAYS`; rows stay.
+- Viewable with `webhooks:read` on the operator page's GoCanvas tab.
+
+## Webhook senders
+
+- Both receivers record who sent each stored request: `client_ip` (the connecting address: a proxy's when one is in front), `forwarded_for` (X-Forwarded-For as sent, unverified; don't treat it as the sender), and `user_agent`. PestPac deliveries dropped by the bill-to rule aren't stored, so they aren't recorded either.
 
 ## LLM Data Clean-up (OpenRouter)
 
@@ -95,11 +141,21 @@ Current API surface (keep the versioned shape unless a contract change is reques
 
 ## PDF Reports
 
-- `report_templates` are per company (any number), HTML with inline CSS, written only by platform admins (`report_templates:write`); every system role has `reports:read` to list them and generate PDFs. Deactivate with `is_active`; `version` increments when the HTML changes. Generated PDFs are not stored or logged.
+- `report_templates` are per company (any number), HTML with inline CSS, written only by platform admins (`report_templates:write`); every system role has `reports:read` to list them and generate PDFs. Deactivate with `is_active`; `version` increments when the HTML, fields, or prompt change. The one-click location PDF is not stored or logged; service reports (below) are. Templates with `fields` are service report templates: they aren't offered as one-click PDFs (409).
 - Templates are Jinja rendered by `app/services/reports.py` in a `SandboxedEnvironment` with autoescaping and `StrictUndefined`. Saving test-renders against `sample_context()`; render errors are 422 with the Jinja message.
 - Templates see only `ReportContext` in `app/schemas/reports.py` (operator, company, bill-to, location, `generated_at` in UTC), passed as plain dicts. To expose more data, add fields there and in `build_context`; never pass ORM objects to templates.
 - WeasyPrint renders the PDF with a URL fetcher limited to `data:` URIs: images, fonts, and stylesheets must be embedded, and nothing is fetched over the network or from disk. It needs Pango installed on the host.
-- A location only renders its own company's active templates (404 otherwise). The BFF forwards `content-disposition`; the web app fetches PDFs with `web/src/lib/api/pdf.ts`, since the generated client reads bodies as text.
+- A location only renders its own company's active templates (404 otherwise).
+- Templates can declare `fields` (`TemplateField`: key, label, type `text`/`paragraphs`/`list`/`sections`, `llm`, `help`, `default`), a drafting `prompt`, and an optional `llm_model`. The HTML reads `fields.<key>`; text is rendered with the `rich` filter, which escapes it and allows only `**bold**`. Saving test-renders with sample values for every field, so the HTML and fields must agree. A template, its fields, and its prompt work together; keep them in one place (the rodent-control one is in `docs/report-templates/`).
+
+## Service Reports
+
+- Versions: "New version" (revise) copies the order's latest version into a new draft revision; only the latest version can be revised, so there's at most one draft. Finalizing a version marks the order's earlier final versions `superseded` (PDF kept, read-only): only the newest version is final.
+- One report per service order, whatever the template (starting a second is 409; changes are revisions): `reports` stores the data that goes into the PDF (`data`: a context snapshot taken when started, field values, candidate notes and photos with selections and captions), separately from the PDF itself (object storage, `operators/{op}/reports/{id}/r{n}.pdf`, with size and SHA-256 on the row). Never deleted.
+- Started from a location's order (`reports:write`: platform and operator admins). Notes and images are linked by date, since PestPac rarely links them to an order: those within a day of the WorkDate are offered; on the work date (or note linked to the order) start selected.
+- The order's TechnicianComment is snapshotted into `data.technician_comment` when the report is started (selected by default) and offered as its own checkbox; drafting needs a selected note or the comment.
+- "Draft narrative" queues the worker, which sends the selected notes and technician comment (plus location and order) to the LLM via `run_task` with the template's prompt plus a generated description of its `llm` fields; the structured reply fills those fields. LLM failures are recorded on the report (`draft_error`), never raised. No model is configured yet: set `OPENROUTER_API_KEY` and a model (template or `OPENROUTER_DEFAULT_MODEL`).
+- Editing and previewing (HTML from the saved data, shown in a sandboxed iframe) are allowed while `draft`. Finalizing renders the PDF from the saved data, stores it, and locks the report; changes after that are a new revision copying the data. Photos are downscaled with Pillow (a WeasyPrint dependency) and embedded as `data:` URIs at render time; they're referenced, not copied, in `data`. The BFF forwards `content-disposition`; the web app fetches PDFs with `web/src/lib/api/pdf.ts`, since the generated client reads bodies as text.
 
 ## Program Dashboard
 
@@ -153,6 +209,7 @@ One application for all user types; separate experiences with route groups, not 
 - Tokens are hex in `:root`; `pnpm lint` runs `pnpm check:contrast`, which fails if a token pair drops below WCAG 2.2 AA. Add a pair there when introducing a new foreground/background combination.
 - Validate text, icon, focus, and interactive-state contrast against WCAG 2.2 AA. Accessibility overrides literal palette use.
 - Keep shadcn primitives in `components/ui`; features compose them rather than modifying them.
+- Tabs keep their selection in the URL with `useUrlTab` (`web/src/lib/use-url-tab.ts`): `?tab=` by default, another parameter for tabs nested in a page. Switching pushes history, so Back and links return to the tab.
 - Use `class-variance-authority` and a shared `cn()` helper. No Sass, CSS-in-JS, or another styling framework without a specific need.
 
 ## Testing and Verification
@@ -175,6 +232,7 @@ Frontend: `pnpm typecheck`, `pnpm lint` (includes `pnpm format:check` and the th
 cp .env.example .env
 pipenv install --dev
 docker compose up -d postgres
+mkdir -p .data/minio && docker compose up -d minio   # needs ./minio.license
 pipenv run alembic upgrade head
 pipenv run python -m app.bootstrap
 pipenv run uvicorn app.main:app --reload --port 8001
@@ -184,7 +242,7 @@ cd web && cp .env.example .env.local && pnpm install && pnpm dev
 
 ## Change Discipline
 
-- Keep work focused on the current scope: tenants, RBAC, companies, and bill-to onboarding; PestPac webhook capture is stubbed (stored, not processed); its handlers are next. Don't build deferred features (customer logins, custom roles, regions, branches, theming, frontend test tooling) unless the user advances scope, but keep designs extensible for them.
+- Keep work focused on the current scope: tenants, RBAC, companies, and bill-to onboarding; PestPac webhooks are stored; service orders are processed (queue a location sync), the other entities' handlers are next. Don't build deferred features (customer logins, custom roles, regions, branches, theming, frontend test tooling) unless the user advances scope, but keep designs extensible for them.
 - Add an Alembic migration for every persistent schema change.
 - Preserve user changes and unrelated work already in the repository.
 - Update this file when an architectural or product decision is explicitly changed.

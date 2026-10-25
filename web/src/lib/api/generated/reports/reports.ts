@@ -25,10 +25,14 @@ import type {
 
 import type {
   HTTPValidationError,
+  ReportCreate,
   ReportPreview,
+  ReportRead,
+  ReportSummary,
   ReportTemplateCreate,
   ReportTemplateRead,
   ReportTemplateUpdate,
+  ReportUpdate,
   ReportsListReportTemplatesParams
 } from '../model';
 
@@ -745,3 +749,956 @@ export const useReportsPreviewReport = <TError = HTTPValidationError,
       > => {
       return useMutation(getReportsPreviewReportMutationOptions(options), queryClient);
     }
+    export type reportsListServiceReportsResponse200 = {
+  data: ReportSummary[]
+  status: 200
+}
+
+export type reportsListServiceReportsResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type reportsListServiceReportsResponseSuccess = (reportsListServiceReportsResponse200) & {
+  headers: Headers;
+};
+export type reportsListServiceReportsResponseError = (reportsListServiceReportsResponse422) & {
+  headers: Headers;
+};
+
+export const getReportsListServiceReportsUrl = (locationId: string,) => {
+
+
+
+
+  return `/v1/locations/${locationId}/service-reports`
+}
+
+/**
+ * @summary List Service Reports
+ */
+export const reportsListServiceReports = async (locationId: string, options?: Parameters<typeof bffFetch>[1]): Promise<reportsListServiceReportsResponseSuccess> => {
+
+  return bffFetch<reportsListServiceReportsResponseSuccess>(getReportsListServiceReportsUrl(locationId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getReportsListServiceReportsQueryKey = (locationId: string,) => {
+    return [
+    `/v1/locations/${locationId}/service-reports`
+    ] as const;
+    }
+
+
+export const getReportsListServiceReportsQueryOptions = <TData = Awaited<ReturnType<typeof reportsListServiceReports>>, TError = HTTPValidationError>(locationId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsListServiceReports>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getReportsListServiceReportsQueryKey(locationId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof reportsListServiceReports>>> = ({ signal }) => reportsListServiceReports(locationId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: locationId !== null && locationId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof reportsListServiceReports>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ReportsListServiceReportsQueryResult = NonNullable<Awaited<ReturnType<typeof reportsListServiceReports>>>
+export type ReportsListServiceReportsQueryError = HTTPValidationError
+
+
+export function useReportsListServiceReports<TData = Awaited<ReturnType<typeof reportsListServiceReports>>, TError = HTTPValidationError>(
+ locationId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsListServiceReports>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof reportsListServiceReports>>,
+          TError,
+          Awaited<ReturnType<typeof reportsListServiceReports>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useReportsListServiceReports<TData = Awaited<ReturnType<typeof reportsListServiceReports>>, TError = HTTPValidationError>(
+ locationId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsListServiceReports>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof reportsListServiceReports>>,
+          TError,
+          Awaited<ReturnType<typeof reportsListServiceReports>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useReportsListServiceReports<TData = Awaited<ReturnType<typeof reportsListServiceReports>>, TError = HTTPValidationError>(
+ locationId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsListServiceReports>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Service Reports
+ */
+
+export function useReportsListServiceReports<TData = Awaited<ReturnType<typeof reportsListServiceReports>>, TError = HTTPValidationError>(
+ locationId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsListServiceReports>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getReportsListServiceReportsQueryOptions(locationId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type reportsCreateServiceReportResponse201 = {
+  data: ReportRead
+  status: 201
+}
+
+export type reportsCreateServiceReportResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type reportsCreateServiceReportResponseSuccess = (reportsCreateServiceReportResponse201) & {
+  headers: Headers;
+};
+export type reportsCreateServiceReportResponseError = (reportsCreateServiceReportResponse422) & {
+  headers: Headers;
+};
+
+export const getReportsCreateServiceReportUrl = (locationId: string,) => {
+
+
+
+
+  return `/v1/locations/${locationId}/service-reports`
+}
+
+/**
+ * Start a report for one of the location's service orders, with its notes and photos
+ * dated near the work date offered for selection.
+ * @summary Create Service Report
+ */
+export const reportsCreateServiceReport = async (locationId: string,
+    reportCreate: ReportCreate, options?: Parameters<typeof bffFetch>[1]): Promise<reportsCreateServiceReportResponseSuccess> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return bffFetch<reportsCreateServiceReportResponseSuccess>(getReportsCreateServiceReportUrl(locationId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(reportCreate)
+  }
+);}
+
+
+
+
+
+export const getReportsCreateServiceReportMutationKey = () => ['reportsCreateServiceReport'] as const;
+
+export const getReportsCreateServiceReportMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportsCreateServiceReport>>, TError,ReportsCreateServiceReportMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reportsCreateServiceReport>>, TError,ReportsCreateServiceReportMutationVariables, TContext> => {
+
+const mutationKey = getReportsCreateServiceReportMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reportsCreateServiceReport>>, ReportsCreateServiceReportMutationVariables> = (props) => {
+          const {locationId,data} = props ?? {};
+
+          return  reportsCreateServiceReport(locationId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReportsCreateServiceReportMutationResult = NonNullable<Awaited<ReturnType<typeof reportsCreateServiceReport>>>
+    export type ReportsCreateServiceReportMutationBody = ReportCreate
+    export type ReportsCreateServiceReportMutationError = HTTPValidationError
+    export type ReportsCreateServiceReportMutationVariables = {locationId: string;data: ReportCreate}
+
+    /**
+ * @summary Create Service Report
+ */
+export const useReportsCreateServiceReport = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportsCreateServiceReport>>, TError,ReportsCreateServiceReportMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof reportsCreateServiceReport>>,
+        TError,
+        ReportsCreateServiceReportMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReportsCreateServiceReportMutationOptions(options), queryClient);
+    }
+    export type reportsGetServiceReportResponse200 = {
+  data: ReportRead
+  status: 200
+}
+
+export type reportsGetServiceReportResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type reportsGetServiceReportResponseSuccess = (reportsGetServiceReportResponse200) & {
+  headers: Headers;
+};
+export type reportsGetServiceReportResponseError = (reportsGetServiceReportResponse422) & {
+  headers: Headers;
+};
+
+export const getReportsGetServiceReportUrl = (reportId: string,) => {
+
+
+
+
+  return `/v1/service-reports/${reportId}`
+}
+
+/**
+ * @summary Get Service Report
+ */
+export const reportsGetServiceReport = async (reportId: string, options?: Parameters<typeof bffFetch>[1]): Promise<reportsGetServiceReportResponseSuccess> => {
+
+  return bffFetch<reportsGetServiceReportResponseSuccess>(getReportsGetServiceReportUrl(reportId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getReportsGetServiceReportQueryKey = (reportId: string,) => {
+    return [
+    `/v1/service-reports/${reportId}`
+    ] as const;
+    }
+
+
+export const getReportsGetServiceReportQueryOptions = <TData = Awaited<ReturnType<typeof reportsGetServiceReport>>, TError = HTTPValidationError>(reportId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsGetServiceReport>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getReportsGetServiceReportQueryKey(reportId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof reportsGetServiceReport>>> = ({ signal }) => reportsGetServiceReport(reportId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: reportId !== null && reportId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof reportsGetServiceReport>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ReportsGetServiceReportQueryResult = NonNullable<Awaited<ReturnType<typeof reportsGetServiceReport>>>
+export type ReportsGetServiceReportQueryError = HTTPValidationError
+
+
+export function useReportsGetServiceReport<TData = Awaited<ReturnType<typeof reportsGetServiceReport>>, TError = HTTPValidationError>(
+ reportId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsGetServiceReport>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof reportsGetServiceReport>>,
+          TError,
+          Awaited<ReturnType<typeof reportsGetServiceReport>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useReportsGetServiceReport<TData = Awaited<ReturnType<typeof reportsGetServiceReport>>, TError = HTTPValidationError>(
+ reportId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsGetServiceReport>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof reportsGetServiceReport>>,
+          TError,
+          Awaited<ReturnType<typeof reportsGetServiceReport>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useReportsGetServiceReport<TData = Awaited<ReturnType<typeof reportsGetServiceReport>>, TError = HTTPValidationError>(
+ reportId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsGetServiceReport>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Service Report
+ */
+
+export function useReportsGetServiceReport<TData = Awaited<ReturnType<typeof reportsGetServiceReport>>, TError = HTTPValidationError>(
+ reportId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsGetServiceReport>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getReportsGetServiceReportQueryOptions(reportId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type reportsUpdateServiceReportResponse200 = {
+  data: ReportRead
+  status: 200
+}
+
+export type reportsUpdateServiceReportResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type reportsUpdateServiceReportResponseSuccess = (reportsUpdateServiceReportResponse200) & {
+  headers: Headers;
+};
+export type reportsUpdateServiceReportResponseError = (reportsUpdateServiceReportResponse422) & {
+  headers: Headers;
+};
+
+export const getReportsUpdateServiceReportUrl = (reportId: string,) => {
+
+
+
+
+  return `/v1/service-reports/${reportId}`
+}
+
+/**
+ * Edit a draft: field values, which notes the narrative is drafted from, and which photos
+ * appear (in order, with captions).
+ * @summary Update Service Report
+ */
+export const reportsUpdateServiceReport = async (reportId: string,
+    reportUpdate: ReportUpdate, options?: Parameters<typeof bffFetch>[1]): Promise<reportsUpdateServiceReportResponseSuccess> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return bffFetch<reportsUpdateServiceReportResponseSuccess>(getReportsUpdateServiceReportUrl(reportId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(reportUpdate)
+  }
+);}
+
+
+
+
+
+export const getReportsUpdateServiceReportMutationKey = () => ['reportsUpdateServiceReport'] as const;
+
+export const getReportsUpdateServiceReportMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportsUpdateServiceReport>>, TError,ReportsUpdateServiceReportMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reportsUpdateServiceReport>>, TError,ReportsUpdateServiceReportMutationVariables, TContext> => {
+
+const mutationKey = getReportsUpdateServiceReportMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reportsUpdateServiceReport>>, ReportsUpdateServiceReportMutationVariables> = (props) => {
+          const {reportId,data} = props ?? {};
+
+          return  reportsUpdateServiceReport(reportId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReportsUpdateServiceReportMutationResult = NonNullable<Awaited<ReturnType<typeof reportsUpdateServiceReport>>>
+    export type ReportsUpdateServiceReportMutationBody = ReportUpdate
+    export type ReportsUpdateServiceReportMutationError = HTTPValidationError
+    export type ReportsUpdateServiceReportMutationVariables = {reportId: string;data: ReportUpdate}
+
+    /**
+ * @summary Update Service Report
+ */
+export const useReportsUpdateServiceReport = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportsUpdateServiceReport>>, TError,ReportsUpdateServiceReportMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof reportsUpdateServiceReport>>,
+        TError,
+        ReportsUpdateServiceReportMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReportsUpdateServiceReportMutationOptions(options), queryClient);
+    }
+    export type reportsDraftServiceReportResponse202 = {
+  data: ReportRead
+  status: 202
+}
+
+export type reportsDraftServiceReportResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type reportsDraftServiceReportResponseSuccess = (reportsDraftServiceReportResponse202) & {
+  headers: Headers;
+};
+export type reportsDraftServiceReportResponseError = (reportsDraftServiceReportResponse422) & {
+  headers: Headers;
+};
+
+export const getReportsDraftServiceReportUrl = (reportId: string,) => {
+
+
+
+
+  return `/v1/service-reports/${reportId}/draft`
+}
+
+/**
+ * Queue the narrative draft: the selected notes go to the LLM with the template's prompt;
+ * the reply fills the template's LLM fields. Runs in the worker; poll the report.
+ * @summary Draft Service Report
+ */
+export const reportsDraftServiceReport = async (reportId: string, options?: Parameters<typeof bffFetch>[1]): Promise<reportsDraftServiceReportResponseSuccess> => {
+
+  return bffFetch<reportsDraftServiceReportResponseSuccess>(getReportsDraftServiceReportUrl(reportId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReportsDraftServiceReportMutationKey = () => ['reportsDraftServiceReport'] as const;
+
+export const getReportsDraftServiceReportMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportsDraftServiceReport>>, TError,ReportsDraftServiceReportMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reportsDraftServiceReport>>, TError,ReportsDraftServiceReportMutationVariables, TContext> => {
+
+const mutationKey = getReportsDraftServiceReportMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reportsDraftServiceReport>>, ReportsDraftServiceReportMutationVariables> = (props) => {
+          const {reportId} = props ?? {};
+
+          return  reportsDraftServiceReport(reportId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReportsDraftServiceReportMutationResult = NonNullable<Awaited<ReturnType<typeof reportsDraftServiceReport>>>
+
+    export type ReportsDraftServiceReportMutationError = HTTPValidationError
+    export type ReportsDraftServiceReportMutationVariables = {reportId: string}
+
+    /**
+ * @summary Draft Service Report
+ */
+export const useReportsDraftServiceReport = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportsDraftServiceReport>>, TError,ReportsDraftServiceReportMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof reportsDraftServiceReport>>,
+        TError,
+        ReportsDraftServiceReportMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReportsDraftServiceReportMutationOptions(options), queryClient);
+    }
+    export type reportsPreviewServiceReportResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+;
+export type reportsPreviewServiceReportResponseError = (reportsPreviewServiceReportResponse422) & {
+  headers: Headers;
+};
+
+export type reportsPreviewServiceReportResponse = (reportsPreviewServiceReportResponseError)
+
+export const getReportsPreviewServiceReportUrl = (reportId: string,) => {
+
+
+
+
+  return `/v1/service-reports/${reportId}/preview`
+}
+
+/**
+ * The report as HTML, rendered from its saved data exactly as the PDF will be.
+ * @summary Preview Service Report
+ */
+export const reportsPreviewServiceReport = async (reportId: string, options?: Parameters<typeof bffFetch>[1]): Promise<reportsPreviewServiceReportResponse> => {
+
+  return bffFetch<reportsPreviewServiceReportResponse>(getReportsPreviewServiceReportUrl(reportId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getReportsPreviewServiceReportQueryKey = (reportId: string,) => {
+    return [
+    `/v1/service-reports/${reportId}/preview`
+    ] as const;
+    }
+
+
+export const getReportsPreviewServiceReportQueryOptions = <TData = Awaited<ReturnType<typeof reportsPreviewServiceReport>>, TError = HTTPValidationError>(reportId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsPreviewServiceReport>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getReportsPreviewServiceReportQueryKey(reportId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof reportsPreviewServiceReport>>> = ({ signal }) => reportsPreviewServiceReport(reportId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: reportId !== null && reportId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof reportsPreviewServiceReport>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ReportsPreviewServiceReportQueryResult = NonNullable<Awaited<ReturnType<typeof reportsPreviewServiceReport>>>
+export type ReportsPreviewServiceReportQueryError = HTTPValidationError
+
+
+export function useReportsPreviewServiceReport<TData = Awaited<ReturnType<typeof reportsPreviewServiceReport>>, TError = HTTPValidationError>(
+ reportId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsPreviewServiceReport>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof reportsPreviewServiceReport>>,
+          TError,
+          Awaited<ReturnType<typeof reportsPreviewServiceReport>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useReportsPreviewServiceReport<TData = Awaited<ReturnType<typeof reportsPreviewServiceReport>>, TError = HTTPValidationError>(
+ reportId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsPreviewServiceReport>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof reportsPreviewServiceReport>>,
+          TError,
+          Awaited<ReturnType<typeof reportsPreviewServiceReport>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useReportsPreviewServiceReport<TData = Awaited<ReturnType<typeof reportsPreviewServiceReport>>, TError = HTTPValidationError>(
+ reportId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsPreviewServiceReport>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Preview Service Report
+ */
+
+export function useReportsPreviewServiceReport<TData = Awaited<ReturnType<typeof reportsPreviewServiceReport>>, TError = HTTPValidationError>(
+ reportId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsPreviewServiceReport>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getReportsPreviewServiceReportQueryOptions(reportId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type reportsFinalizeServiceReportResponse200 = {
+  data: ReportRead
+  status: 200
+}
+
+export type reportsFinalizeServiceReportResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type reportsFinalizeServiceReportResponseSuccess = (reportsFinalizeServiceReportResponse200) & {
+  headers: Headers;
+};
+export type reportsFinalizeServiceReportResponseError = (reportsFinalizeServiceReportResponse422) & {
+  headers: Headers;
+};
+
+export const getReportsFinalizeServiceReportUrl = (reportId: string,) => {
+
+
+
+
+  return `/v1/service-reports/${reportId}/finalize`
+}
+
+/**
+ * Render the PDF from the saved data, store it, and lock the report.
+ * @summary Finalize Service Report
+ */
+export const reportsFinalizeServiceReport = async (reportId: string, options?: Parameters<typeof bffFetch>[1]): Promise<reportsFinalizeServiceReportResponseSuccess> => {
+
+  return bffFetch<reportsFinalizeServiceReportResponseSuccess>(getReportsFinalizeServiceReportUrl(reportId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReportsFinalizeServiceReportMutationKey = () => ['reportsFinalizeServiceReport'] as const;
+
+export const getReportsFinalizeServiceReportMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportsFinalizeServiceReport>>, TError,ReportsFinalizeServiceReportMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reportsFinalizeServiceReport>>, TError,ReportsFinalizeServiceReportMutationVariables, TContext> => {
+
+const mutationKey = getReportsFinalizeServiceReportMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reportsFinalizeServiceReport>>, ReportsFinalizeServiceReportMutationVariables> = (props) => {
+          const {reportId} = props ?? {};
+
+          return  reportsFinalizeServiceReport(reportId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReportsFinalizeServiceReportMutationResult = NonNullable<Awaited<ReturnType<typeof reportsFinalizeServiceReport>>>
+
+    export type ReportsFinalizeServiceReportMutationError = HTTPValidationError
+    export type ReportsFinalizeServiceReportMutationVariables = {reportId: string}
+
+    /**
+ * @summary Finalize Service Report
+ */
+export const useReportsFinalizeServiceReport = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportsFinalizeServiceReport>>, TError,ReportsFinalizeServiceReportMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof reportsFinalizeServiceReport>>,
+        TError,
+        ReportsFinalizeServiceReportMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReportsFinalizeServiceReportMutationOptions(options), queryClient);
+    }
+    export type reportsReviseServiceReportResponse201 = {
+  data: ReportRead
+  status: 201
+}
+
+export type reportsReviseServiceReportResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type reportsReviseServiceReportResponseSuccess = (reportsReviseServiceReportResponse201) & {
+  headers: Headers;
+};
+export type reportsReviseServiceReportResponseError = (reportsReviseServiceReportResponse422) & {
+  headers: Headers;
+};
+
+export const getReportsReviseServiceReportUrl = (reportId: string,) => {
+
+
+
+
+  return `/v1/service-reports/${reportId}/revise`
+}
+
+/**
+ * Start a new draft revision from a final report's data.
+ * @summary Revise Service Report
+ */
+export const reportsReviseServiceReport = async (reportId: string, options?: Parameters<typeof bffFetch>[1]): Promise<reportsReviseServiceReportResponseSuccess> => {
+
+  return bffFetch<reportsReviseServiceReportResponseSuccess>(getReportsReviseServiceReportUrl(reportId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReportsReviseServiceReportMutationKey = () => ['reportsReviseServiceReport'] as const;
+
+export const getReportsReviseServiceReportMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportsReviseServiceReport>>, TError,ReportsReviseServiceReportMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reportsReviseServiceReport>>, TError,ReportsReviseServiceReportMutationVariables, TContext> => {
+
+const mutationKey = getReportsReviseServiceReportMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reportsReviseServiceReport>>, ReportsReviseServiceReportMutationVariables> = (props) => {
+          const {reportId} = props ?? {};
+
+          return  reportsReviseServiceReport(reportId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReportsReviseServiceReportMutationResult = NonNullable<Awaited<ReturnType<typeof reportsReviseServiceReport>>>
+
+    export type ReportsReviseServiceReportMutationError = HTTPValidationError
+    export type ReportsReviseServiceReportMutationVariables = {reportId: string}
+
+    /**
+ * @summary Revise Service Report
+ */
+export const useReportsReviseServiceReport = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportsReviseServiceReport>>, TError,ReportsReviseServiceReportMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof reportsReviseServiceReport>>,
+        TError,
+        ReportsReviseServiceReportMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReportsReviseServiceReportMutationOptions(options), queryClient);
+    }
+    export type reportsGetServiceReportPdfResponse200 = {
+  data: Blob
+  status: 200
+}
+
+export type reportsGetServiceReportPdfResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type reportsGetServiceReportPdfResponseSuccess = (reportsGetServiceReportPdfResponse200) & {
+  headers: Headers;
+};
+export type reportsGetServiceReportPdfResponseError = (reportsGetServiceReportPdfResponse422) & {
+  headers: Headers;
+};
+
+export const getReportsGetServiceReportPdfUrl = (reportId: string,) => {
+
+
+
+
+  return `/v1/service-reports/${reportId}/pdf`
+}
+
+/**
+ * The stored PDF of a final report.
+ * @summary Get Service Report Pdf
+ */
+export const reportsGetServiceReportPdf = async (reportId: string, options?: Parameters<typeof bffFetch>[1]): Promise<reportsGetServiceReportPdfResponseSuccess> => {
+
+  return bffFetch<reportsGetServiceReportPdfResponseSuccess>(getReportsGetServiceReportPdfUrl(reportId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getReportsGetServiceReportPdfQueryKey = (reportId: string,) => {
+    return [
+    `/v1/service-reports/${reportId}/pdf`
+    ] as const;
+    }
+
+
+export const getReportsGetServiceReportPdfQueryOptions = <TData = Awaited<ReturnType<typeof reportsGetServiceReportPdf>>, TError = HTTPValidationError>(reportId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsGetServiceReportPdf>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getReportsGetServiceReportPdfQueryKey(reportId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof reportsGetServiceReportPdf>>> = ({ signal }) => reportsGetServiceReportPdf(reportId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: reportId !== null && reportId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof reportsGetServiceReportPdf>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ReportsGetServiceReportPdfQueryResult = NonNullable<Awaited<ReturnType<typeof reportsGetServiceReportPdf>>>
+export type ReportsGetServiceReportPdfQueryError = HTTPValidationError
+
+
+export function useReportsGetServiceReportPdf<TData = Awaited<ReturnType<typeof reportsGetServiceReportPdf>>, TError = HTTPValidationError>(
+ reportId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsGetServiceReportPdf>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof reportsGetServiceReportPdf>>,
+          TError,
+          Awaited<ReturnType<typeof reportsGetServiceReportPdf>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useReportsGetServiceReportPdf<TData = Awaited<ReturnType<typeof reportsGetServiceReportPdf>>, TError = HTTPValidationError>(
+ reportId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsGetServiceReportPdf>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof reportsGetServiceReportPdf>>,
+          TError,
+          Awaited<ReturnType<typeof reportsGetServiceReportPdf>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useReportsGetServiceReportPdf<TData = Awaited<ReturnType<typeof reportsGetServiceReportPdf>>, TError = HTTPValidationError>(
+ reportId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsGetServiceReportPdf>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Service Report Pdf
+ */
+
+export function useReportsGetServiceReportPdf<TData = Awaited<ReturnType<typeof reportsGetServiceReportPdf>>, TError = HTTPValidationError>(
+ reportId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof reportsGetServiceReportPdf>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getReportsGetServiceReportPdfQueryOptions(reportId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+

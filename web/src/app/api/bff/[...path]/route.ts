@@ -16,7 +16,15 @@ import {
 const BLOCKED = new Set(["v1/auth/login", "v1/auth/refresh", "v1/auth/logout"]);
 
 const FORWARDED_REQUEST_HEADERS = ["accept", "content-type"];
-const FORWARDED_RESPONSE_HEADERS = ["content-type", "content-disposition", "cache-control", "etag"];
+const FORWARDED_RESPONSE_HEADERS = [
+  "content-type",
+  "content-disposition",
+  "cache-control",
+  "etag",
+  // Stored documents are served sandboxed and unsniffed; keep that through the proxy.
+  "x-content-type-options",
+  "content-security-policy",
+];
 
 async function forward(
   req: NextRequest,

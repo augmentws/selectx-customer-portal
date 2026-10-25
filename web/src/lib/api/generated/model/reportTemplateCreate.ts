@@ -4,6 +4,7 @@
  * Customer Portal API
  * OpenAPI spec version: 0.1.0
  */
+import type { TemplateField } from './templateField';
 
 export interface ReportTemplateCreate {
   /**
@@ -17,4 +18,8 @@ export interface ReportTemplateCreate {
      * @maxLength 2000000
      */
   html: string;
+  /** @maxItems 50 */
+  fields?: TemplateField[];
+  prompt?: string | null;
+  llm_model?: string | null;
 }

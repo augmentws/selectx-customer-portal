@@ -1,8 +1,11 @@
+from app.models.condition import Condition, ConditionInspection
 from app.models.customer import BillTo, Company, Location
+from app.models.document import Document
+from app.models.invoice import Invoice, InvoiceLine
 from app.models.note import Note
 from app.models.pestpac import ConnectionStatus, PestPacConnection
 from app.models.rbac import Membership, Permission, Role, role_permissions
-from app.models.report import ReportTemplate
+from app.models.report import Report, ReportStatus, ReportTemplate
 from app.models.service_order import (
     ServiceOrder,
     SyncJob,
@@ -13,6 +16,7 @@ from app.models.service_order import (
 from app.models.tenant import Tenant, TenantKind
 from app.models.user import AuthSession, Credential, User
 from app.models.webhook import (
+    GoCanvasRequest,
     SignatureStatus,
     WebhookEntity,
     WebhookEvent,
@@ -23,13 +27,21 @@ __all__ = [
     "AuthSession",
     "BillTo",
     "Company",
+    "Condition",
+    "ConditionInspection",
     "ConnectionStatus",
     "Location",
     "Credential",
+    "Document",
+    "GoCanvasRequest",
+    "Invoice",
+    "InvoiceLine",
     "Membership",
     "Note",
     "PestPacConnection",
     "Permission",
+    "Report",
+    "ReportStatus",
     "ReportTemplate",
     "Role",
     "SignatureStatus",

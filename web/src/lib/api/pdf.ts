@@ -1,4 +1,4 @@
-// PDF responses can't go through the generated client: bffFetch reads bodies as text.
+// PDF and HTML responses can't go through the generated client: bffFetch parses bodies as JSON.
 import { ApiError } from "@/lib/api/fetcher";
 import { CSRF_HEADER, readCsrfToken } from "@/lib/csrf";
 
@@ -41,4 +41,23 @@ export function saveBlob(blob: Blob, filename: string) {
   a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(href), 1000);
+}
+
+/** Fetch an HTML document (a report preview) from the BFF as text. Throws ApiError. */
+export async function fetchHtml(url: string): Promise<string> {
+  const res = await fetch(`/api/bff${url}`, {
+    headers: { accept: "text/html" },
+    credentials: "same-origin",
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    let body: unknown;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = { detail: text };
+    }
+    throw new ApiError(res.status, body);
+  }
+  return text;
 }

@@ -4,14 +4,21 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.v1._pestpac_errors import pestpac_errors
-from app.api.v1.bill_tos import bill_to_reads, bill_to_synced
+from app.api.v1.bill_tos import bill_to_reads, bill_to_synced, posted_order_page
 from app.db.session import get_db
 from app.models import Company
 from app.schemas.pestpac import BillToLookup
-from app.schemas.tenancy import BillToCreate, BillToRead, BillToSynced, CompanyRead, CompanyUpdate
+from app.schemas.tenancy import (
+    BillToCreate,
+    BillToRead,
+    BillToSynced,
+    CompanyRead,
+    CompanyUpdate,
+    PostedServiceOrderPage,
+)
 from app.security.access import AccessScope, get_scope
 from app.security.permissions import Perm
-from app.services import tenancy
+from app.services import service_orders, tenancy
 
 router = APIRouter(prefix="/companies", tags=["companies"])
 
@@ -51,6 +58,23 @@ def list_bill_tos(
     company = _company_or_404(db, company_id)
     scope.require(Perm.bill_tos_read, company.operator_id, read_perm=Perm.companies_read)
     return bill_to_reads(db, tenancy.list_bill_tos(db, company.id))
+
+
+@router.get("/{company_id}/posted-service-orders", response_model=PostedServiceOrderPage)
+def list_posted_service_orders(
+    company_id: uuid.UUID,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    scope: AccessScope = Depends(get_scope),
+):
+    """Worked orders (billed or not) across all the company's bill-tos, oldest first."""
+    company = _company_or_404(db, company_id)
+    scope.require(Perm.bill_tos_read, company.operator_id, read_perm=Perm.companies_read)
+    rows, total = service_orders.list_posted_orders(
+        db, company_id=company.id, limit=limit, offset=offset
+    )
+    return posted_order_page(db, rows, total, limit, offset)
 
 
 @router.post(

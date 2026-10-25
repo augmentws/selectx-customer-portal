@@ -1,0 +1,73 @@
+[
+  {
+    "key": "report_title",
+    "label": "Report title",
+    "type": "text",
+    "default": "Rodent Control Service Report"
+  },
+  {
+    "key": "subtitle",
+    "label": "Subtitle",
+    "type": "text",
+    "default": "Quality Control Inspection & Service Summary"
+  },
+  {
+    "key": "client",
+    "label": "Client",
+    "type": "text",
+    "default": "Chipotle Mexican Grill"
+  },
+  {
+    "key": "store_name",
+    "label": "Store name",
+    "type": "text",
+    "help": "The customer's name for the store, e.g. 7th Ave Park Slope. Shown after the store number."
+  },
+  {
+    "key": "service_type",
+    "label": "Service type",
+    "type": "text",
+    "llm": true,
+    "help": "What kind of service this was, in title case, e.g. Quality Control Inspection, Rodent Monitoring Service, Exclusion Service, Mass Trapping Service."
+  },
+  {
+    "key": "prepared_by",
+    "label": "Prepared by",
+    "type": "text",
+    "help": "Name and title, e.g. Timothy Williams, Pest Control Service Supervisor. Blank uses the order's technician."
+  },
+  {
+    "key": "distribution",
+    "label": "Distribution",
+    "type": "text",
+    "default": "Chipotle Leadership + Select Exterminating Rodent Control Team"
+  },
+  {
+    "key": "inspection_summary",
+    "label": "Inspection summary",
+    "type": "paragraphs",
+    "llm": true,
+    "help": "Two to four paragraphs: the type and scope of service, the most significant findings, monitoring results and corrective actions completed, and overall conditions needing attention."
+  },
+  {
+    "key": "sections",
+    "label": "Findings and assessments",
+    "type": "sections",
+    "llm": true,
+    "help": "In this order, each only when the notes support it: 'Rodent Activity Assessment'; 'Monitoring Device Assessment'; one section per area with a structural or other finding, headed '<Area> – <Finding>' (e.g. 'Serving Line – Exclusion Required', 'Trash Room – Structural Opening'); 'Sanitation Assessment'; 'Moisture Assessment'; 'Service Location Verification'. One to three short paragraphs each."
+  },
+  {
+    "key": "recommendations",
+    "label": "Recommendations",
+    "type": "list",
+    "llm": true,
+    "help": "Specific, actionable next steps, one per item, each tied to a finding or monitoring result."
+  },
+  {
+    "key": "conclusion",
+    "label": "Conclusion",
+    "type": "paragraphs",
+    "llm": true,
+    "help": "Two to four paragraphs restating the key results, the corrective work still needed, and what continues next."
+  }
+]

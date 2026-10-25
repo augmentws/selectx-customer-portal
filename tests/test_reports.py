@@ -158,3 +158,20 @@ def test_only_data_uris_are_fetched(monkeypatch):
     )
     assert pdf.startswith(b"%PDF")
     assert opened and all(url.startswith("data:") for url in opened)
+
+
+def test_service_report_templates_have_no_one_click_pdf(client, world, admin):
+    template = client.post(
+        f"/v1/companies/{world.company_a}/report-templates",
+        json={
+            "name": "Service report",
+            "html": "<p>{{ fields.title }}</p>",
+            "fields": [{"key": "title", "label": "Title", "type": "text"}],
+        },
+        headers=admin,
+    )
+    assert template.status_code == 201, template.text
+    url = f"/v1/locations/{world.location_a}/reports/{template.json()['id']}"
+    resp = client.get(url, headers=admin)
+    assert resp.status_code == 409
+    assert "start a report from a service order" in resp.json()["detail"]

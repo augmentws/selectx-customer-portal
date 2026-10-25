@@ -4,10 +4,14 @@
  * Customer Portal API
  * OpenAPI spec version: 0.1.0
  */
+import type { TemplateField } from './templateField';
 
 export interface ReportTemplateUpdate {
   name?: string | null;
   description?: string | null;
   html?: string | null;
+  fields?: TemplateField[] | null;
+  prompt?: string | null;
+  llm_model?: string | null;
   is_active?: boolean | null;
 }

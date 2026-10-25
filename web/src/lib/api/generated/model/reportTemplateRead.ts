@@ -4,6 +4,7 @@
  * Customer Portal API
  * OpenAPI spec version: 0.1.0
  */
+import type { TemplateField } from './templateField';
 
 export interface ReportTemplateRead {
   id: string;
@@ -12,6 +13,9 @@ export interface ReportTemplateRead {
   name: string;
   description: string | null;
   html: string;
+  fields: TemplateField[];
+  prompt: string | null;
+  llm_model: string | null;
   version: number;
   is_active: boolean;
   created_at: string;

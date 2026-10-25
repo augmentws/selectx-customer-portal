@@ -140,14 +140,17 @@ export function LocationReports({
       </p>
     );
   }
-  if (templates.data.data.length === 0) {
+  // Templates with report fields are service reports, started from an order instead.
+  const oneClick = templates.data.data.filter((t) => t.fields.length === 0);
+  if (oneClick.length === 0 && templates.data.data.length > 0) return null;
+  if (oneClick.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">No reports are set up for this customer.</p>
     );
   }
   return (
     <ul className="flex flex-col gap-3">
-      {templates.data.data.map((t) => (
+      {oneClick.map((t) => (
         <DownloadButton
           key={t.id}
           locationId={locationId}

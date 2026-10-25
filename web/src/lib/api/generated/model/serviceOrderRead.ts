@@ -22,6 +22,7 @@ export interface ServiceOrderRead {
   location_instructions: string | null;
   service_instructions: string | null;
   order_instructions: string | null;
+  technician_comment: string | null;
   pestpac_invoice_id: number | null;
   posted: boolean;
   posted_at: string | null;

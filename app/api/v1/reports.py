@@ -139,6 +139,12 @@ def generate_report(
         or template.company_id != reports.location_company_id(db, location)
     ):
         raise _not_found()
+    if template.fields:
+        # Its HTML reads report fields, which only a service report (started from an order) has.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This is a service report template; start a report from a service order.",
+        )
     try:
         content = reports.render_pdf(db, template.html, location)
     except TemplateRenderError as exc:
@@ -161,7 +167,7 @@ def preview_report(
     location = _location_or_404(db, location_id)
     scope.require(Perm.report_templates_write, location.operator_id, read_perm=Perm.bill_tos_read)
     try:
-        content = reports.render_pdf(db, data.html, location)
+        content = reports.render_pdf(db, data.html, location, sample_fields=data.fields)
     except TemplateRenderError as exc:
         raise _unprocessable(exc) from None
     return _pdf(content, f"preview-{location.pestpac_location_id}")

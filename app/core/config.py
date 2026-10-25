@@ -1,3 +1,4 @@
+from datetime import date
 from functools import lru_cache
 
 from pydantic import Field
@@ -31,6 +32,19 @@ class Settings(BaseSettings):
     # Page size for PestPac's pageable endpoints, and a ceiling on pages per sync.
     pestpac_page_size: int = Field(default=50, ge=1, le=500)
     pestpac_max_pages: int = Field(default=200, ge=1)
+
+    # Location documents synced from PestPac: those dated on or after this day.
+    pestpac_documents_start_date: date = date(2025, 9, 25)
+    # Files larger than this are listed but not stored.
+    document_max_bytes: int = Field(default=50_000_000, ge=1)
+
+    # Object storage, through the S3 API only (MinIO locally; R2 or S3 elsewhere). An empty
+    # bucket means storage isn't configured, and document files aren't synced.
+    s3_endpoint_url: str = ""  # empty for AWS S3
+    s3_region: str = "us-east-1"
+    s3_access_key_id: str = ""
+    s3_secret_access_key: str = ""
+    s3_bucket: str = ""
 
     # Background worker (python -m app.worker).
     worker_poll_seconds: float = Field(default=5.0, gt=0)

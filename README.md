@@ -5,6 +5,8 @@ FastAPI backend + Next.js (App Router) BFF frontend. See `AGENTS.md` for the arc
 | Service    | Port | Notes                                   |
 | ---------- | ---- | --------------------------------------- |
 | PostgreSQL | 5433 | `docker compose up -d postgres`         |
+| MinIO (S3) | 9000 | `docker compose up -d minio`            |
+| MinIO UI   | 9001 | http://localhost:9001                   |
 | FastAPI    | 8001 | docs at http://127.0.0.1:8001/docs      |
 | Next.js    | 3001 | http://localhost:3001                   |
 
@@ -18,6 +20,13 @@ Python 3.14, Pipenv, Node 22+, pnpm, Docker, and Pango for PDF reports (WeasyPri
 cp .env.example .env              # then set JWT_SECRET and the BOOTSTRAP_ADMIN_* values
 pipenv install --dev
 docker compose up -d postgres
+mkdir -p .data/minio                # MinIO's data dir (or set MINIO_DATA_DIR); needs ./minio.license
+docker compose up -d minio
+# Bucket and app user for document files; put the user's keys and S3_BUCKET in .env
+docker compose exec minio sh -c 'mc alias set local http://localhost:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" \
+  && mc mb --ignore-existing local/customer-portal \
+  && mc admin user add local customer-portal-app <app-secret> \
+  && mc admin policy attach local readwrite --user customer-portal-app'
 pipenv run alembic upgrade head
 pipenv run python -m app.bootstrap  # creates the first admin; safe to re-run
 pipenv run uvicorn app.main:app --reload --port 8001

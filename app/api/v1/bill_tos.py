@@ -1,24 +1,26 @@
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.v1._pestpac_errors import pestpac_errors
 from app.db.session import get_db
-from app.models import BillTo
+from app.models import BillTo, ServiceOrder
 from app.schemas.pestpac import LocationSyncSummary
 from app.schemas.tenancy import (
     BillToRead,
     BillToSynced,
     BillToUpdate,
     LocationRead,
+    PostedServiceOrderPage,
+    PostedServiceOrderRead,
     ServiceOrderRead,
     SyncJobRead,
 )
 from app.security.access import AccessScope, get_scope
 from app.security.permissions import Perm
-from app.services import locations, service_orders, sync_jobs, tenancy
+from app.services import locations, service_orders, service_reports, sync_jobs, tenancy
 
 router = APIRouter(prefix="/bill-tos", tags=["bill_tos"])
 
@@ -106,6 +108,37 @@ def list_service_orders(
     return service_orders.list_orders(db, bill_to_id=bill_to.id, status=status)
 
 
+def posted_order_page(
+    db: Session, rows: list[tuple[ServiceOrder, str | None]], total: int, limit: int, offset: int
+) -> PostedServiceOrderPage:
+    reports = service_reports.report_ids_for_orders(db, [order.id for order, _ in rows])
+    items = [
+        PostedServiceOrderRead.model_validate(
+            ServiceOrderRead.model_validate(order).model_dump()
+            | {"location_name": name, "report_id": reports.get(order.id)}
+        )
+        for order, name in rows
+    ]
+    return PostedServiceOrderPage(items=items, total=total, limit=limit, offset=offset)
+
+
+@router.get("/{bill_to_id}/posted-service-orders", response_model=PostedServiceOrderPage)
+def list_posted_service_orders(
+    bill_to_id: uuid.UUID,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    scope: AccessScope = Depends(get_scope),
+):
+    """The bill-to's worked orders (billed or not), oldest first."""
+    bill_to = _bill_to_or_404(db, bill_to_id)
+    scope.require(Perm.bill_tos_read, bill_to.operator_id, read_perm=Perm.bill_tos_read)
+    rows, total = service_orders.list_posted_orders(
+        db, bill_to_id=bill_to.id, limit=limit, offset=offset
+    )
+    return posted_order_page(db, rows, total, limit, offset)
+
+
 @router.post(
     "/{bill_to_id}/service-orders/sync",
     response_model=SyncJobRead,
@@ -119,6 +152,23 @@ def sync_service_orders(
     bill_to = _bill_to_or_404(db, bill_to_id)
     scope.require(Perm.bill_tos_write, bill_to.operator_id, read_perm=Perm.bill_tos_read)
     job = sync_jobs.enqueue_bill_to(db, bill_to, requested_by=scope.user_id)
+    db.commit()
+    return job
+
+
+@router.post(
+    "/{bill_to_id}/locations/sync",
+    response_model=SyncJobRead,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def sync_locations(
+    bill_to_id: uuid.UUID, db: Session = Depends(get_db), scope: AccessScope = Depends(get_scope)
+):
+    """ "Sync location" for every location: documents, their files, and open conditions
+    (manual for now). Returns the already-active job if one is queued or running."""
+    bill_to = _bill_to_or_404(db, bill_to_id)
+    scope.require(Perm.bill_tos_write, bill_to.operator_id, read_perm=Perm.bill_tos_read)
+    job = sync_jobs.enqueue_bill_to_location_sync(db, bill_to, requested_by=scope.user_id)
     db.commit()
     return job
 

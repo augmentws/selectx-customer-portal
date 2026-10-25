@@ -28,10 +28,12 @@ import type {
   BillToLookup,
   BillToRead,
   BillToSynced,
+  CompaniesListPostedServiceOrdersParams,
   CompaniesLookupBillToParams,
   CompanyRead,
   CompanyUpdate,
-  HTTPValidationError
+  HTTPValidationError,
+  PostedServiceOrderPage
 } from '../model';
 
 import { bffFetch } from '../../fetcher';
@@ -500,7 +502,140 @@ export const useCompaniesOnboardBillTo = <TError = HTTPValidationError,
       > => {
       return useMutation(getCompaniesOnboardBillToMutationOptions(options), queryClient);
     }
-    export type companiesLookupBillToResponse200 = {
+    export type companiesListPostedServiceOrdersResponse200 = {
+  data: PostedServiceOrderPage
+  status: 200
+}
+
+export type companiesListPostedServiceOrdersResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type companiesListPostedServiceOrdersResponseSuccess = (companiesListPostedServiceOrdersResponse200) & {
+  headers: Headers;
+};
+export type companiesListPostedServiceOrdersResponseError = (companiesListPostedServiceOrdersResponse422) & {
+  headers: Headers;
+};
+
+export const getCompaniesListPostedServiceOrdersUrl = (companyId: string,
+    params?: CompaniesListPostedServiceOrdersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/v1/companies/${companyId}/posted-service-orders?${stringifiedParams}` : `/v1/companies/${companyId}/posted-service-orders`
+}
+
+/**
+ * Worked orders (billed or not) across all the company's bill-tos, oldest first.
+ * @summary List Posted Service Orders
+ */
+export const companiesListPostedServiceOrders = async (companyId: string,
+    params?: CompaniesListPostedServiceOrdersParams, options?: Parameters<typeof bffFetch>[1]): Promise<companiesListPostedServiceOrdersResponseSuccess> => {
+
+  return bffFetch<companiesListPostedServiceOrdersResponseSuccess>(getCompaniesListPostedServiceOrdersUrl(companyId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getCompaniesListPostedServiceOrdersQueryKey = (companyId: string,
+    params?: CompaniesListPostedServiceOrdersParams,) => {
+    return [
+    `/v1/companies/${companyId}/posted-service-orders`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getCompaniesListPostedServiceOrdersQueryOptions = <TData = Awaited<ReturnType<typeof companiesListPostedServiceOrders>>, TError = HTTPValidationError>(companyId: string,
+    params?: CompaniesListPostedServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof companiesListPostedServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCompaniesListPostedServiceOrdersQueryKey(companyId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof companiesListPostedServiceOrders>>> = ({ signal }) => companiesListPostedServiceOrders(companyId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: companyId !== null && companyId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof companiesListPostedServiceOrders>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type CompaniesListPostedServiceOrdersQueryResult = NonNullable<Awaited<ReturnType<typeof companiesListPostedServiceOrders>>>
+export type CompaniesListPostedServiceOrdersQueryError = HTTPValidationError
+
+
+export function useCompaniesListPostedServiceOrders<TData = Awaited<ReturnType<typeof companiesListPostedServiceOrders>>, TError = HTTPValidationError>(
+ companyId: string,
+    params: undefined |  CompaniesListPostedServiceOrdersParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof companiesListPostedServiceOrders>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof companiesListPostedServiceOrders>>,
+          TError,
+          Awaited<ReturnType<typeof companiesListPostedServiceOrders>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCompaniesListPostedServiceOrders<TData = Awaited<ReturnType<typeof companiesListPostedServiceOrders>>, TError = HTTPValidationError>(
+ companyId: string,
+    params?: CompaniesListPostedServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof companiesListPostedServiceOrders>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof companiesListPostedServiceOrders>>,
+          TError,
+          Awaited<ReturnType<typeof companiesListPostedServiceOrders>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCompaniesListPostedServiceOrders<TData = Awaited<ReturnType<typeof companiesListPostedServiceOrders>>, TError = HTTPValidationError>(
+ companyId: string,
+    params?: CompaniesListPostedServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof companiesListPostedServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Posted Service Orders
+ */
+
+export function useCompaniesListPostedServiceOrders<TData = Awaited<ReturnType<typeof companiesListPostedServiceOrders>>, TError = HTTPValidationError>(
+ companyId: string,
+    params?: CompaniesListPostedServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof companiesListPostedServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getCompaniesListPostedServiceOrdersQueryOptions(companyId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type companiesLookupBillToResponse200 = {
   data: BillToLookup
   status: 200
 }

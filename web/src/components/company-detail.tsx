@@ -7,10 +7,13 @@ import { useParams } from "next/navigation";
 
 import { BillToDetailLines, OnboardBillToCard } from "@/components/bill-to-onboarding";
 import { LocationSyncResult } from "@/components/location-sync-result";
+import { InvoicedOrders } from "@/components/invoiced-orders";
+import { PostedServiceOrders } from "@/components/posted-service-orders";
 import { ReportTemplatesSection } from "@/components/report-templates";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { errorMessage } from "@/lib/api/errors";
 import {
   useBillTosRefreshBillTo,
@@ -23,9 +26,11 @@ import {
 } from "@/lib/api/generated/companies/companies";
 import { Can, usePermissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+import { useUrlTab } from "@/lib/use-url-tab";
 
 export function CompanyDetail() {
   const { companyId } = useParams<{ companyId: string }>();
+  const [tab, setTab] = useUrlTab(["bill-tos", "posted", "invoiced"], "bill-tos");
   const queryClient = useQueryClient();
   const { can } = usePermissions();
   const company = useCompaniesGetCompany(companyId);
@@ -78,88 +83,111 @@ export function CompanyDetail() {
         <OnboardBillToCard companyId={companyId} operatorId={c.operator_id} />
       </Can>
 
-      {refresh.isSuccess && (
-        <LocationSyncResult
-          summary={refresh.data.data.locations_sync}
-          label={`Refreshed ${refresh.data.data.name}`}
-        />
-      )}
-      {mutationError && (
-        <Alert variant="destructive">
-          <AlertDescription>{errorMessage(mutationError)}</AlertDescription>
-        </Alert>
-      )}
-      {billTos.isPending && <p className="text-muted-foreground">Loading…</p>}
-      {billTos.isError && (
-        <Alert variant="destructive">
-          <AlertDescription>
-            {errorMessage(billTos.error, "Could not load bill-tos.")}
-          </AlertDescription>
-        </Alert>
-      )}
-      {billTos.data && (
-        <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-          {billTos.data.data.length === 0 && (
-            <li className="p-4 text-muted-foreground">No bill-tos onboarded yet.</li>
+      {/* Invoiced orders need billing:read; a URL naming it falls back for others. */}
+      <Tabs
+        value={tab === "invoiced" && !can("billing:read", c.operator_id) ? "bill-tos" : tab}
+        onValueChange={setTab}
+      >
+        <TabsList>
+          <TabsTrigger value="bill-tos">Bill-tos</TabsTrigger>
+          <TabsTrigger value="posted">Posted service orders</TabsTrigger>
+          {can("billing:read", c.operator_id) && (
+            <TabsTrigger value="invoiced">Invoiced orders</TabsTrigger>
           )}
-          {billTos.data.data.map((b) => (
-            <li key={b.id} className="flex flex-wrap items-start justify-between gap-3 p-4">
-              <div className="flex flex-col gap-2">
-                <span className="flex flex-wrap items-center gap-2 font-medium">
-                  {b.name}
-                  <span className="text-sm font-normal text-muted-foreground">
-                    BillToID {b.pestpac_bill_to_id}
-                  </span>
-                  <Link
-                    href={`/bill-tos/${b.id}`}
-                    className="text-sm font-normal text-primary hover:underline"
-                  >
-                    {b.location_count} {b.location_count === 1 ? "location" : "locations"} →
-                  </Link>
-                  {!b.is_active && <Badge variant="outline">Inactive</Badge>}
-                </span>
-                {b.description && (
-                  <span className="text-sm text-muted-foreground">{b.description}</span>
-                )}
-                {b.pestpac_fetched_at ? (
-                  <>
-                    <BillToDetailLines details={b} />
-                    <span className="text-xs text-muted-foreground">
-                      From PestPac {new Date(b.pestpac_fetched_at).toLocaleString()}
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-sm text-muted-foreground">
-                    PestPac details not fetched yet.
-                  </span>
-                )}
-              </div>
-              {canWrite && (
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={refresh.isPending}
-                    onClick={() => refresh.mutate({ billToId: b.id })}
-                  >
-                    Refresh from PestPac
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={update.isPending}
-                    onClick={() =>
-                      update.mutate({ billToId: b.id, data: { is_active: !b.is_active } })
-                    }
-                  >
-                    {b.is_active ? "Deactivate" : "Reactivate"}
-                  </Button>
-                </div>
+        </TabsList>
+        <TabsContent value="bill-tos" className="flex flex-col gap-3 pt-4">
+          {refresh.isSuccess && (
+            <LocationSyncResult
+              summary={refresh.data.data.locations_sync}
+              label={`Refreshed ${refresh.data.data.name}`}
+            />
+          )}
+          {mutationError && (
+            <Alert variant="destructive">
+              <AlertDescription>{errorMessage(mutationError)}</AlertDescription>
+            </Alert>
+          )}
+          {billTos.isPending && <p className="text-muted-foreground">Loading…</p>}
+          {billTos.isError && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {errorMessage(billTos.error, "Could not load bill-tos.")}
+              </AlertDescription>
+            </Alert>
+          )}
+          {billTos.data && (
+            <ul className="divide-y divide-border rounded-lg border border-border bg-card">
+              {billTos.data.data.length === 0 && (
+                <li className="p-4 text-muted-foreground">No bill-tos onboarded yet.</li>
               )}
-            </li>
-          ))}
-        </ul>
-      )}
+              {billTos.data.data.map((b) => (
+                <li key={b.id} className="flex flex-wrap items-start justify-between gap-3 p-4">
+                  <div className="flex flex-col gap-2">
+                    <span className="flex flex-wrap items-center gap-2 font-medium">
+                      {b.name}
+                      <span className="text-sm font-normal text-muted-foreground">
+                        BillToID {b.pestpac_bill_to_id}
+                      </span>
+                      {!b.is_active && <Badge variant="outline">Inactive</Badge>}
+                    </span>
+                    {b.description && (
+                      <span className="text-sm text-muted-foreground">{b.description}</span>
+                    )}
+                    {b.pestpac_fetched_at ? (
+                      <>
+                        <BillToDetailLines details={b} />
+                        <span className="text-xs text-muted-foreground">
+                          From PestPac {new Date(b.pestpac_fetched_at).toLocaleString()}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        PestPac details not fetched yet.
+                      </span>
+                    )}
+                  </div>
+                  {/* Open the bill-to top right; occasional admin actions bottom right. */}
+                  <div className="flex flex-col items-end justify-between gap-3 self-stretch">
+                    <Link href={`/bill-tos/${b.id}`} className={buttonVariants({ size: "sm" })}>
+                      Locations ({b.location_count})
+                    </Link>
+                    {canWrite && (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={refresh.isPending}
+                          onClick={() => refresh.mutate({ billToId: b.id })}
+                        >
+                          Refresh from PestPac
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={update.isPending}
+                          onClick={() =>
+                            update.mutate({ billToId: b.id, data: { is_active: !b.is_active } })
+                          }
+                        >
+                          {b.is_active ? "Deactivate" : "Reactivate"}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </TabsContent>
+        <TabsContent value="posted" className="pt-4">
+          <PostedServiceOrders companyId={companyId} operatorId={c.operator_id} />
+        </TabsContent>
+        {can("billing:read", c.operator_id) && (
+          <TabsContent value="invoiced" className="pt-4">
+            <InvoicedOrders companyId={companyId} />
+          </TabsContent>
+        )}
+      </Tabs>
 
       <Can perm="reports:read" tenantId={c.operator_id}>
         <ReportTemplatesSection companyId={companyId} operatorId={c.operator_id} />

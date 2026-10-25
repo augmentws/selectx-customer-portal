@@ -27,9 +27,11 @@ import type {
   BillToRead,
   BillToSynced,
   BillToUpdate,
+  BillTosListPostedServiceOrdersParams,
   BillTosListServiceOrdersParams,
   HTTPValidationError,
   LocationRead,
+  PostedServiceOrderPage,
   ServiceOrderRead,
   SyncJobRead
 } from '../model';
@@ -620,6 +622,139 @@ export function useBillTosListServiceOrders<TData = Awaited<ReturnType<typeof bi
 
 
 
+export type billTosListPostedServiceOrdersResponse200 = {
+  data: PostedServiceOrderPage
+  status: 200
+}
+
+export type billTosListPostedServiceOrdersResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type billTosListPostedServiceOrdersResponseSuccess = (billTosListPostedServiceOrdersResponse200) & {
+  headers: Headers;
+};
+export type billTosListPostedServiceOrdersResponseError = (billTosListPostedServiceOrdersResponse422) & {
+  headers: Headers;
+};
+
+export const getBillTosListPostedServiceOrdersUrl = (billToId: string,
+    params?: BillTosListPostedServiceOrdersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/v1/bill-tos/${billToId}/posted-service-orders?${stringifiedParams}` : `/v1/bill-tos/${billToId}/posted-service-orders`
+}
+
+/**
+ * The bill-to's worked orders (billed or not), oldest first.
+ * @summary List Posted Service Orders
+ */
+export const billTosListPostedServiceOrders = async (billToId: string,
+    params?: BillTosListPostedServiceOrdersParams, options?: Parameters<typeof bffFetch>[1]): Promise<billTosListPostedServiceOrdersResponseSuccess> => {
+
+  return bffFetch<billTosListPostedServiceOrdersResponseSuccess>(getBillTosListPostedServiceOrdersUrl(billToId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getBillTosListPostedServiceOrdersQueryKey = (billToId: string,
+    params?: BillTosListPostedServiceOrdersParams,) => {
+    return [
+    `/v1/bill-tos/${billToId}/posted-service-orders`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getBillTosListPostedServiceOrdersQueryOptions = <TData = Awaited<ReturnType<typeof billTosListPostedServiceOrders>>, TError = HTTPValidationError>(billToId: string,
+    params?: BillTosListPostedServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListPostedServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getBillTosListPostedServiceOrdersQueryKey(billToId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof billTosListPostedServiceOrders>>> = ({ signal }) => billTosListPostedServiceOrders(billToId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: billToId !== null && billToId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof billTosListPostedServiceOrders>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type BillTosListPostedServiceOrdersQueryResult = NonNullable<Awaited<ReturnType<typeof billTosListPostedServiceOrders>>>
+export type BillTosListPostedServiceOrdersQueryError = HTTPValidationError
+
+
+export function useBillTosListPostedServiceOrders<TData = Awaited<ReturnType<typeof billTosListPostedServiceOrders>>, TError = HTTPValidationError>(
+ billToId: string,
+    params: undefined |  BillTosListPostedServiceOrdersParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListPostedServiceOrders>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof billTosListPostedServiceOrders>>,
+          TError,
+          Awaited<ReturnType<typeof billTosListPostedServiceOrders>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBillTosListPostedServiceOrders<TData = Awaited<ReturnType<typeof billTosListPostedServiceOrders>>, TError = HTTPValidationError>(
+ billToId: string,
+    params?: BillTosListPostedServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListPostedServiceOrders>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof billTosListPostedServiceOrders>>,
+          TError,
+          Awaited<ReturnType<typeof billTosListPostedServiceOrders>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBillTosListPostedServiceOrders<TData = Awaited<ReturnType<typeof billTosListPostedServiceOrders>>, TError = HTTPValidationError>(
+ billToId: string,
+    params?: BillTosListPostedServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListPostedServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Posted Service Orders
+ */
+
+export function useBillTosListPostedServiceOrders<TData = Awaited<ReturnType<typeof billTosListPostedServiceOrders>>, TError = HTTPValidationError>(
+ billToId: string,
+    params?: BillTosListPostedServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListPostedServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getBillTosListPostedServiceOrdersQueryOptions(billToId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 export type billTosSyncServiceOrdersResponse202 = {
   data: SyncJobRead
   status: 202
@@ -711,6 +846,98 @@ export const useBillTosSyncServiceOrders = <TError = HTTPValidationError,
         TContext
       > => {
       return useMutation(getBillTosSyncServiceOrdersMutationOptions(options), queryClient);
+    }
+    export type billTosSyncLocationsResponse202 = {
+  data: SyncJobRead
+  status: 202
+}
+
+export type billTosSyncLocationsResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type billTosSyncLocationsResponseSuccess = (billTosSyncLocationsResponse202) & {
+  headers: Headers;
+};
+export type billTosSyncLocationsResponseError = (billTosSyncLocationsResponse422) & {
+  headers: Headers;
+};
+
+export const getBillTosSyncLocationsUrl = (billToId: string,) => {
+
+
+
+
+  return `/v1/bill-tos/${billToId}/locations/sync`
+}
+
+/**
+ * "Sync location" for every location: documents, their files, and open conditions
+ * (manual for now). Returns the already-active job if one is queued or running.
+ * @summary Sync Locations
+ */
+export const billTosSyncLocations = async (billToId: string, options?: Parameters<typeof bffFetch>[1]): Promise<billTosSyncLocationsResponseSuccess> => {
+
+  return bffFetch<billTosSyncLocationsResponseSuccess>(getBillTosSyncLocationsUrl(billToId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getBillTosSyncLocationsMutationKey = () => ['billTosSyncLocations'] as const;
+
+export const getBillTosSyncLocationsMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof billTosSyncLocations>>, TError,BillTosSyncLocationsMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof billTosSyncLocations>>, TError,BillTosSyncLocationsMutationVariables, TContext> => {
+
+const mutationKey = getBillTosSyncLocationsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof billTosSyncLocations>>, BillTosSyncLocationsMutationVariables> = (props) => {
+          const {billToId} = props ?? {};
+
+          return  billTosSyncLocations(billToId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BillTosSyncLocationsMutationResult = NonNullable<Awaited<ReturnType<typeof billTosSyncLocations>>>
+
+    export type BillTosSyncLocationsMutationError = HTTPValidationError
+    export type BillTosSyncLocationsMutationVariables = {billToId: string}
+
+    /**
+ * @summary Sync Locations
+ */
+export const useBillTosSyncLocations = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof billTosSyncLocations>>, TError,BillTosSyncLocationsMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof billTosSyncLocations>>,
+        TError,
+        BillTosSyncLocationsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getBillTosSyncLocationsMutationOptions(options), queryClient);
     }
     export type billTosListSyncJobsResponse200 = {
   data: SyncJobRead[]

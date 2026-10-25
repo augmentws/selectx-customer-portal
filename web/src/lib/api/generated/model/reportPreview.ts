@@ -4,9 +4,11 @@
  * Customer Portal API
  * OpenAPI spec version: 0.1.0
  */
+import type { TemplateField } from './templateField';
 
 /**
- * Unsaved template HTML, rendered against a real location.
+ * Unsaved template HTML, rendered against a real location; `fields` get sample values
+ * (and the sample order, conditions, and photos stand in) so every part can be checked.
  */
 export interface ReportPreview {
   /**
@@ -14,4 +16,6 @@ export interface ReportPreview {
      * @maxLength 2000000
      */
   html: string;
+  /** @maxItems 50 */
+  fields?: TemplateField[];
 }

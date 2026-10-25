@@ -11,9 +11,13 @@ import { errorMessage } from "@/lib/api/errors";
 import {
   getBillTosListSyncJobsQueryKey,
   useBillTosListSyncJobs,
+  useBillTosSyncLocations,
   useBillTosSyncServiceOrders,
 } from "@/lib/api/generated/bill-tos/bill-tos";
-import { useLocationsSyncServiceOrders } from "@/lib/api/generated/locations/locations";
+import {
+  useLocationsSyncLocation,
+  useLocationsSyncServiceOrders,
+} from "@/lib/api/generated/locations/locations";
 import type { SyncJobRead } from "@/lib/api/generated/model";
 
 const POLL_MS = 3000;
@@ -25,8 +29,23 @@ const isActive = (job: SyncJobRead | undefined) =>
 
 type Counts = Record<string, number>;
 
+/** What a panel syncs; each shows only its own kind of job. */
+// "location" is "Sync location": documents and conditions, and later syncs as they're added.
+export type SyncKind = "serviceOrders" | "location";
+
+const JOB_KINDS: Record<SyncKind, readonly string[]> = {
+  serviceOrders: ["bill_to_service_orders", "location_service_orders"],
+  location: ["bill_to_location_sync", "location_sync"],
+};
+
+// [one location, every location of a bill-to]
+const BUTTON_LABEL: Record<SyncKind, [string, string]> = {
+  serviceOrders: ["Sync service orders", "Sync service orders"],
+  location: ["Sync location", "Sync locations"],
+};
+
 /** progress is free-form JSON from the worker; read only the numbers we show. */
-function counts(job: SyncJobRead, key: "orders" | "notes"): Counts {
+function counts(job: SyncJobRead, key: "orders" | "notes" | "documents" | "conditions"): Counts {
   const value = job.progress[key];
   if (typeof value !== "object" || value === null) return {};
   return Object.fromEntries(
@@ -44,6 +63,8 @@ function num(job: SyncJobRead, key: string): number | undefined {
 function summary(job: SyncJobRead): string {
   const orders = counts(job, "orders");
   const notes = counts(job, "notes");
+  const documents = counts(job, "documents");
+  const conditions = counts(job, "conditions");
   const parts = [
     orders.added && `${orders.added} new orders`,
     orders.updated && `${orders.updated} updated`,
@@ -51,6 +72,14 @@ function summary(job: SyncJobRead): string {
     orders.closed && `${orders.closed} billed`,
     notes.added && `${notes.added} new notes`,
     notes.invoices_found && `${notes.invoices_found} invoices found`,
+    documents.added && `${documents.added} new documents`,
+    documents.removed && `${documents.removed} removed`,
+    documents.files_stored && `${documents.files_stored} files stored`,
+    documents.files_failed && `${documents.files_failed} files failed`,
+    documents.files_too_large && `${documents.files_too_large} files too large`,
+    conditions.added && `${conditions.added} new conditions`,
+    conditions.details_fetched && `${conditions.details_fetched} conditions updated`,
+    conditions.closed && `${conditions.closed} closed`,
   ].filter(Boolean);
   return parts.length > 0 ? parts.join(", ") : "no changes";
 }
@@ -96,23 +125,32 @@ function JobLine({ job, checkedAt }: { job: SyncJobRead; checkedAt: number }) {
       {job.error && job.status !== "running" && (
         <p className="text-sm text-destructive">{job.error}</p>
       )}
+      {/* Set when object storage isn't configured: lists synced, files didn't. */}
+      {typeof job.progress.document_files === "string" && (
+        <p className="text-sm text-muted-foreground">
+          Files not stored: {job.progress.document_files}
+        </p>
+      )}
     </div>
   );
 }
 
 /**
- * Sync service orders (and their notes) from PestPac for a bill-to, or one of its locations.
+ * Sync service orders (and their notes), or "Sync location" (documents and conditions), from
+ * PestPac for a bill-to or one of its locations.
  * Shows the latest job and polls while it runs; calls `onFinished` when a job completes so the
  * caller can refetch what it displays.
  */
 export function SyncJobPanel({
   billToId,
   locationId,
+  kind = "serviceOrders",
   canSync,
   onFinished,
 }: {
   billToId: string;
   locationId?: string;
+  kind?: SyncKind;
   canSync: boolean;
   onFinished: () => void;
 }) {
@@ -127,8 +165,10 @@ export function SyncJobPanel({
     },
   });
   // A location is covered by its own jobs and by bill-to-wide ones (newest first from the API).
-  const latest = jobs.data?.data.find((j) =>
-    locationId ? j.location_id === locationId || j.location_id === null : true,
+  const latest = jobs.data?.data.find(
+    (j) =>
+      JOB_KINDS[kind].includes(j.kind) &&
+      (locationId ? j.location_id === locationId || j.location_id === null : true),
   );
 
   const previous = useRef<SyncJobRead | undefined>(undefined);
@@ -141,8 +181,12 @@ export function SyncJobPanel({
   }, [latest, onFinished]);
 
   const onQueued = () => queryClient.invalidateQueries({ queryKey: jobsKey });
-  const syncBillTo = useBillTosSyncServiceOrders({ mutation: { onSuccess: onQueued } });
-  const syncLocation = useLocationsSyncServiceOrders({ mutation: { onSuccess: onQueued } });
+  const ordersBillTo = useBillTosSyncServiceOrders({ mutation: { onSuccess: onQueued } });
+  const ordersLocation = useLocationsSyncServiceOrders({ mutation: { onSuccess: onQueued } });
+  const locationsBillTo = useBillTosSyncLocations({ mutation: { onSuccess: onQueued } });
+  const locationOne = useLocationsSyncLocation({ mutation: { onSuccess: onQueued } });
+  const [syncBillTo, syncLocation] =
+    kind === "location" ? [locationsBillTo, locationOne] : [ordersBillTo, ordersLocation];
   const sync = locationId ? syncLocation : syncBillTo;
   const start = () =>
     locationId ? syncLocation.mutate({ locationId }) : syncBillTo.mutate({ billToId });
@@ -153,7 +197,7 @@ export function SyncJobPanel({
         <div>
           <Button variant="outline" disabled={sync.isPending || isActive(latest)} onClick={start}>
             <RefreshCw aria-hidden />
-            {isActive(latest) ? "Sync in progress" : "Sync service orders"}
+            {isActive(latest) ? "Sync in progress" : BUTTON_LABEL[kind][locationId ? 0 : 1]}
           </Button>
         </div>
       )}

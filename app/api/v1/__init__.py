@@ -5,6 +5,8 @@ from app.api.v1 import (
     bill_tos,
     companies,
     dashboard,
+    documents,
+    invoices,
     locations,
     members,
     operators,
@@ -12,7 +14,9 @@ from app.api.v1 import (
     reports,
     roles,
     service_orders,
+    service_reports,
     sync_jobs,
+    webhook_events,
     webhooks,
 )
 
@@ -23,10 +27,14 @@ router.include_router(companies.router)
 router.include_router(dashboard.router)
 router.include_router(bill_tos.router)
 router.include_router(locations.router)
+router.include_router(documents.router)
+router.include_router(invoices.router)
 router.include_router(service_orders.router)
 router.include_router(sync_jobs.router)
 router.include_router(members.router)
 router.include_router(pestpac_connection.router)
 router.include_router(reports.router)
+router.include_router(service_reports.router)
 router.include_router(roles.router)
 router.include_router(webhooks.router)
+router.include_router(webhook_events.router)

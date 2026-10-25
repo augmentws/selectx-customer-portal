@@ -112,6 +112,54 @@ CASES = [
         _all(404, platform_admin=200, admin_a=200, staff_a=200),
     ),
     Case(
+        "list posted service orders of bill-to A",
+        "GET",
+        lambda w: f"/v1/bill-tos/{w.bill_to_a}/posted-service-orders",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "list posted service orders of company A",
+        "GET",
+        lambda w: f"/v1/companies/{w.company_a}/posted-service-orders",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "list invoices of a location in A",
+        "GET",
+        lambda w: f"/v1/locations/{w.location_a}/invoices",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+    ),
+    Case(
+        "list invoiced orders of bill-to A",
+        "GET",
+        lambda w: f"/v1/bill-tos/{w.bill_to_a}/invoiced-orders",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+    ),
+    Case(
+        "list invoiced orders of company A",
+        "GET",
+        lambda w: f"/v1/companies/{w.company_a}/invoiced-orders",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+    ),
+    Case(
+        "list GoCanvas requests of operator A",
+        "GET",
+        lambda w: f"/v1/operators/{w.op_a}/gocanvas-requests",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+    ),
+    Case(
+        "get GoCanvas request A",
+        "GET",
+        lambda w: f"/v1/gocanvas-requests/{w.gocanvas_request_a}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+    ),
+    Case(
+        "get invoice A",
+        "GET",
+        lambda w: f"/v1/invoices/{w.invoice_a}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+    ),
+    Case(
         "sync service orders of bill-to A",
         "POST",
         lambda w: f"/v1/bill-tos/{w.bill_to_a}/service-orders/sync",
@@ -245,6 +293,107 @@ CASES = [
         _all(404, platform_admin=200, admin_a=200, staff_a=403),
     ),
     Case(
+        "list documents of location A",
+        "GET",
+        lambda w: f"/v1/locations/{w.location_a}/documents",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "list conditions of location A",
+        "GET",
+        lambda w: f"/v1/locations/{w.location_a}/conditions",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "get document file of A",
+        "GET",
+        lambda w: f"/v1/documents/{w.document_a}/file",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "sync locations of bill-to A",
+        "POST",
+        lambda w: f"/v1/bill-tos/{w.bill_to_a}/locations/sync",
+        _all(404, platform_admin=202, admin_a=202, staff_a=403),
+    ),
+    Case(
+        "sync location A",
+        "POST",
+        lambda w: f"/v1/locations/{w.location_a}/sync",
+        _all(404, platform_admin=202, admin_a=202, staff_a=403),
+    ),
+    Case(
+        "list service reports of location A",
+        "GET",
+        lambda w: f"/v1/locations/{w.location_a}/service-reports",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "start a service report at location A",
+        "POST",
+        lambda w: f"/v1/locations/{w.location_a}/service-reports",
+        _all(404, platform_admin=201, admin_a=201, staff_a=403),
+        lambda w: {
+            "template_id": str(w.report_template_a),
+            "service_order_id": str(w.service_order_a),
+        },
+    ),
+    Case(
+        "get service report A",
+        "GET",
+        lambda w: f"/v1/service-reports/{w.report_a}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "edit service report A",
+        "PATCH",
+        lambda w: f"/v1/service-reports/{w.report_a}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+        lambda w: {"fields": {}},
+    ),
+    Case(
+        "draft service report A",
+        "POST",
+        lambda w: f"/v1/service-reports/{w.report_a}/draft",
+        _all(404, platform_admin=202, admin_a=202, staff_a=403),
+    ),
+    Case(
+        "preview service report A",
+        "GET",
+        lambda w: f"/v1/service-reports/{w.report_a}/preview",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "finalize service report A",
+        "POST",
+        lambda w: f"/v1/service-reports/{w.report_a}/finalize",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+    ),
+    Case(
+        "revise final service report A",
+        "POST",
+        lambda w: f"/v1/service-reports/{w.report_final_a}/revise",
+        _all(404, platform_admin=201, admin_a=201, staff_a=403),
+    ),
+    Case(
+        "get PDF of final service report A",
+        "GET",
+        lambda w: f"/v1/service-reports/{w.report_final_a}/pdf",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "list webhook events of A",
+        "GET",
+        lambda w: f"/v1/operators/{w.op_a}/webhook-events",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+    ),
+    Case(
+        "get webhook event of A",
+        "GET",
+        lambda w: f"/v1/webhook-events/{w.webhook_event_a}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+    ),
+    Case(
         "dashboard of company A",
         "GET",
         lambda w: f"/v1/companies/{w.company_a}/dashboard",
@@ -319,8 +468,9 @@ def test_every_v1_route_is_in_the_matrix():
         ("POST", "/v1/auth/logout"),
         ("POST", "/v1/auth/password"),
         ("GET", "/v1/auth/me"),
-        # Public: PestPac holds no session (tests/test_webhooks.py).
+        # Public: PestPac and GoCanvas hold no session (tests/test_webhooks.py, test_gocanvas.py).
         ("POST", "/v1/webhooks/pestpac"),
+        ("POST", "/v1/webhooks/gocanvas/{operator_id}"),
     }
     routes = {
         (method.upper(), path)
@@ -345,6 +495,12 @@ _PLACEHOLDER_WORLD = World(
     sync_job_a="{job_id}",  # type: ignore[arg-type]
     service_order_a="{order_id}",  # type: ignore[arg-type]
     report_template_a="{template_id}",  # type: ignore[arg-type]
+    webhook_event_a="{event_id}",  # type: ignore[arg-type]
+    invoice_a="{invoice_id}",  # type: ignore[arg-type]
+    gocanvas_request_a="{request_id}",  # type: ignore[arg-type]
+    document_a="{document_id}",  # type: ignore[arg-type]
+    report_a="{report_id}",  # type: ignore[arg-type]
+    report_final_a="{report_id}",  # type: ignore[arg-type]
 )
 
 

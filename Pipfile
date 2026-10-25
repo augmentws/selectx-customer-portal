@@ -18,6 +18,7 @@ python-dotenv = "*"
 cryptography = "*"
 jinja2 = "*"
 weasyprint = "*"
+boto3 = "*"
 
 [dev-packages]
 pytest = "*"

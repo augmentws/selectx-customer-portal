@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useState } from "react";
 
+import { LocationConditions } from "@/components/location-conditions";
+import { LocationDocuments } from "@/components/location-documents";
+import { LocationInvoices } from "@/components/location-invoices";
+import { LocationServiceReports } from "@/components/location-service-reports";
 import { NoteList } from "@/components/note-list";
 import { LocationReports } from "@/components/report-templates";
 import {
@@ -20,6 +24,8 @@ import { errorMessage } from "@/lib/api/errors";
 import { useBillTosGetBillTo } from "@/lib/api/generated/bill-tos/bill-tos";
 import {
   getLocationsGetLocationQueryKey,
+  getLocationsListConditionsQueryKey,
+  getLocationsListDocumentsQueryKey,
   getLocationsListNotesQueryKey,
   getLocationsListServiceOrdersQueryKey,
   useLocationsGetLocation,
@@ -44,6 +50,14 @@ export function LocationDetail() {
       getLocationsGetLocationQueryKey(locationId),
       getLocationsListServiceOrdersQueryKey(locationId),
       getLocationsListNotesQueryKey(locationId),
+    ]) {
+      queryClient.invalidateQueries({ queryKey });
+    }
+  }, [queryClient, locationId]);
+  const onLocationSynced = useCallback(() => {
+    for (const queryKey of [
+      getLocationsListDocumentsQueryKey(locationId),
+      getLocationsListConditionsQueryKey(locationId),
     ]) {
       queryClient.invalidateQueries({ queryKey });
     }
@@ -111,12 +125,22 @@ export function LocationDetail() {
           </div>
           {/* Removed locations can't be synced (the API answers 409). */}
           {!removed && (
-            <SyncJobPanel
-              billToId={loc.bill_to_id}
-              locationId={loc.id}
-              canSync={b !== undefined && can("bill_tos:write", b.operator_id)}
-              onFinished={onSynced}
-            />
+            <>
+              <SyncJobPanel
+                billToId={loc.bill_to_id}
+                locationId={loc.id}
+                canSync={b !== undefined && can("bill_tos:write", b.operator_id)}
+                onFinished={onSynced}
+              />
+              {/* Documents and conditions: on request, not with orders. */}
+              <SyncJobPanel
+                billToId={loc.bill_to_id}
+                locationId={loc.id}
+                kind="location"
+                canSync={b !== undefined && can("bill_tos:write", b.operator_id)}
+                onFinished={onLocationSynced}
+              />
+            </>
           )}
         </CardContent>
       </Card>
@@ -126,7 +150,12 @@ export function LocationDetail() {
           <CardHeader>
             <CardTitle>Reports</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col gap-6">
+            <LocationServiceReports
+              companyId={b.company_id}
+              locationId={loc.id}
+              canWrite={can("reports:write", b.operator_id)}
+            />
             <LocationReports
               companyId={b.company_id}
               locationId={loc.id}
@@ -143,6 +172,12 @@ export function LocationDetail() {
         </div>
         <ServiceOrderList query={orders} status={status} />
       </section>
+
+      {b && can("billing:read", b.operator_id) && <LocationInvoices locationId={loc.id} />}
+
+      <LocationConditions locationId={loc.id} />
+
+      <LocationDocuments locationId={loc.id} />
 
       <section className="flex flex-col gap-3">
         <h2 className="text-xl">Notes{notes.data && ` (${notes.data.data.length})`}</h2>

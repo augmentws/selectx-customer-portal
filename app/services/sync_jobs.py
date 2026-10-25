@@ -9,12 +9,27 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.integrations.pestpac import PestPacClient
 from app.models import BillTo, Location, SyncJob, SyncJobKind, SyncJobStatus, Tenant
-from app.schemas.pestpac import NoteSyncCounts, ServiceOrderSyncCounts
-from app.services import notes, pestpac_connection, service_orders
+from app.schemas.pestpac import (
+    ConditionSyncCounts,
+    DocumentSyncCounts,
+    InvoiceSyncCounts,
+    NoteSyncCounts,
+    ServiceOrderSyncCounts,
+)
+from app.services import (
+    conditions,
+    documents,
+    invoices,
+    notes,
+    pestpac_connection,
+    service_orders,
+)
 from app.services import technicians as technicians_service
 from app.services.pestpac_connection import ConnectionNotReadyError, PestPacUnavailableError
 from app.services.technicians import TechnicianResolver
+from app.storage import StorageError, StorageNotConfiguredError, get_storage
 
 log = logging.getLogger(__name__)
 
@@ -66,13 +81,25 @@ def enqueue_bill_to(db: Session, bill_to: BillTo, requested_by: uuid.UUID | None
     )
 
 
-def enqueue_location(db: Session, location: Location, requested_by: uuid.UUID | None) -> SyncJob:
+def enqueue_location(
+    db: Session,
+    location: Location,
+    requested_by: uuid.UUID | None,
+    *,
+    kind: SyncJobKind = SyncJobKind.location_service_orders,
+) -> SyncJob:
     bill_to = db.get(BillTo, location.bill_to_id)
+    return _enqueue(db, kind=kind, bill_to=bill_to, location=location, requested_by=requested_by)
+
+
+def enqueue_bill_to_location_sync(
+    db: Session, bill_to: BillTo, requested_by: uuid.UUID | None
+) -> SyncJob:
     return _enqueue(
         db,
-        kind=SyncJobKind.location_service_orders,
+        kind=SyncJobKind.bill_to_location_sync,
         bill_to=bill_to,
-        location=location,
+        location=None,
         requested_by=requested_by,
     )
 
@@ -127,7 +154,7 @@ def run_job(db: Session, job: SyncJob) -> SyncJob:
         _finish(db, job, SyncJobStatus.failed, str(exc))
         return job
 
-    if job.kind == SyncJobKind.location_service_orders:
+    if job.location_id is not None:
         locations = [db.get(Location, job.location_id)]
     else:
         locations = list(
@@ -138,8 +165,13 @@ def run_job(db: Session, job: SyncJob) -> SyncJob:
             )
         )
 
+    if job.kind in LOCATION_SYNC_KINDS:
+        return _run_location_sync(db, job, client, locations)
+
     totals = ServiceOrderSyncCounts()
     note_totals = NoteSyncCounts()
+    invoice_totals = InvoiceSyncCounts()
+    invoices_failed: list[dict] = []
     technicians = TechnicianResolver(db, client, job.operator_id)
     failed: list[dict] = []
     notes_failed: list[dict] = []
@@ -182,26 +214,110 @@ def run_job(db: Session, job: SyncJob) -> SyncJob:
                 notes_failed.append(
                     {"pestpac_location_id": location.pestpac_location_id, "error": str(exc)[:300]}
                 )
+            # Then invoices for worked orders that don't have one yet; a failure never undoes
+            # the orders or notes.
+            try:
+                _add(
+                    invoice_totals,
+                    invoices.sync_location_invoices(db, client, location, technicians),
+                )
+                db.commit()
+            except PestPacUnavailableError as exc:
+                db.rollback()
+                technicians.forget_uncommitted()
+                log.warning(
+                    "Invoices for location %s failed: %s", location.pestpac_location_id, exc
+                )
+                invoices_failed.append(
+                    {"pestpac_location_id": location.pestpac_location_id, "error": str(exc)[:300]}
+                )
         job = db.get(SyncJob, job.id)
         job.progress = {
             **progress,
             "locations_done": done,
             "failed_locations": failed,
             "notes_failed_locations": notes_failed,
+            "invoices_failed_locations": invoices_failed,
             "orders": totals.model_dump(),
             "notes": note_totals.model_dump(),
+            "invoices": invoice_totals.model_dump(),
         }
         job.heartbeat_at = datetime.now(UTC)
         db.commit()
 
     if failed and len(failed) == len(locations):
         _finish(db, job, SyncJobStatus.failed, "Every location failed; see progress")
-    elif failed or notes_failed:
+    elif failed or notes_failed or invoices_failed:
         problems = [
             f"{len(failed)} location(s) failed" if failed else "",
             f"notes failed for {len(notes_failed)} location(s)" if notes_failed else "",
+            f"invoices failed for {len(invoices_failed)} location(s)" if invoices_failed else "",
         ]
         _finish(db, job, SyncJobStatus.partial, "; ".join(p for p in problems if p))
+    else:
+        _finish(db, job, SyncJobStatus.succeeded)
+    return job
+
+
+LOCATION_SYNC_KINDS = (SyncJobKind.bill_to_location_sync, SyncJobKind.location_sync)
+
+
+def _run_location_sync(
+    db: Session, job: SyncJob, client: PestPacClient, locations: list[Location]
+) -> SyncJob:
+    """ "Sync location": per location, its documents list, its open conditions (which can add
+    condition documents), then files not stored yet. Locations are independent; one failing
+    (PestPac or storage unreachable) leaves the others' work."""
+    document_totals = DocumentSyncCounts()
+    condition_totals = ConditionSyncCounts()
+    failed: list[dict] = []
+    progress: dict = {"locations_total": len(locations), "locations_done": 0}
+    # Without object storage the lists still sync; files wait until it's configured.
+    try:
+        storage = get_storage()
+    except StorageNotConfiguredError as exc:
+        storage = None
+        progress["document_files"] = str(exc)
+
+    for done, location in enumerate(locations, start=1):
+        document_counts = DocumentSyncCounts()
+        condition_counts = ConditionSyncCounts()
+        lists_committed = False
+        try:
+            documents.sync_location_metadata(db, client, location, document_counts)
+            conditions.sync_location_conditions(db, client, location, condition_counts)
+            db.commit()
+            lists_committed = True
+            if storage is not None:
+                documents.store_location_files(db, client, storage, location, document_counts)
+        except (PestPacUnavailableError, StorageError) as exc:
+            db.rollback()
+            log.warning("Sync of location %s failed: %s", location.pestpac_location_id, exc)
+            failed.append(
+                {"pestpac_location_id": location.pestpac_location_id, "error": str(exc)[:300]}
+            )
+        # Lists count only if they were committed; files commit one by one, so they count even
+        # if a later one stopped the location.
+        if lists_committed:
+            _add(condition_totals, condition_counts)
+            _add(document_totals, document_counts)
+        else:
+            document_totals.files_stored += document_counts.files_stored
+        job = db.get(SyncJob, job.id)
+        job.progress = {
+            **progress,
+            "locations_done": done,
+            "failed_locations": failed,
+            "documents": document_totals.model_dump(),
+            "conditions": condition_totals.model_dump(),
+        }
+        job.heartbeat_at = datetime.now(UTC)
+        db.commit()
+
+    if failed and len(failed) == len(locations):
+        _finish(db, job, SyncJobStatus.failed, "Every location failed; see progress")
+    elif failed:
+        _finish(db, job, SyncJobStatus.partial, f"{len(failed)} location(s) failed")
     else:
         _finish(db, job, SyncJobStatus.succeeded)
     return job

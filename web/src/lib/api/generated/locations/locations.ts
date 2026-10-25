@@ -24,6 +24,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ConditionRead,
+  DocumentRead,
   HTTPValidationError,
   LocationRead,
   LocationsListServiceOrdersParams,
@@ -289,6 +291,244 @@ export function useLocationsListNotes<TData = Awaited<ReturnType<typeof location
 
 
 
+export type locationsListDocumentsResponse200 = {
+  data: DocumentRead[]
+  status: 200
+}
+
+export type locationsListDocumentsResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type locationsListDocumentsResponseSuccess = (locationsListDocumentsResponse200) & {
+  headers: Headers;
+};
+export type locationsListDocumentsResponseError = (locationsListDocumentsResponse422) & {
+  headers: Headers;
+};
+
+export const getLocationsListDocumentsUrl = (locationId: string,) => {
+
+
+
+
+  return `/v1/locations/${locationId}/documents`
+}
+
+/**
+ * Documents PestPac lists for the location (from PESTPAC_DOCUMENTS_START_DATE), newest
+ * first. Files are fetched with GET /v1/documents/{id}/file once stored.
+ * @summary List Documents
+ */
+export const locationsListDocuments = async (locationId: string, options?: Parameters<typeof bffFetch>[1]): Promise<locationsListDocumentsResponseSuccess> => {
+
+  return bffFetch<locationsListDocumentsResponseSuccess>(getLocationsListDocumentsUrl(locationId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getLocationsListDocumentsQueryKey = (locationId: string,) => {
+    return [
+    `/v1/locations/${locationId}/documents`
+    ] as const;
+    }
+
+
+export const getLocationsListDocumentsQueryOptions = <TData = Awaited<ReturnType<typeof locationsListDocuments>>, TError = HTTPValidationError>(locationId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListDocuments>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getLocationsListDocumentsQueryKey(locationId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof locationsListDocuments>>> = ({ signal }) => locationsListDocuments(locationId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: locationId !== null && locationId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof locationsListDocuments>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type LocationsListDocumentsQueryResult = NonNullable<Awaited<ReturnType<typeof locationsListDocuments>>>
+export type LocationsListDocumentsQueryError = HTTPValidationError
+
+
+export function useLocationsListDocuments<TData = Awaited<ReturnType<typeof locationsListDocuments>>, TError = HTTPValidationError>(
+ locationId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListDocuments>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof locationsListDocuments>>,
+          TError,
+          Awaited<ReturnType<typeof locationsListDocuments>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useLocationsListDocuments<TData = Awaited<ReturnType<typeof locationsListDocuments>>, TError = HTTPValidationError>(
+ locationId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListDocuments>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof locationsListDocuments>>,
+          TError,
+          Awaited<ReturnType<typeof locationsListDocuments>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useLocationsListDocuments<TData = Awaited<ReturnType<typeof locationsListDocuments>>, TError = HTTPValidationError>(
+ locationId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListDocuments>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Documents
+ */
+
+export function useLocationsListDocuments<TData = Awaited<ReturnType<typeof locationsListDocuments>>, TError = HTTPValidationError>(
+ locationId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListDocuments>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getLocationsListDocumentsQueryOptions(locationId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type locationsListConditionsResponse200 = {
+  data: ConditionRead[]
+  status: 200
+}
+
+export type locationsListConditionsResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type locationsListConditionsResponseSuccess = (locationsListConditionsResponse200) & {
+  headers: Headers;
+};
+export type locationsListConditionsResponseError = (locationsListConditionsResponse422) & {
+  headers: Headers;
+};
+
+export const getLocationsListConditionsUrl = (locationId: string,) => {
+
+
+
+
+  return `/v1/locations/${locationId}/conditions`
+}
+
+/**
+ * The location's PestPac conditions (issues), open first, with inspections and
+ * documents. Filled by "Sync location".
+ * @summary List Conditions
+ */
+export const locationsListConditions = async (locationId: string, options?: Parameters<typeof bffFetch>[1]): Promise<locationsListConditionsResponseSuccess> => {
+
+  return bffFetch<locationsListConditionsResponseSuccess>(getLocationsListConditionsUrl(locationId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getLocationsListConditionsQueryKey = (locationId: string,) => {
+    return [
+    `/v1/locations/${locationId}/conditions`
+    ] as const;
+    }
+
+
+export const getLocationsListConditionsQueryOptions = <TData = Awaited<ReturnType<typeof locationsListConditions>>, TError = HTTPValidationError>(locationId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListConditions>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getLocationsListConditionsQueryKey(locationId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof locationsListConditions>>> = ({ signal }) => locationsListConditions(locationId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: locationId !== null && locationId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof locationsListConditions>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type LocationsListConditionsQueryResult = NonNullable<Awaited<ReturnType<typeof locationsListConditions>>>
+export type LocationsListConditionsQueryError = HTTPValidationError
+
+
+export function useLocationsListConditions<TData = Awaited<ReturnType<typeof locationsListConditions>>, TError = HTTPValidationError>(
+ locationId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListConditions>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof locationsListConditions>>,
+          TError,
+          Awaited<ReturnType<typeof locationsListConditions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useLocationsListConditions<TData = Awaited<ReturnType<typeof locationsListConditions>>, TError = HTTPValidationError>(
+ locationId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListConditions>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof locationsListConditions>>,
+          TError,
+          Awaited<ReturnType<typeof locationsListConditions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useLocationsListConditions<TData = Awaited<ReturnType<typeof locationsListConditions>>, TError = HTTPValidationError>(
+ locationId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListConditions>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Conditions
+ */
+
+export function useLocationsListConditions<TData = Awaited<ReturnType<typeof locationsListConditions>>, TError = HTTPValidationError>(
+ locationId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListConditions>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getLocationsListConditionsQueryOptions(locationId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 export type locationsListServiceOrdersResponse200 = {
   data: ServiceOrderRead[]
   status: 200
@@ -510,4 +750,96 @@ export const useLocationsSyncServiceOrders = <TError = HTTPValidationError,
         TContext
       > => {
       return useMutation(getLocationsSyncServiceOrdersMutationOptions(options), queryClient);
+    }
+    export type locationsSyncLocationResponse202 = {
+  data: SyncJobRead
+  status: 202
+}
+
+export type locationsSyncLocationResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type locationsSyncLocationResponseSuccess = (locationsSyncLocationResponse202) & {
+  headers: Headers;
+};
+export type locationsSyncLocationResponseError = (locationsSyncLocationResponse422) & {
+  headers: Headers;
+};
+
+export const getLocationsSyncLocationUrl = (locationId: string,) => {
+
+
+
+
+  return `/v1/locations/${locationId}/sync`
+}
+
+/**
+ * "Sync location": its documents, their files, and its open conditions (manual for
+ * now).
+ * @summary Sync Location
+ */
+export const locationsSyncLocation = async (locationId: string, options?: Parameters<typeof bffFetch>[1]): Promise<locationsSyncLocationResponseSuccess> => {
+
+  return bffFetch<locationsSyncLocationResponseSuccess>(getLocationsSyncLocationUrl(locationId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getLocationsSyncLocationMutationKey = () => ['locationsSyncLocation'] as const;
+
+export const getLocationsSyncLocationMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof locationsSyncLocation>>, TError,LocationsSyncLocationMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof locationsSyncLocation>>, TError,LocationsSyncLocationMutationVariables, TContext> => {
+
+const mutationKey = getLocationsSyncLocationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof locationsSyncLocation>>, LocationsSyncLocationMutationVariables> = (props) => {
+          const {locationId} = props ?? {};
+
+          return  locationsSyncLocation(locationId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LocationsSyncLocationMutationResult = NonNullable<Awaited<ReturnType<typeof locationsSyncLocation>>>
+
+    export type LocationsSyncLocationMutationError = HTTPValidationError
+    export type LocationsSyncLocationMutationVariables = {locationId: string}
+
+    /**
+ * @summary Sync Location
+ */
+export const useLocationsSyncLocation = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof locationsSyncLocation>>, TError,LocationsSyncLocationMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof locationsSyncLocation>>,
+        TError,
+        LocationsSyncLocationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getLocationsSyncLocationMutationOptions(options), queryClient);
     }

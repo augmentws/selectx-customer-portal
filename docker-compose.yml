@@ -17,5 +17,35 @@ services:
       timeout: 5s
       retries: 10
 
+  # Object storage (S3 API on 9000, console on 9001), local only. The data directory and the
+  # AIStor license must already exist; a missing one stops only this service.
+  minio:
+    image: quay.io/minio/aistor/minio:RELEASE.2026-09-19T17-05-25Z
+    restart: unless-stopped
+    command: minio server /data --console-address ":9001" --license /minio.license
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-customer-portal}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-customer-portal-minio}
+    ports:
+      - "127.0.0.1:${MINIO_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - type: bind
+        source: ${MINIO_DATA_DIR:-./.data/minio}
+        target: /data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${MINIO_LICENSE_FILE:-./minio.license}
+        target: /minio.license
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:

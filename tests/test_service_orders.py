@@ -79,6 +79,7 @@ def test_sync_stores_agreed_fields_only(client, onboarded, pestpac):
     assert order["location_instructions"] == "Enter through the rear door."
     assert order["service_instructions"].startswith("Perform a full inspection")
     assert order["order_instructions"] is None
+    assert order["technician_comment"] is None  # "" in the fixture
     assert order["posted"] is False and order["posted_at"] is None
     assert order["location_id"] is not None
 
@@ -101,11 +102,14 @@ def test_posted_flip_records_when_it_was_worked(client, onboarded, pestpac):
     pestpac.orders_by_location[900001] = [pestpac_order(1, 900001, BILL_TO, Posted=False)]
     _run_worker()
 
-    pestpac.orders_by_location[900001] = [pestpac_order(1, 900001, BILL_TO, Posted=True)]
+    pestpac.orders_by_location[900001] = [
+        pestpac_order(1, 900001, BILL_TO, Posted=True, TechnicianComment=" Sealed gap by door. ")
+    ]
     job = _sync(client, onboarded)
     assert job["progress"]["orders"]["newly_posted"] == 1
     first = _orders(client, onboarded)[0]
     assert first["posted"] is True and first["posted_at"] is not None
+    assert first["technician_comment"] == "Sealed gap by door."
 
     # Still posted on the next sync: the original posted_at is kept.
     job = _sync(client, onboarded)
@@ -208,6 +212,62 @@ def test_location_sync(client, onboarded, pestpac):
         f"/v1/bill-tos/{onboarded['bill_to_id']}/locations", headers=onboarded["headers"]
     ).json()
     assert next(loc for loc in locations if loc["id"] == store["id"])["open_order_count"] == 1
+
+
+def test_location_orders_are_listed_oldest_first(client, onboarded, pestpac):
+    _run_worker()  # drain the onboarding job
+    locations = client.get(
+        f"/v1/bill-tos/{onboarded['bill_to_id']}/locations", headers=onboarded["headers"]
+    ).json()
+    store = next(loc for loc in locations if loc["pestpac_location_id"] == 900002)
+    pestpac.orders_by_location[900002] = [
+        pestpac_order(1, 900002, BILL_TO, WorkDate="2026-10-19T14:00:00"),
+        pestpac_order(2, 900002, BILL_TO, WorkDate=None),
+        pestpac_order(3, 900002, BILL_TO, WorkDate="2026-09-01T09:00:00"),
+    ]
+    client.post(f"/v1/locations/{store['id']}/service-orders/sync", headers=onboarded["headers"])
+    _run_worker()
+
+    orders = client.get(
+        f"/v1/locations/{store['id']}/service-orders", headers=onboarded["headers"]
+    ).json()
+    assert [o["pestpac_order_id"] for o in orders] == [3, 1, 2]
+    # Bill-to lists stay newest first.
+    assert [o["pestpac_order_id"] for o in _orders(client, onboarded)] == [1, 3, 2]
+
+
+def test_posted_orders_are_listed_oldest_first_and_paged(client, onboarded, pestpac):
+    _run_worker()  # drain the onboarding job
+    pestpac.orders_by_location[900001] = [
+        pestpac_order(1, 900001, BILL_TO, Posted=True, WorkDate="2026-10-19T14:00:00"),
+        pestpac_order(2, 900001, BILL_TO, Posted=False, WorkDate="2026-08-01T09:00:00"),
+    ]
+    pestpac.orders_by_location[900002] = [
+        pestpac_order(3, 900002, BILL_TO, Posted=True, WorkDate="2026-09-01T09:00:00"),
+        pestpac_order(4, 900002, BILL_TO, Posted=True, WorkDate="2026-10-01T09:00:00"),
+    ]
+    _sync(client, onboarded)
+    pestpac.orders_by_location[900002] = []  # order 3 and 4 billed: still listed as posted
+    _sync(client, onboarded)
+
+    company_id = client.get(
+        f"/v1/bill-tos/{onboarded['bill_to_id']}", headers=onboarded["headers"]
+    ).json()["company_id"]
+    for path in (
+        f"/v1/bill-tos/{onboarded['bill_to_id']}/posted-service-orders",
+        f"/v1/companies/{company_id}/posted-service-orders",
+    ):
+        page = client.get(path, headers=onboarded["headers"]).json()
+        assert page["total"] == 3
+        assert [o["pestpac_order_id"] for o in page["items"]] == [3, 4, 1]
+        assert page["items"][0]["location_name"] is not None
+        assert page["items"][0]["report_id"] is None
+        assert page["items"][0]["closed_at"] is not None
+
+        page = client.get(
+            path, params={"limit": 2, "offset": 2}, headers=onboarded["headers"]
+        ).json()
+        assert [o["pestpac_order_id"] for o in page["items"]] == [1]
 
 
 def test_order_listed_under_the_wrong_location_fails_that_location(client, onboarded, pestpac):

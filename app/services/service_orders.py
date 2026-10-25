@@ -13,11 +13,11 @@ import uuid
 from datetime import UTC, datetime
 
 import requests
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.integrations.pestpac import PestPacAuthError, PestPacClient
-from app.models import BillTo, Location, ServiceOrder
+from app.models import BillTo, Invoice, Location, ServiceOrder
 from app.schemas.pestpac import PestPacServiceOrderDetails, ServiceOrderSyncCounts
 from app.services.pestpac_connection import PestPacUnavailableError
 from app.services.technicians import TechnicianResolver
@@ -192,6 +192,7 @@ def list_orders(
     location_id: uuid.UUID | None = None,
     status: str = "open",
     limit: int = 200,
+    oldest_first: bool = False,
 ) -> list[ServiceOrder]:
     query = select(ServiceOrder)
     if bill_to_id is not None:
@@ -202,13 +203,50 @@ def list_orders(
         query = query.where(ServiceOrder.closed_at.is_(None))
     elif status == "closed":
         query = query.where(ServiceOrder.closed_at.is_not(None))
-    return list(
+    orders = list(
         db.scalars(
             query.options(selectinload(ServiceOrder.technician))
             .order_by(ServiceOrder.work_date.desc().nulls_last(), ServiceOrder.id)
             .limit(limit)
         )
     )
+    if oldest_first:
+        # Keep the newest `limit` orders, shown oldest first; undated ones stay last.
+        dated = [o for o in orders if o.work_date is not None]
+        orders = dated[::-1] + [o for o in orders if o.work_date is None]
+    return orders
+
+
+def list_posted_orders(
+    db: Session,
+    *,
+    bill_to_id: uuid.UUID | None = None,
+    company_id: uuid.UUID | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[tuple[ServiceOrder, str | None]], int]:
+    """Worked orders without a stored invoice, oldest first, with their location's name.
+    Invoiced ones are listed from their invoices instead (`invoices.list_invoices`)."""
+    query = select(ServiceOrder).where(
+        ServiceOrder.posted.is_(True),
+        ~exists().where(Invoice.service_order_id == ServiceOrder.id),
+    )
+    if bill_to_id is not None:
+        query = query.where(ServiceOrder.bill_to_id == bill_to_id)
+    if company_id is not None:
+        query = query.where(
+            ServiceOrder.bill_to_id.in_(select(BillTo.id).where(BillTo.company_id == company_id))
+        )
+    total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+    rows = db.execute(
+        query.add_columns(Location.pestpac_company)
+        .outerjoin(Location, Location.id == ServiceOrder.location_id)
+        .options(selectinload(ServiceOrder.technician))
+        .order_by(ServiceOrder.work_date.asc().nulls_last(), ServiceOrder.id)
+        .limit(limit)
+        .offset(offset)
+    ).all()
+    return [(order, name) for order, name in rows], total
 
 
 def open_order_counts(db: Session, location_ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:

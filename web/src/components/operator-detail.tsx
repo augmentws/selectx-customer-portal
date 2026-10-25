@@ -3,12 +3,14 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { MembersPanel } from "@/components/members-panel";
 import { PestPacConnectionPanel } from "@/components/pestpac-connection-panel";
+import { GoCanvasRequestsPanel } from "@/components/gocanvas-requests-panel";
+import { WebhookEventsPanel } from "@/components/webhook-events-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +26,7 @@ import {
   useOperatorsListCompanies,
 } from "@/lib/api/generated/operators/operators";
 import { Can, usePermissions } from "@/lib/permissions";
+import { useUrlTab } from "@/lib/use-url-tab";
 
 const companySchema = z.object({ name: z.string().trim().min(1, "Name is required").max(200) });
 
@@ -116,7 +119,10 @@ function CompaniesTab({ operatorId }: { operatorId: string }) {
 
 export function OperatorDetail() {
   const { operatorId } = useParams<{ operatorId: string }>();
-  const initialTab = useSearchParams().get("tab") ?? "companies";
+  const [tab, setTab] = useUrlTab(
+    ["companies", "members", "pestpac", "webhooks", "gocanvas"],
+    "companies",
+  );
   const { can } = usePermissions();
   const operator = useOperatorsGetOperator(operatorId);
 
@@ -143,7 +149,7 @@ export function OperatorDetail() {
         <p className="text-muted-foreground">PestPac tenant {op.pestpac_tenant_id}</p>
       </div>
 
-      <Tabs defaultValue={initialTab}>
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           {can("companies:read", operatorId) && (
             <TabsTrigger value="companies">Companies</TabsTrigger>
@@ -152,6 +158,8 @@ export function OperatorDetail() {
           {can("pestpac_connection:read", operatorId) && (
             <TabsTrigger value="pestpac">PestPac API</TabsTrigger>
           )}
+          {can("webhooks:read", operatorId) && <TabsTrigger value="webhooks">Webhooks</TabsTrigger>}
+          {can("webhooks:read", operatorId) && <TabsTrigger value="gocanvas">GoCanvas</TabsTrigger>}
         </TabsList>
         {can("companies:read", operatorId) && (
           <TabsContent value="companies" className="pt-4">
@@ -166,6 +174,16 @@ export function OperatorDetail() {
         {can("pestpac_connection:read", operatorId) && (
           <TabsContent value="pestpac" className="pt-4">
             <PestPacConnectionPanel operatorId={operatorId} />
+          </TabsContent>
+        )}
+        {can("webhooks:read", operatorId) && (
+          <TabsContent value="webhooks" className="pt-4">
+            <WebhookEventsPanel operatorId={operatorId} />
+          </TabsContent>
+        )}
+        {can("webhooks:read", operatorId) && (
+          <TabsContent value="gocanvas" className="pt-4">
+            <GoCanvasRequestsPanel operatorId={operatorId} />
           </TabsContent>
         )}
       </Tabs>

@@ -5,17 +5,33 @@
  * OpenAPI spec version: 0.1.0
  */
 import {
-  useMutation
+  useMutation,
+  useQuery
 } from '@tanstack/react-query';
 import type {
+  DataTag,
+  DefinedInitialDataOptions,
+  DefinedUseQueryResult,
   MutationFunction,
   QueryClient,
+  QueryFunction,
+  QueryKey,
+  UndefinedInitialDataOptions,
   UseMutationOptions,
-  UseMutationResult
+  UseMutationResult,
+  UseQueryOptions,
+  UseQueryResult
 } from '@tanstack/react-query';
 
 import type {
-  WebhookAck
+  GoCanvasRequestDetail,
+  GoCanvasRequestPage,
+  HTTPValidationError,
+  WebhookAck,
+  WebhookEventDetail,
+  WebhookEventPage,
+  WebhooksListGocanvasRequestsParams,
+  WebhooksListWebhookEventsParams
 } from '../model';
 
 import { bffFetch } from '../../fetcher';
@@ -24,6 +40,21 @@ import { bffFetch } from '../../fetcher';
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
+
+const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKey: K } => {
+  const result = { queryKey } as T & { queryKey: K };
+  for (const key of Object.keys(query)) {
+    // The explicit queryKey always wins, matching the previous
+    // `{ ...query, queryKey }` spread where it was set last.
+    if (key === 'queryKey') continue;
+    Object.defineProperty(result, key, {
+      enumerable: true,
+      configurable: true,
+      get: () => (query as Record<string, unknown>)[key],
+    });
+  }
+  return result;
+};
 
 export type webhooksReceivePestpacResponse200 = {
   data: WebhookAck
@@ -111,3 +142,597 @@ export const useWebhooksReceivePestpac = <TError = unknown,
       > => {
       return useMutation(getWebhooksReceivePestpacMutationOptions(options), queryClient);
     }
+    export type webhooksReceiveGocanvasResponse200 = {
+  data: WebhookAck
+  status: 200
+}
+
+export type webhooksReceiveGocanvasResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type webhooksReceiveGocanvasResponseSuccess = (webhooksReceiveGocanvasResponse200) & {
+  headers: Headers;
+};
+export type webhooksReceiveGocanvasResponseError = (webhooksReceiveGocanvasResponse422) & {
+  headers: Headers;
+};
+
+export const getWebhooksReceiveGocanvasUrl = (operatorId: string,) => {
+
+
+
+
+  return `/v1/webhooks/gocanvas/${operatorId}`
+}
+
+/**
+ * GoCanvas webhook requests for one operator. Public; every request is stored as received
+ * (headers minus credentials, body, IP, user agent) until GoCanvas's format is known. Answers
+ * the same for unknown operators, so the URL can't be used to probe them.
+ * @summary Receive Gocanvas
+ */
+export const webhooksReceiveGocanvas = async (operatorId: string, options?: Parameters<typeof bffFetch>[1]): Promise<webhooksReceiveGocanvasResponseSuccess> => {
+
+  return bffFetch<webhooksReceiveGocanvasResponseSuccess>(getWebhooksReceiveGocanvasUrl(operatorId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getWebhooksReceiveGocanvasMutationKey = () => ['webhooksReceiveGocanvas'] as const;
+
+export const getWebhooksReceiveGocanvasMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof webhooksReceiveGocanvas>>, TError,WebhooksReceiveGocanvasMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof webhooksReceiveGocanvas>>, TError,WebhooksReceiveGocanvasMutationVariables, TContext> => {
+
+const mutationKey = getWebhooksReceiveGocanvasMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof webhooksReceiveGocanvas>>, WebhooksReceiveGocanvasMutationVariables> = (props) => {
+          const {operatorId} = props ?? {};
+
+          return  webhooksReceiveGocanvas(operatorId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type WebhooksReceiveGocanvasMutationResult = NonNullable<Awaited<ReturnType<typeof webhooksReceiveGocanvas>>>
+
+    export type WebhooksReceiveGocanvasMutationError = HTTPValidationError
+    export type WebhooksReceiveGocanvasMutationVariables = {operatorId: string}
+
+    /**
+ * @summary Receive Gocanvas
+ */
+export const useWebhooksReceiveGocanvas = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof webhooksReceiveGocanvas>>, TError,WebhooksReceiveGocanvasMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof webhooksReceiveGocanvas>>,
+        TError,
+        WebhooksReceiveGocanvasMutationVariables,
+        TContext
+      > => {
+      return useMutation(getWebhooksReceiveGocanvasMutationOptions(options), queryClient);
+    }
+    export type webhooksListWebhookEventsResponse200 = {
+  data: WebhookEventPage
+  status: 200
+}
+
+export type webhooksListWebhookEventsResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type webhooksListWebhookEventsResponseSuccess = (webhooksListWebhookEventsResponse200) & {
+  headers: Headers;
+};
+export type webhooksListWebhookEventsResponseError = (webhooksListWebhookEventsResponse422) & {
+  headers: Headers;
+};
+
+export const getWebhooksListWebhookEventsUrl = (operatorId: string,
+    params?: WebhooksListWebhookEventsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/v1/operators/${operatorId}/webhook-events?${stringifiedParams}` : `/v1/operators/${operatorId}/webhook-events`
+}
+
+/**
+ * Stored PestPac webhook deliveries, newest first. Deliveries dropped by the bill-to rule
+ * are never stored, so they don't appear here.
+ * @summary List Webhook Events
+ */
+export const webhooksListWebhookEvents = async (operatorId: string,
+    params?: WebhooksListWebhookEventsParams, options?: Parameters<typeof bffFetch>[1]): Promise<webhooksListWebhookEventsResponseSuccess> => {
+
+  return bffFetch<webhooksListWebhookEventsResponseSuccess>(getWebhooksListWebhookEventsUrl(operatorId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getWebhooksListWebhookEventsQueryKey = (operatorId: string,
+    params?: WebhooksListWebhookEventsParams,) => {
+    return [
+    `/v1/operators/${operatorId}/webhook-events`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getWebhooksListWebhookEventsQueryOptions = <TData = Awaited<ReturnType<typeof webhooksListWebhookEvents>>, TError = HTTPValidationError>(operatorId: string,
+    params?: WebhooksListWebhookEventsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksListWebhookEvents>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getWebhooksListWebhookEventsQueryKey(operatorId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof webhooksListWebhookEvents>>> = ({ signal }) => webhooksListWebhookEvents(operatorId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: operatorId !== null && operatorId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof webhooksListWebhookEvents>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type WebhooksListWebhookEventsQueryResult = NonNullable<Awaited<ReturnType<typeof webhooksListWebhookEvents>>>
+export type WebhooksListWebhookEventsQueryError = HTTPValidationError
+
+
+export function useWebhooksListWebhookEvents<TData = Awaited<ReturnType<typeof webhooksListWebhookEvents>>, TError = HTTPValidationError>(
+ operatorId: string,
+    params: undefined |  WebhooksListWebhookEventsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksListWebhookEvents>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof webhooksListWebhookEvents>>,
+          TError,
+          Awaited<ReturnType<typeof webhooksListWebhookEvents>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useWebhooksListWebhookEvents<TData = Awaited<ReturnType<typeof webhooksListWebhookEvents>>, TError = HTTPValidationError>(
+ operatorId: string,
+    params?: WebhooksListWebhookEventsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksListWebhookEvents>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof webhooksListWebhookEvents>>,
+          TError,
+          Awaited<ReturnType<typeof webhooksListWebhookEvents>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useWebhooksListWebhookEvents<TData = Awaited<ReturnType<typeof webhooksListWebhookEvents>>, TError = HTTPValidationError>(
+ operatorId: string,
+    params?: WebhooksListWebhookEventsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksListWebhookEvents>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Webhook Events
+ */
+
+export function useWebhooksListWebhookEvents<TData = Awaited<ReturnType<typeof webhooksListWebhookEvents>>, TError = HTTPValidationError>(
+ operatorId: string,
+    params?: WebhooksListWebhookEventsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksListWebhookEvents>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getWebhooksListWebhookEventsQueryOptions(operatorId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type webhooksGetWebhookEventResponse200 = {
+  data: WebhookEventDetail
+  status: 200
+}
+
+export type webhooksGetWebhookEventResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type webhooksGetWebhookEventResponseSuccess = (webhooksGetWebhookEventResponse200) & {
+  headers: Headers;
+};
+export type webhooksGetWebhookEventResponseError = (webhooksGetWebhookEventResponse422) & {
+  headers: Headers;
+};
+
+export const getWebhooksGetWebhookEventUrl = (eventId: string,) => {
+
+
+
+
+  return `/v1/webhook-events/${eventId}`
+}
+
+/**
+ * @summary Get Webhook Event
+ */
+export const webhooksGetWebhookEvent = async (eventId: string, options?: Parameters<typeof bffFetch>[1]): Promise<webhooksGetWebhookEventResponseSuccess> => {
+
+  return bffFetch<webhooksGetWebhookEventResponseSuccess>(getWebhooksGetWebhookEventUrl(eventId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getWebhooksGetWebhookEventQueryKey = (eventId: string,) => {
+    return [
+    `/v1/webhook-events/${eventId}`
+    ] as const;
+    }
+
+
+export const getWebhooksGetWebhookEventQueryOptions = <TData = Awaited<ReturnType<typeof webhooksGetWebhookEvent>>, TError = HTTPValidationError>(eventId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksGetWebhookEvent>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getWebhooksGetWebhookEventQueryKey(eventId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof webhooksGetWebhookEvent>>> = ({ signal }) => webhooksGetWebhookEvent(eventId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: eventId !== null && eventId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof webhooksGetWebhookEvent>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type WebhooksGetWebhookEventQueryResult = NonNullable<Awaited<ReturnType<typeof webhooksGetWebhookEvent>>>
+export type WebhooksGetWebhookEventQueryError = HTTPValidationError
+
+
+export function useWebhooksGetWebhookEvent<TData = Awaited<ReturnType<typeof webhooksGetWebhookEvent>>, TError = HTTPValidationError>(
+ eventId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksGetWebhookEvent>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof webhooksGetWebhookEvent>>,
+          TError,
+          Awaited<ReturnType<typeof webhooksGetWebhookEvent>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useWebhooksGetWebhookEvent<TData = Awaited<ReturnType<typeof webhooksGetWebhookEvent>>, TError = HTTPValidationError>(
+ eventId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksGetWebhookEvent>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof webhooksGetWebhookEvent>>,
+          TError,
+          Awaited<ReturnType<typeof webhooksGetWebhookEvent>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useWebhooksGetWebhookEvent<TData = Awaited<ReturnType<typeof webhooksGetWebhookEvent>>, TError = HTTPValidationError>(
+ eventId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksGetWebhookEvent>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Webhook Event
+ */
+
+export function useWebhooksGetWebhookEvent<TData = Awaited<ReturnType<typeof webhooksGetWebhookEvent>>, TError = HTTPValidationError>(
+ eventId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksGetWebhookEvent>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getWebhooksGetWebhookEventQueryOptions(eventId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type webhooksListGocanvasRequestsResponse200 = {
+  data: GoCanvasRequestPage
+  status: 200
+}
+
+export type webhooksListGocanvasRequestsResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type webhooksListGocanvasRequestsResponseSuccess = (webhooksListGocanvasRequestsResponse200) & {
+  headers: Headers;
+};
+export type webhooksListGocanvasRequestsResponseError = (webhooksListGocanvasRequestsResponse422) & {
+  headers: Headers;
+};
+
+export const getWebhooksListGocanvasRequestsUrl = (operatorId: string,
+    params?: WebhooksListGocanvasRequestsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/v1/operators/${operatorId}/gocanvas-requests?${stringifiedParams}` : `/v1/operators/${operatorId}/gocanvas-requests`
+}
+
+/**
+ * Requests received at the operator's GoCanvas webhook URL, newest first.
+ * @summary List Gocanvas Requests
+ */
+export const webhooksListGocanvasRequests = async (operatorId: string,
+    params?: WebhooksListGocanvasRequestsParams, options?: Parameters<typeof bffFetch>[1]): Promise<webhooksListGocanvasRequestsResponseSuccess> => {
+
+  return bffFetch<webhooksListGocanvasRequestsResponseSuccess>(getWebhooksListGocanvasRequestsUrl(operatorId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getWebhooksListGocanvasRequestsQueryKey = (operatorId: string,
+    params?: WebhooksListGocanvasRequestsParams,) => {
+    return [
+    `/v1/operators/${operatorId}/gocanvas-requests`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getWebhooksListGocanvasRequestsQueryOptions = <TData = Awaited<ReturnType<typeof webhooksListGocanvasRequests>>, TError = HTTPValidationError>(operatorId: string,
+    params?: WebhooksListGocanvasRequestsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksListGocanvasRequests>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getWebhooksListGocanvasRequestsQueryKey(operatorId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof webhooksListGocanvasRequests>>> = ({ signal }) => webhooksListGocanvasRequests(operatorId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: operatorId !== null && operatorId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof webhooksListGocanvasRequests>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type WebhooksListGocanvasRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof webhooksListGocanvasRequests>>>
+export type WebhooksListGocanvasRequestsQueryError = HTTPValidationError
+
+
+export function useWebhooksListGocanvasRequests<TData = Awaited<ReturnType<typeof webhooksListGocanvasRequests>>, TError = HTTPValidationError>(
+ operatorId: string,
+    params: undefined |  WebhooksListGocanvasRequestsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksListGocanvasRequests>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof webhooksListGocanvasRequests>>,
+          TError,
+          Awaited<ReturnType<typeof webhooksListGocanvasRequests>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useWebhooksListGocanvasRequests<TData = Awaited<ReturnType<typeof webhooksListGocanvasRequests>>, TError = HTTPValidationError>(
+ operatorId: string,
+    params?: WebhooksListGocanvasRequestsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksListGocanvasRequests>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof webhooksListGocanvasRequests>>,
+          TError,
+          Awaited<ReturnType<typeof webhooksListGocanvasRequests>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useWebhooksListGocanvasRequests<TData = Awaited<ReturnType<typeof webhooksListGocanvasRequests>>, TError = HTTPValidationError>(
+ operatorId: string,
+    params?: WebhooksListGocanvasRequestsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksListGocanvasRequests>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Gocanvas Requests
+ */
+
+export function useWebhooksListGocanvasRequests<TData = Awaited<ReturnType<typeof webhooksListGocanvasRequests>>, TError = HTTPValidationError>(
+ operatorId: string,
+    params?: WebhooksListGocanvasRequestsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksListGocanvasRequests>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getWebhooksListGocanvasRequestsQueryOptions(operatorId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type webhooksGetGocanvasRequestResponse200 = {
+  data: GoCanvasRequestDetail
+  status: 200
+}
+
+export type webhooksGetGocanvasRequestResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type webhooksGetGocanvasRequestResponseSuccess = (webhooksGetGocanvasRequestResponse200) & {
+  headers: Headers;
+};
+export type webhooksGetGocanvasRequestResponseError = (webhooksGetGocanvasRequestResponse422) & {
+  headers: Headers;
+};
+
+export const getWebhooksGetGocanvasRequestUrl = (requestId: string,) => {
+
+
+
+
+  return `/v1/gocanvas-requests/${requestId}`
+}
+
+/**
+ * @summary Get Gocanvas Request
+ */
+export const webhooksGetGocanvasRequest = async (requestId: string, options?: Parameters<typeof bffFetch>[1]): Promise<webhooksGetGocanvasRequestResponseSuccess> => {
+
+  return bffFetch<webhooksGetGocanvasRequestResponseSuccess>(getWebhooksGetGocanvasRequestUrl(requestId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getWebhooksGetGocanvasRequestQueryKey = (requestId: string,) => {
+    return [
+    `/v1/gocanvas-requests/${requestId}`
+    ] as const;
+    }
+
+
+export const getWebhooksGetGocanvasRequestQueryOptions = <TData = Awaited<ReturnType<typeof webhooksGetGocanvasRequest>>, TError = HTTPValidationError>(requestId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksGetGocanvasRequest>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getWebhooksGetGocanvasRequestQueryKey(requestId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof webhooksGetGocanvasRequest>>> = ({ signal }) => webhooksGetGocanvasRequest(requestId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: requestId !== null && requestId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof webhooksGetGocanvasRequest>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type WebhooksGetGocanvasRequestQueryResult = NonNullable<Awaited<ReturnType<typeof webhooksGetGocanvasRequest>>>
+export type WebhooksGetGocanvasRequestQueryError = HTTPValidationError
+
+
+export function useWebhooksGetGocanvasRequest<TData = Awaited<ReturnType<typeof webhooksGetGocanvasRequest>>, TError = HTTPValidationError>(
+ requestId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksGetGocanvasRequest>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof webhooksGetGocanvasRequest>>,
+          TError,
+          Awaited<ReturnType<typeof webhooksGetGocanvasRequest>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useWebhooksGetGocanvasRequest<TData = Awaited<ReturnType<typeof webhooksGetGocanvasRequest>>, TError = HTTPValidationError>(
+ requestId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksGetGocanvasRequest>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof webhooksGetGocanvasRequest>>,
+          TError,
+          Awaited<ReturnType<typeof webhooksGetGocanvasRequest>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useWebhooksGetGocanvasRequest<TData = Awaited<ReturnType<typeof webhooksGetGocanvasRequest>>, TError = HTTPValidationError>(
+ requestId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksGetGocanvasRequest>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Gocanvas Request
+ */
+
+export function useWebhooksGetGocanvasRequest<TData = Awaited<ReturnType<typeof webhooksGetGocanvasRequest>>, TError = HTTPValidationError>(
+ requestId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof webhooksGetGocanvasRequest>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getWebhooksGetGocanvasRequestQueryOptions(requestId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+

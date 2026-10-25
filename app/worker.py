@@ -1,4 +1,4 @@
-"""Background worker: runs queued service-order sync jobs and clears expired webhook bodies.
+"""Background worker: handles webhooks, runs sync jobs and report drafts, clears webhook bodies.
 
     python -m app.worker            # run until stopped (Ctrl-C / SIGTERM)
     python -m app.worker --once     # run queued jobs, then exit
@@ -15,7 +15,7 @@ import time
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.security.secrets import validate_keys
-from app.services import sync_jobs, webhooks
+from app.services import gocanvas, service_reports, sync_jobs, webhook_handlers, webhooks
 
 log = logging.getLogger("app.worker")
 
@@ -25,13 +25,40 @@ class _Stop:
 
 
 def run_pending() -> int:
-    """Run every claimable job; returns how many ran."""
+    """Handle webhook events, then run every claimable job and draft; returns how many ran."""
+    return run_pending_webhooks() + run_pending_jobs() + run_pending_drafts()
+
+
+def run_pending_webhooks() -> int:
+    """Process stored webhook events that have a handler (they may queue sync jobs)."""
+    ran = 0
+    while not _Stop.requested:
+        with SessionLocal() as db:
+            event = webhook_handlers.claim_next(db)
+            if event is None:
+                return ran
+            event_id = event.id
+            try:
+                webhook_handlers.process(db, event)
+                db.commit()
+            except Exception as exc:
+                # A bug, not a missing record (those are recorded by process). Mark the event
+                # failed so it isn't retried in a loop.
+                log.exception("Webhook event %s crashed", event_id)
+                db.rollback()
+                webhook_handlers.mark_crashed(db, event_id, f"Handler error: {type(exc).__name__}")
+            ran += 1
+    return ran
+
+
+def run_pending_jobs() -> int:
+    """Run every claimable sync job; returns how many ran."""
     ran = 0
     while not _Stop.requested:
         with SessionLocal() as db:
             job = sync_jobs.claim_next(db)
             if job is None:
-                return ran
+                break
             log.info("Running %s job %s (attempt %s)", job.kind, job.id, job.attempts)
             job_id = job.id
             try:
@@ -48,12 +75,37 @@ def run_pending() -> int:
     return ran
 
 
+def run_pending_drafts() -> int:
+    """Draft every report waiting for its narrative (LLM); returns how many ran."""
+    ran = 0
+    while not _Stop.requested:
+        with SessionLocal() as db:
+            report = service_reports.claim_next_draft(db)
+            if report is None:
+                return ran
+            report_id = report.id
+            log.info("Drafting report %s", report_id)
+            try:
+                report = service_reports.run_draft(db, report)
+            except Exception:
+                # A bug, not an LLM failure (those are recorded by run_draft). Put the report
+                # back to draft with a note, so it isn't retried in a loop.
+                log.exception("Draft of report %s crashed", report_id)
+                db.rollback()
+                service_reports.mark_draft_crashed(db, report_id)
+                ran += 1
+                continue
+            log.info("Report %s drafted: %s", report.id, report.draft_error or "ok")
+            ran += 1
+    return ran
+
+
 PURGE_INTERVAL_SECONDS = 3600
 
 
 def purge_webhook_bodies() -> None:
     with SessionLocal() as db:
-        cleared = webhooks.purge_raw_bodies(db)
+        cleared = webhooks.purge_raw_bodies(db) + gocanvas.purge_raw_bodies(db)
     if cleared:
         log.info("Cleared %s expired webhook bodies", cleared)
 
