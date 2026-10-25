@@ -6,6 +6,7 @@ import { useState } from "react";
 import { formatPestPacDate } from "@/components/service-order-list";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { errorMessage } from "@/lib/api/errors";
 import { useLocationsListDocuments } from "@/lib/api/generated/locations/locations";
@@ -96,7 +97,8 @@ export function DocumentRow({ doc }: { doc: DocumentRead }) {
   );
 }
 
-/** The location's PestPac documents. Filled by "Sync location" (they don't sync with orders). */
+/** The location's PestPac documents. Filled by the documents and conditions sync, never with
+ * orders. */
 export function LocationDocuments({ locationId }: { locationId: string }) {
   // Nested in the location page, so it has its own parameter.
   const [tab, setTab] = useUrlTab(["documents", "images"], "documents", "documents");
@@ -124,13 +126,13 @@ export function LocationDocuments({ locationId }: { locationId: string }) {
           <TabsContent value="documents" className="pt-2">
             <DocumentList
               docs={others}
-              empty="No documents yet. Sync location to fetch them from PestPac."
+              empty="No documents yet. Sync documents and conditions to fetch them from PestPac."
             />
           </TabsContent>
           <TabsContent value="images" className="pt-2">
             <DocumentList
               docs={images}
-              empty="No images yet. Sync location to fetch them from PestPac."
+              empty="No images yet. Sync documents and conditions to fetch them from PestPac."
             />
           </TabsContent>
         </Tabs>
@@ -139,13 +141,29 @@ export function LocationDocuments({ locationId }: { locationId: string }) {
   );
 }
 
+const PAGE_SIZE = 25;
+
+/** Newest first from the API; shown a page at a time so a long history stays quick to scan. */
 function DocumentList({ docs, empty }: { docs: DocumentRead[]; empty: string }) {
+  const [shown, setShown] = useState(PAGE_SIZE);
   return (
-    <ul className="divide-y divide-border border border-border bg-card">
-      {docs.length === 0 && <li className="p-4 text-muted-foreground">{empty}</li>}
-      {docs.map((doc) => (
-        <DocumentRow key={doc.id} doc={doc} />
-      ))}
-    </ul>
+    <div className="flex flex-col gap-3">
+      <ul className="divide-y divide-border border border-border bg-card">
+        {docs.length === 0 && <li className="p-4 text-muted-foreground">{empty}</li>}
+        {docs.slice(0, shown).map((doc) => (
+          <DocumentRow key={doc.id} doc={doc} />
+        ))}
+      </ul>
+      {docs.length > shown && (
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <span className="text-muted-foreground">
+            Showing {shown} of {docs.length}
+          </span>
+          <Button variant="outline" size="sm" onClick={() => setShown((n) => n + PAGE_SIZE)}>
+            Show {Math.min(PAGE_SIZE, docs.length - shown)} more
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }

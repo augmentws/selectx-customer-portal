@@ -162,6 +162,10 @@ class LocationRead(BaseModel):
     pestpac_fetched_at: datetime
     # Orders PestPac still lists as open (not yet billed) for this location.
     open_order_count: int = 0
+    # Of those, the ones already worked (awaiting billing).
+    worked_order_count: int = 0
+    # WorkDate of the latest worked order (PestPac wall-clock time).
+    last_service_at: datetime | None = None
 
 
 class LocationDetail(LocationRead):

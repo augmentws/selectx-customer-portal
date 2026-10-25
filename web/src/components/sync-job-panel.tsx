@@ -30,7 +30,7 @@ const isActive = (job: SyncJobRead | undefined) =>
 type Counts = Record<string, number>;
 
 /** What a panel syncs; each shows only its own kind of job. */
-// "location" is "Sync location": documents and conditions, and later syncs as they're added.
+// "location": documents and conditions, and later per-location syncs as they're added.
 export type SyncKind = "serviceOrders" | "location";
 
 const JOB_KINDS: Record<SyncKind, readonly string[]> = {
@@ -38,10 +38,9 @@ const JOB_KINDS: Record<SyncKind, readonly string[]> = {
   location: ["bill_to_location_sync", "location_sync"],
 };
 
-// [one location, every location of a bill-to]
-const BUTTON_LABEL: Record<SyncKind, [string, string]> = {
-  serviceOrders: ["Sync service orders", "Sync service orders"],
-  location: ["Sync location", "Sync locations"],
+const TITLE: Record<SyncKind, string> = {
+  serviceOrders: "Orders and notes",
+  location: "Documents and conditions",
 };
 
 /** progress is free-form JSON from the worker; read only the numbers we show. */
@@ -136,7 +135,7 @@ function JobLine({ job, checkedAt }: { job: SyncJobRead; checkedAt: number }) {
 }
 
 /**
- * Sync service orders (and their notes), or "Sync location" (documents and conditions), from
+ * Sync service orders (and their notes), or documents and conditions, from
  * PestPac for a bill-to or one of its locations.
  * Shows the latest job and polls while it runs; calls `onFinished` when a job completes so the
  * caller can refetch what it displays.
@@ -192,22 +191,31 @@ export function SyncJobPanel({
     locationId ? syncLocation.mutate({ locationId }) : syncBillTo.mutate({ billToId });
 
   return (
-    <div className="flex flex-col gap-3">
-      {canSync && (
-        <div>
-          <Button variant="outline" disabled={sync.isPending || isActive(latest)} onClick={start}>
-            <RefreshCw aria-hidden />
-            {isActive(latest) ? "Sync in progress" : BUTTON_LABEL[kind][locationId ? 0 : 1]}
-          </Button>
+    <div className="flex flex-col gap-2 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="font-medium">{TITLE[kind]}</span>
+          {latest ? (
+            <JobLine job={latest} checkedAt={jobs.dataUpdatedAt} />
+          ) : (
+            jobs.isSuccess && (
+              <p className="text-sm text-muted-foreground">Not synced from PestPac yet.</p>
+            )
+          )}
         </div>
-      )}
-      {latest ? (
-        <JobLine job={latest} checkedAt={jobs.dataUpdatedAt} />
-      ) : (
-        jobs.isSuccess && (
-          <p className="text-sm text-muted-foreground">Not synced from PestPac yet.</p>
-        )
-      )}
+        {canSync && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={sync.isPending || isActive(latest)}
+            onClick={start}
+            aria-label={`Sync ${TITLE[kind].toLowerCase()}`}
+          >
+            <RefreshCw aria-hidden />
+            {isActive(latest) ? "Syncing…" : "Sync"}
+          </Button>
+        )}
+      </div>
       {sync.isError && (
         <Alert variant="destructive">
           <AlertDescription>{errorMessage(sync.error)}</AlertDescription>
@@ -221,5 +229,44 @@ export function SyncJobPanel({
         </Alert>
       )}
     </div>
+  );
+}
+
+/** Both syncs for a bill-to (every location) or one location, under one heading. */
+export function PestPacSync({
+  billToId,
+  locationId,
+  canSync,
+  onOrdersSynced,
+  onLocationSynced,
+}: {
+  billToId: string;
+  locationId?: string;
+  canSync: boolean;
+  onOrdersSynced: () => void;
+  onLocationSynced: () => void;
+}) {
+  return (
+    <section aria-labelledby="pestpac-sync" className="border border-border bg-card px-4 py-1">
+      <h2 id="pestpac-sync" className="sr-only">
+        Sync from PestPac
+      </h2>
+      <div className="divide-y divide-border">
+        <SyncJobPanel
+          billToId={billToId}
+          locationId={locationId}
+          canSync={canSync}
+          onFinished={onOrdersSynced}
+        />
+        {/* Documents and conditions: on request, never with order syncs. */}
+        <SyncJobPanel
+          billToId={billToId}
+          locationId={locationId}
+          kind="location"
+          canSync={canSync}
+          onFinished={onLocationSynced}
+        />
+      </div>
+    </section>
   );
 }

@@ -10,6 +10,7 @@ order is billed it disappears there and `GET /ServiceOrders/{id}` stops returnin
 """
 
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import requests
@@ -19,6 +20,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.integrations.pestpac import PestPacAuthError, PestPacClient
 from app.models import BillTo, Invoice, Location, ServiceOrder
 from app.schemas.pestpac import PestPacServiceOrderDetails, ServiceOrderSyncCounts
+from app.schemas.tenancy import LocationRead
 from app.services.pestpac_connection import PestPacUnavailableError
 from app.services.technicians import TechnicianResolver
 
@@ -249,12 +251,44 @@ def list_posted_orders(
     return [(order, name) for order, name in rows], total
 
 
-def open_order_counts(db: Session, location_ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:
+@dataclass(frozen=True)
+class LocationOrderStats:
+    # Orders PestPac still lists (open or worked, not yet billed).
+    open: int = 0
+    # Of those, the ones already worked: awaiting billing.
+    worked: int = 0
+    # WorkDate of the latest worked order, billed or not (PestPac wall-clock time).
+    last_service_at: datetime | None = None
+
+
+def location_order_stats(
+    db: Session, location_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, LocationOrderStats]:
     if not location_ids:
         return {}
+    unbilled = ServiceOrder.closed_at.is_(None)
     rows = db.execute(
-        select(ServiceOrder.location_id, func.count())
-        .where(ServiceOrder.location_id.in_(location_ids), ServiceOrder.closed_at.is_(None))
+        select(
+            ServiceOrder.location_id,
+            func.count().filter(unbilled),
+            func.count().filter(unbilled, ServiceOrder.posted),
+            func.max(ServiceOrder.work_date).filter(ServiceOrder.posted),
+        )
+        .where(ServiceOrder.location_id.in_(location_ids))
         .group_by(ServiceOrder.location_id)
     ).all()
-    return dict(rows)
+    return {
+        loc_id: LocationOrderStats(open=o, worked=w, last_service_at=last)
+        for loc_id, o, w, last in rows
+    }
+
+
+def location_read(location: Location, stats: dict[uuid.UUID, LocationOrderStats]) -> LocationRead:
+    s = stats.get(location.id, LocationOrderStats())
+    return LocationRead.model_validate(location).model_copy(
+        update={
+            "open_order_count": s.open,
+            "worked_order_count": s.worked,
+            "last_service_at": s.last_service_at,
+        }
+    )

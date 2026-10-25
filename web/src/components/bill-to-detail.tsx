@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { BillToLocations } from "@/components/bill-to-locations";
@@ -10,12 +10,10 @@ import { BillToDetailLines } from "@/components/bill-to-onboarding";
 import { LocationSyncResult } from "@/components/location-sync-result";
 import { InvoicedOrders } from "@/components/invoiced-orders";
 import { PostedServiceOrders } from "@/components/posted-service-orders";
-import { type OrderStatusFilter, OrderStatusSelect } from "@/components/service-order-list";
-import { SyncJobPanel } from "@/components/sync-job-panel";
+import { PestPacSync } from "@/components/sync-job-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { errorMessage } from "@/lib/api/errors";
@@ -37,7 +35,6 @@ export function BillToDetail() {
   const billTo = useBillTosGetBillTo(billToId);
   const locations = useBillTosListLocations(billToId);
   useDocumentTitle(billTo.data?.data.name, billTo.data?.data.trail.at(-1)?.name);
-  const [status, setStatus] = useState<OrderStatusFilter>("open");
   const onSynced = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: getBillTosListLocationsQueryKey(billToId) });
     // Expanded locations' orders (keys are `/v1/locations/{id}/service-orders`).
@@ -80,43 +77,57 @@ export function BillToDetail() {
           {!b.is_active && <Badge variant="outline">Inactive</Badge>}
         </h1>
         <p className="text-muted-foreground">
-          BillToID {b.pestpac_bill_to_id}
-          {b.description && ` · ${b.description}`}
+          {[
+            `BillToID ${b.pestpac_bill_to_id}`,
+            b.pestpac_bill_to_code && `code ${b.pestpac_bill_to_code}`,
+            b.pestpac_type,
+            b.phone,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
+        {b.description && <p className="text-muted-foreground">{b.description}</p>}
+        <details className="mt-2">
+          <summary className="cursor-pointer text-sm text-primary hover:underline">
+            PestPac details
+          </summary>
+          <div className="mt-3 flex flex-col gap-4 border-l-2 border-border pl-4">
+            <BillToDetailLines details={b} />
+            <p className="text-xs text-muted-foreground">
+              {b.pestpac_fetched_at
+                ? `From PestPac ${new Date(b.pestpac_fetched_at).toLocaleString()}`
+                : "Not fetched from PestPac yet."}
+            </p>
+            {canWrite && (
+              <div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={refresh.isPending}
+                  onClick={() => refresh.mutate({ billToId })}
+                >
+                  {refresh.isPending ? "Refreshing…" : "Refresh from PestPac"}
+                </Button>
+              </div>
+            )}
+          </div>
+        </details>
+        {refresh.isSuccess && (
+          <LocationSyncResult summary={refresh.data.data.locations_sync} label="Refreshed" />
+        )}
+        {refresh.isError && (
+          <Alert variant="destructive">
+            <AlertDescription>{errorMessage(refresh.error)}</AlertDescription>
+          </Alert>
+        )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>PestPac details</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <BillToDetailLines details={b} />
-          <p className="text-xs text-muted-foreground">
-            {b.pestpac_fetched_at
-              ? `From PestPac ${new Date(b.pestpac_fetched_at).toLocaleString()}`
-              : "Not fetched from PestPac yet."}
-          </p>
-          {canWrite && (
-            <div>
-              <Button
-                variant="outline"
-                disabled={refresh.isPending}
-                onClick={() => refresh.mutate({ billToId })}
-              >
-                {refresh.isPending ? "Refreshing…" : "Refresh from PestPac"}
-              </Button>
-            </div>
-          )}
-          {refresh.isSuccess && (
-            <LocationSyncResult summary={refresh.data.data.locations_sync} label="Refreshed" />
-          )}
-          {refresh.isError && (
-            <Alert variant="destructive">
-              <AlertDescription>{errorMessage(refresh.error)}</AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
+      <PestPacSync
+        billToId={billToId}
+        canSync={canWrite && b.is_active}
+        onOrdersSynced={onSynced}
+        onLocationSynced={onSyncedLocations}
+      />
 
       {/* Invoiced orders need billing:read; a URL naming it falls back for others. */}
       <Tabs
@@ -130,23 +141,8 @@ export function BillToDetail() {
             <TabsTrigger value="invoiced">Invoiced orders</TabsTrigger>
           )}
         </TabsList>
-        <TabsContent value="locations" className="flex flex-col gap-3 pt-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xl">Locations and service orders</h2>
-            <OrderStatusSelect value={status} onChange={setStatus} />
-          </div>
-          <SyncJobPanel
-            billToId={billToId}
-            canSync={canWrite && b.is_active}
-            onFinished={onSynced}
-          />
-          <SyncJobPanel
-            billToId={billToId}
-            kind="location"
-            canSync={canWrite && b.is_active}
-            onFinished={onSyncedLocations}
-          />
-          <BillToLocations locations={locations} status={status} />
+        <TabsContent value="locations" className="pt-4">
+          <BillToLocations locations={locations} />
         </TabsContent>
         <TabsContent value="posted" className="pt-4">
           <PostedServiceOrders

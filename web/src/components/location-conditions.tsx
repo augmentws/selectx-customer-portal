@@ -96,7 +96,7 @@ function ConditionCard({ condition: c }: { condition: ConditionRead }) {
   );
 }
 
-/** The location's PestPac conditions (issues), open first. Filled by "Sync location". */
+/** The location's PestPac conditions (issues), open first. Filled by the documents and conditions sync. */
 export function LocationConditions({ locationId }: { locationId: string }) {
   const conditions = useLocationsListConditions(locationId);
   const list = conditions.data?.data;
@@ -116,7 +116,7 @@ export function LocationConditions({ locationId }: { locationId: string }) {
         <ul className="divide-y divide-border border border-border bg-card">
           {list.length === 0 && (
             <li className="p-4 text-muted-foreground">
-              No conditions recorded. Sync location to fetch open conditions from PestPac.
+              No conditions recorded. Sync documents and conditions to fetch open ones from PestPac.
             </li>
           )}
           {list.map((c) => (

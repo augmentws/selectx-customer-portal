@@ -14,7 +14,7 @@ from app.models import (
     Technician,
 )
 from app.services import sync_jobs
-from tests.conftest import pestpac_order
+from tests.conftest import headers_for, pestpac_order
 
 BILL_TO = 180020  # onboarded by `onboarded` below; locations 900001-900003 from the fixture
 OTHER_BILL_TO = 555555  # never onboarded
@@ -391,3 +391,40 @@ def test_technician_personal_data_is_not_stored(client, onboarded, pestpac):
     text = str(stored) + str(_orders(client, onboarded))
     for leaked in ("tech.one@personal.example", "555-010-0199", "EMERGENCY PERSON", "1900-01-01"):
         assert leaked not in text
+
+
+def test_locations_report_open_worked_and_last_service(client, world):
+    """The bill-to's locations table shows how many orders are open, how many are worked and
+    awaiting billing, and when the store was last serviced (billed or not)."""
+    with SessionLocal() as db:
+
+        def order(pestpac_order_id: int, *, posted: bool, closed: bool, day: int) -> ServiceOrder:
+            return ServiceOrder(
+                operator_id=world.op_a,
+                bill_to_id=world.bill_to_a,
+                location_id=world.location_a,
+                pestpac_order_id=pestpac_order_id,
+                pestpac_location_id=800001,
+                work_date=datetime(2026, 10, day, 9, 0),
+                posted=posted,
+                closed_at=datetime.now(UTC) if closed else None,
+                pestpac_fetched_at=datetime.now(UTC),
+            )
+
+        db.add_all(
+            [
+                order(710001, posted=True, closed=False, day=20),
+                order(710002, posted=True, closed=True, day=22),  # billed: newest service
+                order(710003, posted=False, closed=False, day=24),  # scheduled, not worked
+            ]
+        )
+        db.commit()
+
+    headers = headers_for(client, world.emails["staff_a"])
+    listed = client.get(f"/v1/bill-tos/{world.bill_to_a}/locations", headers=headers).json()
+    detail = client.get(f"/v1/locations/{world.location_a}", headers=headers).json()
+    for loc in (next(x for x in listed if x["id"] == str(world.location_a)), detail):
+        # service_order_a (open) plus 710001 and 710003; the world's reported orders are billed.
+        assert loc["open_order_count"] == 3
+        assert loc["worked_order_count"] == 1
+        assert loc["last_service_at"] == "2026-10-22T09:00:00"

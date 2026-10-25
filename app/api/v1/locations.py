@@ -11,7 +11,6 @@ from app.schemas.tenancy import (
     ConditionRead,
     DocumentRead,
     LocationDetail,
-    LocationRead,
     NoteRead,
     ServiceOrderRead,
     SyncJobRead,
@@ -36,12 +35,11 @@ def get_location(
 ):
     location = _location_or_404(db, location_id)
     scope.require(Perm.bill_tos_read, location.operator_id, read_perm=Perm.bill_tos_read)
-    counts = service_orders.open_order_counts(db, [location.id])
+    stats = service_orders.location_order_stats(db, [location.id])
     bill_to = db.get(BillTo, location.bill_to_id)
     return LocationDetail.model_validate(
         {
-            **LocationRead.model_validate(location).model_dump(),
-            "open_order_count": counts.get(location.id, 0),
+            **service_orders.location_read(location, stats).model_dump(),
             "trail": trail.trail(
                 db,
                 operator_id=location.operator_id,

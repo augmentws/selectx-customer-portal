@@ -27,5 +27,7 @@ export interface LocationDetail {
   removed_at: string | null;
   pestpac_fetched_at: string;
   open_order_count?: number;
+  worked_order_count?: number;
+  last_service_at?: string | null;
   trail: Crumb[];
 }

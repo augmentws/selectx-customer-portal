@@ -94,13 +94,8 @@ def list_locations(
     bill_to = _bill_to_or_404(db, bill_to_id)
     scope.require(Perm.bill_tos_read, bill_to.operator_id, read_perm=Perm.bill_tos_read)
     rows = locations.list_locations(db, bill_to.id)
-    counts = service_orders.open_order_counts(db, [loc.id for loc in rows])
-    return [
-        LocationRead.model_validate(loc).model_copy(
-            update={"open_order_count": counts.get(loc.id, 0)}
-        )
-        for loc in rows
-    ]
+    stats = service_orders.location_order_stats(db, [loc.id for loc in rows])
+    return [service_orders.location_read(loc, stats) for loc in rows]
 
 
 @router.get("/{bill_to_id}/service-orders", response_model=list[ServiceOrderRead])

@@ -1,22 +1,18 @@
 "use client";
 
-import { ChevronDown, ChevronRight, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, Search } from "lucide-react";
 import Link from "next/link";
 import { useDeferredValue, useState } from "react";
 
-import { type OrderStatusFilter, OrderRow } from "@/components/service-order-list";
+import { formatPestPacDate } from "@/components/service-order-list";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { errorMessage } from "@/lib/api/errors";
-import { useLocationsListServiceOrders } from "@/lib/api/generated/locations/locations";
 import type { LocationRead } from "@/lib/api/generated/model";
 
-const NO_ORDERS: Record<OrderStatusFilter, string> = {
-  open: "No open or worked orders.",
-  closed: "No billed orders recorded yet.",
-  all: "No orders recorded yet.",
-};
+const PAGE_SIZE = 50;
 
 type QueryState<T> = {
   isPending: boolean;
@@ -25,10 +21,29 @@ type QueryState<T> = {
   data?: { data: T[] };
 };
 
-/** Name, street, city, state, and zip, lower-cased for type-ahead matching. */
+type SortKey = "name" | "place" | "open" | "worked" | "last";
+type Sort = { key: SortKey; desc: boolean };
+
+/** Orders PestPac lists that haven't been worked yet (the API's open count includes worked). */
+const worked = (l: LocationRead) => l.worked_order_count ?? 0;
+const scheduled = (l: LocationRead) => (l.open_order_count ?? 0) - worked(l);
+
+const place = (l: LocationRead) => [l.city, l.state].filter(Boolean).join(", ");
+
+const SORT_VALUE: Record<SortKey, (l: LocationRead) => string | number> = {
+  name: (l) => (l.pestpac_company ?? "").toLowerCase(),
+  place: (l) => place(l).toLowerCase(),
+  open: scheduled,
+  worked,
+  last: (l) => l.last_service_at ?? "",
+};
+
+/** Name, store number, street, city, state, and zip, lower-cased for type-ahead matching. */
 function searchText(location: LocationRead): string {
   return [
     location.pestpac_company,
+    location.pestpac_location_code,
+    String(location.pestpac_location_id),
     location.address,
     location.address2,
     location.city,
@@ -40,121 +55,94 @@ function searchText(location: LocationRead): string {
     .toLowerCase();
 }
 
-/** Fetched only while the location is expanded, so a large bill-to loads one location at a time. */
-function LocationOrders({ locationId, status }: { locationId: string; status: OrderStatusFilter }) {
-  const orders = useLocationsListServiceOrders(locationId, { status });
-  if (orders.isPending) return <p className="p-4 text-sm text-muted-foreground">Loading orders…</p>;
-  if (orders.isError) {
-    return (
-      <p className="p-4 text-sm text-destructive">
-        {errorMessage(orders.error, "Could not load service orders.")}
-      </p>
-    );
-  }
-  if (orders.data.data.length === 0) {
-    return <p className="p-4 text-sm text-muted-foreground">{NO_ORDERS[status]}</p>;
-  }
+function sorted(list: LocationRead[], sort: Sort): LocationRead[] {
+  const value = SORT_VALUE[sort.key];
+  const dir = sort.desc ? -1 : 1;
+  // Locations no longer under the bill-to stay at the end whatever the sort.
+  return [...list].sort((a, b) => {
+    const removed = Number(a.removed_at !== null) - Number(b.removed_at !== null);
+    if (removed !== 0) return removed;
+    const [x, y] = [value(a), value(b)];
+    return x < y ? -dir : x > y ? dir : 0;
+  });
+}
+
+function SortHeader({
+  label,
+  column,
+  sort,
+  onSort,
+  className,
+}: {
+  label: string;
+  column: SortKey;
+  sort: Sort;
+  onSort: (key: SortKey) => void;
+  className?: string;
+}) {
+  const active = sort.key === column;
+  const Arrow = sort.desc ? ArrowDown : ArrowUp;
   return (
-    <ul className="divide-y divide-border">
-      {orders.data.data.map((order) => (
-        <OrderRow key={order.id} order={order} showLocation={false} />
-      ))}
-    </ul>
+    <th
+      scope="col"
+      aria-sort={active ? (sort.desc ? "descending" : "ascending") : "none"}
+      className={className}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        className="inline-flex items-center gap-1 font-medium hover:text-foreground"
+      >
+        {label}
+        {active && <Arrow aria-hidden className="size-3.5" />}
+      </button>
+    </th>
   );
 }
 
-function LocationGroup({
-  location,
-  status,
-}: {
-  location: LocationRead;
-  status: OrderStatusFilter;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const removed = location.removed_at !== null;
-  const street = [location.address, location.address2].filter(Boolean).join(", ");
-  const place = [location.city, [location.state, location.zip].filter(Boolean).join(" ")]
-    .filter(Boolean)
-    .join(", ");
-  const panelId = `orders-${location.id}`;
+function LocationRow({ location: l }: { location: LocationRead }) {
+  const removed = l.removed_at !== null;
+  const open = scheduled(l);
   return (
-    <li className={removed ? "p-4 text-muted-foreground" : "p-4"}>
-      <div className="flex flex-wrap items-center gap-2">
-        <Link
-          href={`/locations/${location.id}`}
-          className="font-medium text-primary hover:underline"
-        >
-          {location.pestpac_company ?? "Unnamed location"}
+    <tr className={removed ? "text-muted-foreground" : undefined}>
+      <td className="py-2 pr-3">
+        <Link href={`/locations/${l.id}`} className="font-medium text-primary hover:underline">
+          {l.pestpac_company ?? `LocationID ${l.pestpac_location_id}`}
         </Link>
-        {(location.open_order_count ?? 0) > 0 && (
-          <Badge variant="secondary">
-            {location.open_order_count} open {location.open_order_count === 1 ? "order" : "orders"}
+        {removed && (
+          <Badge variant="outline" className="ml-2">
+            No longer under this bill-to
           </Badge>
         )}
-        <span className="text-sm text-muted-foreground">
-          LocationID {location.pestpac_location_id}
-          {location.pestpac_location_code && ` · code ${location.pestpac_location_code}`}
-        </span>
-        {removed && <Badge variant="outline">No longer under this bill-to</Badge>}
-        {!removed && !location.pestpac_active && (
-          <Badge variant="warning">Inactive in PestPac</Badge>
+        {!removed && !l.pestpac_active && (
+          <Badge variant="warning" className="ml-2">
+            Inactive in PestPac
+          </Badge>
         )}
-      </div>
-      <div className="mt-1 grid gap-x-6 text-sm sm:grid-cols-3">
-        <span>
-          {street}
-          {street && place && <br />}
-          {place}
-        </span>
-        <span>
-          {location.phone}
-          {location.phone && location.email && <br />}
-          {location.email && (
-            <a href={`mailto:${location.email}`} className="text-primary hover:underline">
-              {location.email}
-            </a>
-          )}
-        </span>
-        <span className="text-muted-foreground">
-          {[location.account_type, location.pestpac_type].filter(Boolean).join(" · ")}
-        </span>
-      </div>
-      <button
-        type="button"
-        aria-expanded={expanded}
-        aria-controls={panelId}
-        onClick={() => setExpanded((v) => !v)}
-        className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline"
-      >
-        {expanded ? (
-          <ChevronDown className="size-4" aria-hidden />
-        ) : (
-          <ChevronRight className="size-4" aria-hidden />
-        )}
-        {expanded ? "Hide orders" : "Show orders"}
-      </button>
-      {expanded && (
-        <div id={panelId} className="mt-2 border-l-2 border-border text-foreground">
-          <LocationOrders locationId={location.id} status={status} />
+        <div className="text-xs text-muted-foreground">
+          <span className="sm:hidden">{place(l) && `${place(l)} · `}</span>
+          LocationID {l.pestpac_location_id}
         </div>
-      )}
-    </li>
+      </td>
+      <td className="hidden py-2 pr-3 sm:table-cell">{place(l)}</td>
+      <td className="py-2 pr-3 text-right tabular-nums">{open || "—"}</td>
+      <td className="py-2 pr-3 text-right tabular-nums">{worked(l) || "—"}</td>
+      <td className="hidden py-2 text-right whitespace-nowrap sm:table-cell">
+        {l.last_service_at ? formatPestPacDate(l.last_service_at) : "—"}
+      </td>
+    </tr>
   );
 }
 
 /**
- * A bill-to's locations in the API's order (current first, by name), filtered as you type. Each
- * expands to its own service orders for the selected status.
+ * A bill-to's locations as a table: open and worked order counts and the last service, sortable
+ * by column, filtered as you type, 50 rows at a time. Each opens its location page.
  */
-export function BillToLocations({
-  locations,
-  status,
-}: {
-  locations: QueryState<LocationRead>;
-  status: OrderStatusFilter;
-}) {
+export function BillToLocations({ locations }: { locations: QueryState<LocationRead> }) {
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
+  const [sort, setSort] = useState<Sort>({ key: "name", desc: false });
+  const [page, setPage] = useState(0);
 
   if (locations.isPending) return <p className="text-muted-foreground">Loading…</p>;
   if (locations.isError || !locations.data) {
@@ -168,48 +156,137 @@ export function BillToLocations({
   }
   const all = locations.data.data;
   const terms = deferredQuery.toLowerCase().split(/\s+/).filter(Boolean);
-  const visible =
+  const matching =
     terms.length === 0
       ? all
       : all.filter((l) => {
           const text = searchText(l);
           return terms.every((t) => text.includes(t));
         });
+  const rows = sorted(matching, sort);
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const current = Math.min(page, pages - 1);
+  const visible = rows.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE);
+
+  // Counts read best largest first; names and places A to Z.
+  const onSort = (key: SortKey) => {
+    setSort((s) =>
+      s.key === key ? { key, desc: !s.desc } : { key, desc: key !== "name" && key !== "place" },
+    );
+    setPage(0);
+  };
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative max-w-md">
-        <Search
-          className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
-          aria-hidden
-        />
-        <Input
-          type="search"
-          aria-label="Filter locations"
-          placeholder="Filter by name, address, or state"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="pl-8"
-        />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative w-full max-w-md">
+          <Search
+            className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            type="search"
+            aria-label="Filter locations"
+            placeholder="Filter by name, store number, address, or state"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(0);
+            }}
+            className="pl-8"
+          />
+        </div>
+        <p className="text-sm text-muted-foreground" aria-live="polite">
+          {terms.length > 0
+            ? `${matching.length} of ${all.length} locations`
+            : `${all.length} locations`}
+        </p>
       </div>
-      <p className="text-sm text-muted-foreground" aria-live="polite">
-        {terms.length > 0
-          ? `${visible.length} of ${all.length} locations`
-          : `${all.length} locations`}
-      </p>
-      <ul className="divide-y divide-border border border-border bg-card">
-        {all.length === 0 && (
-          <li className="p-4 text-muted-foreground">
-            PestPac lists no locations under this bill-to.
-          </li>
-        )}
-        {all.length > 0 && visible.length === 0 && (
-          <li className="p-4 text-muted-foreground">No locations match “{deferredQuery}”.</li>
-        )}
-        {visible.map((location) => (
-          <LocationGroup key={location.id} location={location} status={status} />
-        ))}
-      </ul>
+
+      {all.length === 0 ? (
+        <p className="border border-border bg-card p-4 text-muted-foreground">
+          PestPac lists no locations under this bill-to.
+        </p>
+      ) : matching.length === 0 ? (
+        <p className="border border-border bg-card p-4 text-muted-foreground">
+          No locations match “{deferredQuery}”.
+        </p>
+      ) : (
+        <div className="border border-border bg-card px-4">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-border text-xs text-muted-foreground">
+              <tr>
+                <SortHeader
+                  label="Location"
+                  column="name"
+                  sort={sort}
+                  onSort={onSort}
+                  className="py-2 pr-3"
+                />
+                <SortHeader
+                  label="City"
+                  column="place"
+                  sort={sort}
+                  onSort={onSort}
+                  className="hidden py-2 pr-3 sm:table-cell"
+                />
+                <SortHeader
+                  label="Open"
+                  column="open"
+                  sort={sort}
+                  onSort={onSort}
+                  className="py-2 pr-3 text-right"
+                />
+                <SortHeader
+                  label="Worked"
+                  column="worked"
+                  sort={sort}
+                  onSort={onSort}
+                  className="py-2 pr-3 text-right"
+                />
+                <SortHeader
+                  label="Last service"
+                  column="last"
+                  sort={sort}
+                  onSort={onSort}
+                  className="hidden py-2 text-right sm:table-cell"
+                />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {visible.map((location) => (
+                <LocationRow key={location.id} location={location} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {pages > 1 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+          <span className="text-muted-foreground">
+            {current * PAGE_SIZE + 1}–{current * PAGE_SIZE + visible.length} of {rows.length}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={current === 0}
+              onClick={() => setPage(current - 1)}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={current >= pages - 1}
+              onClick={() => setPage(current + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

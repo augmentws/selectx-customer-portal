@@ -6949,6 +6949,23 @@
             "title": "Open Order Count",
             "default": 0
           },
+          "worked_order_count": {
+            "type": "integer",
+            "title": "Worked Order Count",
+            "default": 0
+          },
+          "last_service_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Service At"
+          },
           "trail": {
             "items": {
               "$ref": "#/components/schemas/Crumb"
@@ -7166,6 +7183,23 @@
             "type": "integer",
             "title": "Open Order Count",
             "default": 0
+          },
+          "worked_order_count": {
+            "type": "integer",
+            "title": "Worked Order Count",
+            "default": 0
+          },
+          "last_service_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Service At"
           }
         },
         "type": "object",

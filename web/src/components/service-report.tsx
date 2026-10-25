@@ -555,7 +555,8 @@ function Editor({ report }: { report: ReportRead }) {
             <ul className="divide-y divide-border border border-border bg-card">
               {photos.length === 0 && (
                 <li className="p-4 text-muted-foreground">
-                  No photos near the work date. Sync location to collect them.
+                  No photos near the work date. Sync the location&apos;s documents and conditions to
+                  collect them.
                 </li>
               )}
               {photos.map((p, i) => (
