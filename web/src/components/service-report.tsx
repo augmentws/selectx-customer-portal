@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { formatPestPacDate } from "@/components/service-order-list";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useDocumentTitle } from "@/lib/use-document-title";
 import { errorMessage } from "@/lib/api/errors";
 import type { ReportPhotoItem, ReportRead, TemplateField } from "@/lib/api/generated/model";
 import {
@@ -420,9 +422,20 @@ function Editor({ report }: { report: ReportRead }) {
         </Alert>
       )}
 
-      {canWrite && report.status !== "superseded" && (
+      {(report.has_pdf || (canWrite && report.status !== "superseded")) && (
         <div className="flex flex-wrap items-center gap-3">
-          {report.status === "final" ? (
+          {report.has_pdf && (
+            <a
+              href={`/api/bff${getReportsGetServiceReportPdfUrl(report.id)}`}
+              target="_blank"
+              rel="noopener"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <FileDown aria-hidden />
+              Open PDF
+            </a>
+          )}
+          {!canWrite || report.status === "superseded" ? null : report.status === "final" ? (
             <Button
               variant="outline"
               disabled={revise.isPending || report.latest_id !== report.id}
@@ -593,6 +606,11 @@ export function ServiceReportEditor() {
       refetchInterval: (q) => (q.state.data?.data.status === "drafting" ? POLL_MS : false),
     },
   });
+  useDocumentTitle(
+    report.data &&
+      `Report ${report.data.data.revision > 1 ? `r${report.data.data.revision}` : ""}`.trim(),
+    report.data?.data.trail.find((c) => c.kind === "location")?.name,
+  );
   if (report.isPending) return <p className="text-muted-foreground">Loading…</p>;
   if (report.isError) {
     return (
@@ -608,12 +626,7 @@ export function ServiceReportEditor() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link
-          href={`/locations/${r.location_id}`}
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← Location
-        </Link>
+        <Breadcrumbs trail={r.trail} />
         <h1 className="mt-2 flex flex-wrap items-center gap-3 text-3xl">
           {r.template_name}
           <Badge variant={r.status === "final" ? "success" : "secondary"}>
@@ -625,17 +638,6 @@ export function ServiceReportEditor() {
           Order {order?.order_number ?? order?.pestpac_order_id}
           {order?.work_date && ` · worked ${formatPestPacDate(order.work_date, true)}`}
         </p>
-        {r.has_pdf && (
-          <a
-            href={`/api/bff${getReportsGetServiceReportPdfUrl(r.id)}`}
-            target="_blank"
-            rel="noopener"
-            className={buttonVariants({ variant: "outline", className: "mt-3" })}
-          >
-            <FileDown aria-hidden />
-            Open PDF
-          </a>
-        )}
       </div>
       <Editor key={r.updated_at} report={r} />
     </div>

@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.models import BillTo, ServiceOrder
 from app.schemas.pestpac import LocationSyncSummary
 from app.schemas.tenancy import (
+    BillToDetail,
     BillToRead,
     BillToSynced,
     BillToUpdate,
@@ -20,7 +21,7 @@ from app.schemas.tenancy import (
 )
 from app.security.access import AccessScope, get_scope
 from app.security.permissions import Perm
-from app.services import locations, service_orders, service_reports, sync_jobs, tenancy
+from app.services import locations, service_orders, service_reports, sync_jobs, tenancy, trail
 
 router = APIRouter(prefix="/bill-tos", tags=["bill_tos"])
 
@@ -45,13 +46,20 @@ def _bill_to_or_404(db: Session, bill_to_id: uuid.UUID) -> BillTo:
     return bill_to
 
 
-@router.get("/{bill_to_id}", response_model=BillToRead)
+@router.get("/{bill_to_id}", response_model=BillToDetail)
 def get_bill_to(
     bill_to_id: uuid.UUID, db: Session = Depends(get_db), scope: AccessScope = Depends(get_scope)
 ):
     bill_to = _bill_to_or_404(db, bill_to_id)
     scope.require(Perm.bill_tos_read, bill_to.operator_id, read_perm=Perm.bill_tos_read)
-    return bill_to_reads(db, [bill_to])[0]
+    return BillToDetail.model_validate(
+        {
+            **bill_to_reads(db, [bill_to])[0].model_dump(),
+            "trail": trail.trail(
+                db, operator_id=bill_to.operator_id, company_id=bill_to.company_id
+            ),
+        }
+    )
 
 
 @router.patch("/{bill_to_id}", response_model=BillToRead)

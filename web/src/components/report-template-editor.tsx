@@ -2,12 +2,12 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +16,9 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useDocumentTitle } from "@/lib/use-document-title";
 import { errorMessage } from "@/lib/api/errors";
+import { useCompaniesGetCompany } from "@/lib/api/generated/companies/companies";
 import { useBillTosListLocations } from "@/lib/api/generated/bill-tos/bill-tos";
 import { useCompaniesListBillTos } from "@/lib/api/generated/companies/companies";
 import type { ReportTemplateRead, TemplateField } from "@/lib/api/generated/model";
@@ -406,17 +408,22 @@ function EditorForm({ companyId, template }: { companyId: string; template?: Rep
   );
 }
 
+/** Breadcrumbs for pages beneath a company: its operator, then the company itself. */
+function CompanyCrumbs({ companyId }: { companyId: string }) {
+  const company = useCompaniesGetCompany(companyId);
+  const c = company.data?.data;
+  return c ? (
+    <Breadcrumbs trail={[...c.trail, { kind: "company", id: c.id, name: c.name }]} />
+  ) : null;
+}
+
 export function NewReportTemplate() {
   const { companyId } = useParams<{ companyId: string }>();
+  useDocumentTitle("New report template");
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link
-          href={`/companies/${companyId}`}
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← Company
-        </Link>
+        <CompanyCrumbs companyId={companyId} />
         <h1 className="mt-2 text-3xl">New report template</h1>
       </div>
       <EditorForm companyId={companyId} />
@@ -427,6 +434,7 @@ export function NewReportTemplate() {
 export function EditReportTemplate() {
   const { templateId } = useParams<{ templateId: string }>();
   const template = useReportsGetReportTemplate(templateId);
+  useDocumentTitle(template.data?.data.name, "Report template");
   if (template.isPending) return <p className="text-muted-foreground">Loading…</p>;
   if (template.isError) {
     return (
@@ -439,12 +447,7 @@ export function EditReportTemplate() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link
-          href={`/companies/${t.company_id}`}
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← Company
-        </Link>
+        <CompanyCrumbs companyId={t.company_id} />
         <h1 className="mt-2 text-3xl">{t.name}</h1>
       </div>
       <EditorForm companyId={t.company_id} template={t} />

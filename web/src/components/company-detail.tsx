@@ -5,6 +5,7 @@ import { LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { BillToDetailLines, OnboardBillToCard } from "@/components/bill-to-onboarding";
 import { LocationSyncResult } from "@/components/location-sync-result";
 import { InvoicedOrders } from "@/components/invoiced-orders";
@@ -14,6 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDocumentTitle } from "@/lib/use-document-title";
 import { errorMessage } from "@/lib/api/errors";
 import {
   useBillTosRefreshBillTo,
@@ -35,6 +37,7 @@ export function CompanyDetail() {
   const { can } = usePermissions();
   const company = useCompaniesGetCompany(companyId);
   const billTos = useCompaniesListBillTos(companyId);
+  useDocumentTitle(company.data?.data.name);
   const invalidateList = () =>
     queryClient.invalidateQueries({ queryKey: getCompaniesListBillTosQueryKey(companyId) });
   const update = useBillTosUpdateBillTo({ mutation: { onSuccess: invalidateList } });
@@ -55,19 +58,17 @@ export function CompanyDetail() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link
-          href={`/operators/${c.operator_id}`}
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← Operator
-        </Link>
+        <Breadcrumbs trail={c.trail} />
         <h1 className="mt-2 flex items-center gap-3 text-3xl">
           {c.name}
           {!c.is_active && <Badge variant="outline">Inactive</Badge>}
         </h1>
-        <p className="text-muted-foreground">
-          Bill-tos onboarded to the portal. Service orders are captured only for these.
-        </p>
+        {billTos.data && (
+          <p className="text-muted-foreground">
+            {billTos.data.data.length === 1 ? "1 bill-to" : `${billTos.data.data.length} bill-tos`}{" "}
+            onboarded from PestPac
+          </p>
+        )}
         <Can perm="dashboards:read" tenantId={c.operator_id}>
           <Link
             href={`/companies/${companyId}/dashboard`}

@@ -5,11 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models import Location, SyncJobKind
+from app.models import BillTo, Location, SyncJobKind
 from app.schemas.tenancy import (
     ConditionBase,
     ConditionRead,
     DocumentRead,
+    LocationDetail,
     LocationRead,
     NoteRead,
     ServiceOrderRead,
@@ -17,7 +18,7 @@ from app.schemas.tenancy import (
 )
 from app.security.access import AccessScope, get_scope
 from app.security.permissions import Perm
-from app.services import conditions, documents, notes, service_orders, sync_jobs
+from app.services import conditions, documents, notes, service_orders, sync_jobs, trail
 
 router = APIRouter(prefix="/locations", tags=["locations"])
 
@@ -29,15 +30,25 @@ def _location_or_404(db: Session, location_id: uuid.UUID) -> Location:
     return location
 
 
-@router.get("/{location_id}", response_model=LocationRead)
+@router.get("/{location_id}", response_model=LocationDetail)
 def get_location(
     location_id: uuid.UUID, db: Session = Depends(get_db), scope: AccessScope = Depends(get_scope)
 ):
     location = _location_or_404(db, location_id)
     scope.require(Perm.bill_tos_read, location.operator_id, read_perm=Perm.bill_tos_read)
     counts = service_orders.open_order_counts(db, [location.id])
-    return LocationRead.model_validate(location).model_copy(
-        update={"open_order_count": counts.get(location.id, 0)}
+    bill_to = db.get(BillTo, location.bill_to_id)
+    return LocationDetail.model_validate(
+        {
+            **LocationRead.model_validate(location).model_dump(),
+            "open_order_count": counts.get(location.id, 0),
+            "trail": trail.trail(
+                db,
+                operator_id=location.operator_id,
+                company_id=bill_to.company_id,
+                bill_to_id=bill_to.id,
+            ),
+        }
     )
 
 

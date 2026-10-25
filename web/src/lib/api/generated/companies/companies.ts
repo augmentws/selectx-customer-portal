@@ -30,6 +30,7 @@ import type {
   BillToSynced,
   CompaniesListPostedServiceOrdersParams,
   CompaniesLookupBillToParams,
+  CompanyDetail,
   CompanyRead,
   CompanyUpdate,
   HTTPValidationError,
@@ -59,7 +60,7 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
 };
 
 export type companiesGetCompanyResponse200 = {
-  data: CompanyRead
+  data: CompanyDetail
   status: 200
 }
 

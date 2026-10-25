@@ -1,10 +1,10 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useState } from "react";
 
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { BillToLocations } from "@/components/bill-to-locations";
 import { BillToDetailLines } from "@/components/bill-to-onboarding";
 import { LocationSyncResult } from "@/components/location-sync-result";
@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDocumentTitle } from "@/lib/use-document-title";
 import { errorMessage } from "@/lib/api/errors";
 import {
   getBillTosGetBillToQueryKey,
@@ -35,6 +36,7 @@ export function BillToDetail() {
   const { can } = usePermissions();
   const billTo = useBillTosGetBillTo(billToId);
   const locations = useBillTosListLocations(billToId);
+  useDocumentTitle(billTo.data?.data.name, billTo.data?.data.trail.at(-1)?.name);
   const [status, setStatus] = useState<OrderStatusFilter>("open");
   const onSynced = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: getBillTosListLocationsQueryKey(billToId) });
@@ -72,12 +74,7 @@ export function BillToDetail() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link
-          href={`/companies/${b.company_id}`}
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← Company
-        </Link>
+        <Breadcrumbs trail={b.trail} />
         <h1 className="mt-2 flex flex-wrap items-center gap-3 text-3xl">
           {b.name}
           {!b.is_active && <Badge variant="outline">Inactive</Badge>}

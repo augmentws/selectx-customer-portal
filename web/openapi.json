@@ -512,7 +512,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CompanyRead"
+                  "$ref": "#/components/schemas/CompanyDetail"
                 }
               }
             }
@@ -922,7 +922,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BillToRead"
+                  "$ref": "#/components/schemas/BillToDetail"
                 }
               }
             }
@@ -1418,7 +1418,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LocationRead"
+                  "$ref": "#/components/schemas/LocationDetail"
                 }
               }
             }
@@ -3867,6 +3867,212 @@
         ],
         "title": "BillToCreate"
       },
+      "BillToDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "operator_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Operator Id"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "pestpac_bill_to_id": {
+            "type": "integer",
+            "title": "Pestpac Bill To Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "onboarded_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Onboarded At"
+          },
+          "onboarded_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Onboarded By"
+          },
+          "pestpac_bill_to_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Bill To Code"
+          },
+          "pestpac_company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Company"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "address2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address2"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "zip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zip"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "pestpac_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Type"
+          },
+          "pestpac_fetched_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Fetched At"
+          },
+          "location_count": {
+            "type": "integer",
+            "title": "Location Count",
+            "default": 0
+          },
+          "trail": {
+            "items": {
+              "$ref": "#/components/schemas/Crumb"
+            },
+            "type": "array",
+            "title": "Trail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "operator_id",
+          "company_id",
+          "pestpac_bill_to_id",
+          "name",
+          "description",
+          "is_active",
+          "onboarded_at",
+          "onboarded_by",
+          "pestpac_bill_to_code",
+          "pestpac_company",
+          "address",
+          "address2",
+          "city",
+          "state",
+          "zip",
+          "phone",
+          "pestpac_type",
+          "pestpac_fetched_at",
+          "trail"
+        ],
+        "title": "BillToDetail"
+      },
       "BillToLookup": {
         "properties": {
           "details": {
@@ -4436,6 +4642,50 @@
         "title": "CompanyDashboard",
         "description": "Service activity for a company, or one of its bill-tos. Findings, programs, and risk\nmetrics are not available yet (see docs/customer-dashboard-plan.md)."
       },
+      "CompanyDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "operator_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Operator Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "trail": {
+            "items": {
+              "$ref": "#/components/schemas/Crumb"
+            },
+            "type": "array",
+            "title": "Trail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "operator_id",
+          "name",
+          "is_active",
+          "created_at",
+          "trail"
+        ],
+        "title": "CompanyDetail"
+      },
       "CompanyRead": {
         "properties": {
           "id": {
@@ -4848,6 +5098,37 @@
           "failed"
         ],
         "title": "ConnectionStatus"
+      },
+      "Crumb": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "operator",
+              "company",
+              "bill_to",
+              "location"
+            ],
+            "title": "Kind"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "id",
+          "name"
+        ],
+        "title": "Crumb",
+        "description": "One step of a record's place in the hierarchy, for breadcrumbs."
       },
       "DashboardHeadline": {
         "properties": {
@@ -6420,6 +6701,224 @@
         ],
         "title": "InvoicedOrderRead",
         "description": "An invoice with the service order it bills (null when we don't hold the order)."
+      },
+      "LocationDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "bill_to_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Bill To Id"
+          },
+          "pestpac_location_id": {
+            "type": "integer",
+            "title": "Pestpac Location Id"
+          },
+          "pestpac_location_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Location Code"
+          },
+          "pestpac_company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Company"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "address2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address2"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "zip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zip"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "pestpac_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Type"
+          },
+          "account_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Type"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "pestpac_active": {
+            "type": "boolean",
+            "title": "Pestpac Active"
+          },
+          "removed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Removed At"
+          },
+          "pestpac_fetched_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Pestpac Fetched At"
+          },
+          "open_order_count": {
+            "type": "integer",
+            "title": "Open Order Count",
+            "default": 0
+          },
+          "trail": {
+            "items": {
+              "$ref": "#/components/schemas/Crumb"
+            },
+            "type": "array",
+            "title": "Trail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "bill_to_id",
+          "pestpac_location_id",
+          "pestpac_location_code",
+          "pestpac_company",
+          "address",
+          "address2",
+          "city",
+          "state",
+          "zip",
+          "phone",
+          "email",
+          "pestpac_type",
+          "account_type",
+          "latitude",
+          "longitude",
+          "pestpac_active",
+          "removed_at",
+          "pestpac_fetched_at",
+          "trail"
+        ],
+        "title": "LocationDetail"
       },
       "LocationRead": {
         "properties": {
@@ -8213,6 +8712,13 @@
             "format": "uuid",
             "title": "Latest Id"
           },
+          "trail": {
+            "items": {
+              "$ref": "#/components/schemas/Crumb"
+            },
+            "type": "array",
+            "title": "Trail"
+          },
           "status": {
             "type": "string",
             "title": "Status"
@@ -8319,6 +8825,7 @@
           "revision",
           "revises_id",
           "latest_id",
+          "trail",
           "status",
           "data",
           "draft_requested_at",

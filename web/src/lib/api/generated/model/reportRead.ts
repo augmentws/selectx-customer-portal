@@ -4,6 +4,7 @@
  * Customer Portal API
  * OpenAPI spec version: 0.1.0
  */
+import type { Crumb } from './crumb';
 import type { ReportData } from './reportData';
 import type { ReportReadDraftUsage } from './reportReadDraftUsage';
 import type { TemplateField } from './templateField';
@@ -21,6 +22,7 @@ export interface ReportRead {
   revision: number;
   revises_id: string | null;
   latest_id: string;
+  trail: Crumb[];
   status: string;
   data: ReportData;
   draft_requested_at: string | null;

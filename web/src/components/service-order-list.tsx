@@ -163,6 +163,7 @@ export function ServiceOrderList({
   query,
   status,
   locationNames,
+  showLocation = true,
 }: {
   query: {
     isPending: boolean;
@@ -173,6 +174,8 @@ export function ServiceOrderList({
   status: OrderStatusFilter;
   /** Location display names by our location id, for the bill-to view. */
   locationNames?: Map<string, string>;
+  /** Off on a location's own page, where linking to the location goes nowhere. */
+  showLocation?: boolean;
 }) {
   if (query.isPending) return <p className="text-muted-foreground">Loading…</p>;
   if (query.isError || !query.data) {
@@ -192,6 +195,7 @@ export function ServiceOrderList({
         <OrderRow
           key={order.id}
           order={order}
+          showLocation={showLocation}
           locationName={order.location_id ? locationNames?.get(order.location_id) : undefined}
         />
       ))}

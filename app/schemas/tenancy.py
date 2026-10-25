@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
@@ -52,6 +53,14 @@ class OperatorRead(BaseModel):
     created_at: datetime
 
 
+class Crumb(BaseModel):
+    """One step of a record's place in the hierarchy, for breadcrumbs."""
+
+    kind: Literal["operator", "company", "bill_to", "location"]
+    id: uuid.UUID
+    name: str
+
+
 class CompanyCreate(BaseModel):
     name: str = Name
 
@@ -71,6 +80,11 @@ class CompanyRead(BaseModel):
     name: str
     is_active: bool
     created_at: datetime
+
+
+class CompanyDetail(CompanyRead):
+    # The company's parents, outermost first.
+    trail: list[Crumb]
 
 
 class BillToCreate(BaseModel):
@@ -114,6 +128,10 @@ class BillToRead(BaseModel):
     location_count: int = 0
 
 
+class BillToDetail(BillToRead):
+    trail: list[Crumb]
+
+
 class BillToSynced(BillToRead):
     """A bill-to after onboarding or refresh, with what the location sync changed."""
 
@@ -144,6 +162,10 @@ class LocationRead(BaseModel):
     pestpac_fetched_at: datetime
     # Orders PestPac still lists as open (not yet billed) for this location.
     open_order_count: int = 0
+
+
+class LocationDetail(LocationRead):
+    trail: list[Crumb]
 
 
 class MemberCreate(BaseModel):

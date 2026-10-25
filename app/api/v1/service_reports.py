@@ -9,7 +9,7 @@ from app.models import Location, Report, ReportTemplate, ServiceOrder
 from app.schemas.reports import ReportCreate, ReportRead, ReportSummary, ReportUpdate
 from app.security.access import AccessScope, get_scope
 from app.security.permissions import Perm
-from app.services import reports, service_reports
+from app.services import reports, service_reports, trail
 from app.services.reports import TemplateRenderError
 from app.services.service_reports import ReportInputError, ReportStateError
 from app.storage import StorageError, StorageNotConfiguredError, get_storage
@@ -33,6 +33,7 @@ def _report_or_404(db: Session, report_id: uuid.UUID) -> Report:
 
 def _read(db: Session, report: Report) -> ReportRead:
     template = db.get(ReportTemplate, report.template_id)
+    location = db.get(Location, report.location_id)
     return ReportRead.model_validate(
         {
             **{f: getattr(report, f) for f in ReportRead.model_fields if hasattr(report, f)},
@@ -43,6 +44,13 @@ def _read(db: Session, report: Report) -> ReportRead:
             "latest_id": service_reports.report_ids_for_orders(db, [report.service_order_id])[
                 report.service_order_id
             ],
+            "trail": trail.trail(
+                db,
+                operator_id=report.operator_id,
+                company_id=report.company_id,
+                bill_to_id=location.bill_to_id,
+                location_id=location.id,
+            ),
         }
     )
 

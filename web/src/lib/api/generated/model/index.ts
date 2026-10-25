@@ -6,6 +6,7 @@
  */
 
 export * from './billToCreate';
+export * from './billToDetail';
 export * from './billToLookup';
 export * from './billToRead';
 export * from './billTosListPostedServiceOrdersParams';
@@ -17,11 +18,14 @@ export * from './companiesListPostedServiceOrdersParams';
 export * from './companiesLookupBillToParams';
 export * from './companyCreate';
 export * from './companyDashboard';
+export * from './companyDetail';
 export * from './companyRead';
 export * from './companyUpdate';
 export * from './conditionInspectionRead';
 export * from './conditionRead';
 export * from './connectionStatus';
+export * from './crumb';
+export * from './crumbKind';
 export * from './dashboardGetCompanyDashboardParams';
 export * from './dashboardHeadline';
 export * from './documentRead';
@@ -40,6 +44,7 @@ export * from './invoiceRead';
 export * from './invoicesListBillToInvoicedOrdersParams';
 export * from './invoicesListCompanyInvoicedOrdersParams';
 export * from './invoicesListLocationInvoicesParams';
+export * from './locationDetail';
 export * from './locationRead';
 export * from './locationsListServiceOrdersParams';
 export * from './locationsListServiceOrdersStatus';

@@ -4,7 +4,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
-from app.schemas.tenancy import PartialUpdate
+from app.schemas.tenancy import Crumb, PartialUpdate
 
 # Templates embed images and fonts as data: URIs, so allow room for them.
 MAX_TEMPLATE_CHARS = 2_000_000
@@ -292,6 +292,8 @@ class ReportRead(BaseModel):
     revises_id: uuid.UUID | None
     # The order's newest version (this one, or a later revision).
     latest_id: uuid.UUID
+    # Operator, company, bill-to, and location, for breadcrumbs.
+    trail: list[Crumb]
     status: str
     data: ReportData
     draft_requested_at: datetime | None

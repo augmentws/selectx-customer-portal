@@ -209,6 +209,8 @@ One application for all user types; separate experiences with route groups, not 
 - Tokens are hex in `:root`; `pnpm lint` runs `pnpm check:contrast`, which fails if a token pair drops below WCAG 2.2 AA. Add a pair there when introducing a new foreground/background combination.
 - Validate text, icon, focus, and interactive-state contrast against WCAG 2.2 AA. Accessibility overrides literal palette use.
 - Keep shadcn primitives in `components/ui`; features compose them rather than modifying them.
+- Detail pages (company, bill-to, location, service report) return a `trail` of their parents (operator › company › bill-to › location) from FastAPI; pages show it with `Breadcrumbs`, not hand-built back links. Pages beneath a company build theirs from the company's trail. Each page names the browser tab with `useDocumentTitle`.
+- "Home" is `useHomeHref()`: the operators list, or the operator itself for someone who sees one operator and can't add operators.
 - Tabs keep their selection in the URL with `useUrlTab` (`web/src/lib/use-url-tab.ts`): `?tab=` by default, another parameter for tabs nested in a page. Switching pushes history, so Back and links return to the tab.
 - Use `class-variance-authority` and a shared `cn()` helper. No Sass, CSS-in-JS, or another styling framework without a specific need.
 

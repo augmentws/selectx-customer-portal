@@ -24,6 +24,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  BillToDetail,
   BillToRead,
   BillToSynced,
   BillToUpdate,
@@ -59,7 +60,7 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
 };
 
 export type billTosGetBillToResponse200 = {
-  data: BillToRead
+  data: BillToDetail
   status: 200
 }
 

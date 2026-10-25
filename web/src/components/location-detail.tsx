@@ -1,10 +1,10 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useState } from "react";
 
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { LocationConditions } from "@/components/location-conditions";
 import { LocationDocuments } from "@/components/location-documents";
 import { LocationInvoices } from "@/components/location-invoices";
@@ -20,6 +20,7 @@ import { SyncJobPanel } from "@/components/sync-job-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useDocumentTitle } from "@/lib/use-document-title";
 import { errorMessage } from "@/lib/api/errors";
 import { useBillTosGetBillTo } from "@/lib/api/generated/bill-tos/bill-tos";
 import {
@@ -44,6 +45,11 @@ export function LocationDetail() {
   const billTo = useBillTosGetBillTo(billToId, { query: { enabled: billToId !== "" } });
   const orders = useLocationsListServiceOrders(locationId, { status });
   const notes = useLocationsListNotes(locationId);
+  const l = location.data?.data;
+  useDocumentTitle(
+    l && (l.pestpac_company ?? `LocationID ${l.pestpac_location_id}`),
+    l?.trail.find((c) => c.kind === "company")?.name,
+  );
 
   const onSynced = useCallback(() => {
     for (const queryKey of [
@@ -82,12 +88,7 @@ export function LocationDetail() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link
-          href={`/bill-tos/${loc.bill_to_id}`}
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← {b?.name ?? "Bill-to"}
-        </Link>
+        <Breadcrumbs trail={loc.trail} />
         <h1 className="mt-2 flex flex-wrap items-center gap-3 text-3xl">
           {loc.pestpac_company ?? "Unnamed location"}
           {removed && <Badge variant="outline">No longer under this bill-to</Badge>}
@@ -170,7 +171,7 @@ export function LocationDetail() {
           <h2 className="text-xl">Service orders</h2>
           <OrderStatusSelect value={status} onChange={setStatus} />
         </div>
-        <ServiceOrderList query={orders} status={status} />
+        <ServiceOrderList query={orders} status={status} showLocation={false} />
       </section>
 
       {b && can("billing:read", b.operator_id) && <LocationInvoices locationId={loc.id} />}

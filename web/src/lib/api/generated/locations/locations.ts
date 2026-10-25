@@ -27,7 +27,7 @@ import type {
   ConditionRead,
   DocumentRead,
   HTTPValidationError,
-  LocationRead,
+  LocationDetail,
   LocationsListServiceOrdersParams,
   NoteRead,
   ServiceOrderRead,
@@ -57,7 +57,7 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
 };
 
 export type locationsGetLocationResponse200 = {
-  data: LocationRead
+  data: LocationDetail
   status: 200
 }
 

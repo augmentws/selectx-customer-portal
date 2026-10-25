@@ -12,13 +12,14 @@ from app.schemas.tenancy import (
     BillToCreate,
     BillToRead,
     BillToSynced,
+    CompanyDetail,
     CompanyRead,
     CompanyUpdate,
     PostedServiceOrderPage,
 )
 from app.security.access import AccessScope, get_scope
 from app.security.permissions import Perm
-from app.services import service_orders, tenancy
+from app.services import service_orders, tenancy, trail
 
 router = APIRouter(prefix="/companies", tags=["companies"])
 
@@ -30,13 +31,18 @@ def _company_or_404(db: Session, company_id: uuid.UUID) -> Company:
     return company
 
 
-@router.get("/{company_id}", response_model=CompanyRead)
+@router.get("/{company_id}", response_model=CompanyDetail)
 def get_company(
     company_id: uuid.UUID, db: Session = Depends(get_db), scope: AccessScope = Depends(get_scope)
 ):
     company = _company_or_404(db, company_id)
     scope.require(Perm.companies_read, company.operator_id, read_perm=Perm.companies_read)
-    return company
+    return CompanyDetail.model_validate(
+        {
+            **CompanyRead.model_validate(company).model_dump(),
+            "trail": trail.trail(db, operator_id=company.operator_id),
+        }
+    )
 
 
 @router.patch("/{company_id}", response_model=CompanyRead)

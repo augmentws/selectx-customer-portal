@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { MembersPanel } from "@/components/members-panel";
 import { PestPacConnectionPanel } from "@/components/pestpac-connection-panel";
 import { GoCanvasRequestsPanel } from "@/components/gocanvas-requests-panel";
@@ -18,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDocumentTitle } from "@/lib/use-document-title";
 import { errorMessage } from "@/lib/api/errors";
 import {
   getOperatorsListCompaniesQueryKey,
@@ -125,6 +127,7 @@ export function OperatorDetail() {
   );
   const { can } = usePermissions();
   const operator = useOperatorsGetOperator(operatorId);
+  useDocumentTitle(operator.data?.data.name);
 
   if (operator.isPending) return <p className="text-muted-foreground">Loading…</p>;
   if (operator.isError) {
@@ -139,9 +142,7 @@ export function OperatorDetail() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link href="/operators" className="text-sm text-muted-foreground hover:text-foreground">
-          ← Operators
-        </Link>
+        <Breadcrumbs trail={[]} />
         <h1 className="mt-2 flex items-center gap-3 text-3xl">
           {op.name}
           {!op.is_active && <Badge variant="outline">Inactive</Badge>}

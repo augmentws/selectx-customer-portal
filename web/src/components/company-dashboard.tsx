@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ReportTemplatesSection } from "@/components/report-templates";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDocumentTitle } from "@/lib/use-document-title";
 import { errorMessage } from "@/lib/api/errors";
 import {
   useCompaniesGetCompany,
@@ -461,6 +463,7 @@ export function CompanyDashboardView() {
   const [billToId, setBillToId] = useState("");
   const company = useCompaniesGetCompany(companyId);
   const billTos = useCompaniesListBillTos(companyId);
+  useDocumentTitle("Dashboard", company.data?.data.name);
   const dashboard = useDashboardGetCompanyDashboard(
     companyId,
     billToId ? { bill_to_id: billToId } : undefined,
@@ -478,12 +481,7 @@ export function CompanyDashboardView() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link
-          href={`/companies/${companyId}`}
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← Company
-        </Link>
+        {c && <Breadcrumbs trail={[...c.trail, { kind: "company", id: c.id, name: c.name }]} />}
         <h1 className="mt-2 text-3xl">{c ? `${c.name} dashboard` : "Dashboard"}</h1>
         <p className="text-muted-foreground">
           Service activity from PestPac

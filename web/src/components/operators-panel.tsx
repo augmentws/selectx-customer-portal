@@ -3,6 +3,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -19,6 +21,7 @@ import {
   useOperatorsListOperators,
 } from "@/lib/api/generated/operators/operators";
 import { Can, usePermissions } from "@/lib/permissions";
+import { OPERATORS_HREF, useHomeHref } from "@/lib/use-home";
 
 const schema = z.object({
   name: z.string().trim().min(1, "Name is required").max(200),
@@ -95,6 +98,11 @@ function CreateOperatorForm() {
 export function OperatorsPanel() {
   const { platformTenantId } = usePermissions();
   const operators = useOperatorsListOperators();
+  const router = useRouter();
+  const home = useHomeHref();
+  useEffect(() => {
+    if (home !== OPERATORS_HREF) router.replace(home);
+  }, [home, router]);
 
   return (
     <div className="flex flex-col gap-6">
