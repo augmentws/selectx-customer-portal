@@ -122,11 +122,19 @@ Sections 1–8 describe the marketing site. The portal is a dense, task-focused 
 | `ring` | Forest `#186839` | Focus indicator (Gold on white is invisible). |
 | `destructive` | `#B42318` (tint `#FCEBE9`) | Errors and destructive actions; not part of the marketing palette. |
 | `success` | Forest on tint `#E6F2EB` | Status only. Never a filled green chip, so status can't be mistaken for a button. |
+| `pending` | Charcoal on tint `#DDE2E6` | In-progress status (Open, Draft, Queued, Syncing). Replaces filled Charcoal chips, which read as secondary buttons. |
 | `ink` | `#171C1A` | Black statement bands. |
 
 **Typography:** Oswald 700 uppercase for page titles (`h1`, `h2`, styled globally); Oswald 500 for card titles; Lato for everything else. Body is 16px (`text-base`) and dense lists/labels are 14px, not the site's 18px. Lato replaces "system sans" on buttons, so there are exactly two families.
 
 **Buttons:** primary and secondary are uppercase, bold, square. Ghost, outline, and link actions (Remove, Deactivate, Test connection) stay sentence case so rows of inline actions remain scannable.
+
+**Tabs:** `@/components/page-tabs`, not `components/ui/tabs` directly: shadcn's line style, a full-width Mist rule under the list, inactive labels in `muted-foreground` (the primitive's 60% foreground fails AA on Paper), and the active tab in body text with a Forest underline.
+
+**Badges:** one meaning per style.
+- State of a record or job: `pending` (in progress or waiting: Open, Draft, Queued, Syncing, Received), `success` (done: Worked, Final, Synced, Verified, Processed), `warning` (needs attention: Partly synced, Not verified, Inactive in PestPac, medium severity, a balance), `destructive` (failed, invalid, high severity).
+- Finished history and plain labels: `outline` (Billed, Superseded, Inactive, Deleted; document type, category, On portal, revision, "You").
+- Never `default` or `secondary` (filled Forest or Charcoal): they're the button colours. Sync statuses also carry an icon, since they're scanned in passing.
 
 **Shape:** `--radius: 0`. Every component radius derives from it, so the whole UI is square.
 

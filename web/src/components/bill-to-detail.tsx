@@ -14,7 +14,7 @@ import { PestPacSync } from "@/components/sync-job-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/page-tabs";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { errorMessage } from "@/lib/api/errors";
 import {

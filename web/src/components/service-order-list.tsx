@@ -25,7 +25,7 @@ export function formatPestPacDate(value: string | null, withTime = false): strin
 function OrderStatusBadge({ order }: { order: ServiceOrderRead }) {
   if (order.closed_at) return <Badge variant="outline">Billed</Badge>;
   if (order.posted) return <Badge variant="success">Worked</Badge>;
-  return <Badge variant="secondary">Open</Badge>;
+  return <Badge variant="pending">Open</Badge>;
 }
 
 function OrderNotes({ orderId }: { orderId: string }) {

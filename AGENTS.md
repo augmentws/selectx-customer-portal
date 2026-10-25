@@ -215,6 +215,7 @@ One application for all user types; separate experiences with route groups, not 
 - "Add" forms (operator, company, bill-to onboarding) open from a header button in a dialog (`AddDialog`), not as cards above the lists.
 - Detail pages (company, bill-to, location, service report) return a `trail` of their parents (operator › company › bill-to › location) from FastAPI; pages show it with `Breadcrumbs`, not hand-built back links. Pages beneath a company build theirs from the company's trail. Each page names the browser tab with `useDocumentTitle`.
 - "Home" is `useHomeHref()`: the operators list, or the operator itself for someone who sees one operator and can't add operators.
+- Tabs and badges follow `docs/design-guidance.md` §9: import tabs from `@/components/page-tabs` (brand line style), and pick badge variants by meaning (`pending`, `success`, `warning`, `destructive`, `outline`; never the filled button colours).
 - Tabs keep their selection in the URL with `useUrlTab` (`web/src/lib/use-url-tab.ts`): `?tab=` by default, another parameter for tabs nested in a page. Switching pushes history, so Back and links return to the tab.
 - Use `class-variance-authority` and a shared `cn()` helper. No Sass, CSS-in-JS, or another styling framework without a specific need.
 

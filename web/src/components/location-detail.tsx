@@ -22,7 +22,7 @@ import { PestPacSync } from "@/components/sync-job-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/page-tabs";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { errorMessage } from "@/lib/api/errors";
 import { useBillTosGetBillTo } from "@/lib/api/generated/bill-tos/bill-tos";

@@ -15,7 +15,7 @@ function SeverityBadge({ severity }: { severity: string | null }) {
       ? "destructive"
       : severity === "Medium"
         ? "warning"
-        : "secondary";
+        : "outline";
   return <Badge variant={variant}>{severity} severity</Badge>;
 }
 
@@ -29,7 +29,7 @@ function ConditionCard({ condition: c }: { condition: ConditionRead }) {
         {c.condition_type && (
           <span className="text-sm text-muted-foreground">{c.condition_type}</span>
         )}
-        <Badge variant={open ? "secondary" : "success"}>{c.status ?? "Unknown"}</Badge>
+        <Badge variant={open ? "pending" : "success"}>{c.status ?? "Unknown"}</Badge>
         <SeverityBadge severity={c.severity} />
         {c.category && <Badge variant="outline">{c.category}</Badge>}
         {c.responsibility && <Badge variant="outline">Responsibility: {c.responsibility}</Badge>}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { RefreshCw } from "lucide-react";
+import { Check, CircleX, Clock, LoaderCircle, RefreshCw, TriangleAlert } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -86,15 +86,40 @@ function summary(job: SyncJobRead): string {
 function JobBadge({ job }: { job: SyncJobRead }) {
   switch (job.status) {
     case "queued":
-      return <Badge variant="outline">Queued</Badge>;
+      return (
+        <Badge variant="pending">
+          <Clock aria-hidden />
+          Queued
+        </Badge>
+      );
     case "running":
-      return <Badge variant="secondary">Syncing</Badge>;
+      return (
+        <Badge variant="pending">
+          <LoaderCircle aria-hidden className="motion-safe:animate-spin" />
+          Syncing
+        </Badge>
+      );
     case "succeeded":
-      return <Badge variant="success">Synced</Badge>;
+      return (
+        <Badge variant="success">
+          <Check aria-hidden />
+          Synced
+        </Badge>
+      );
     case "partial":
-      return <Badge variant="warning">Partly synced</Badge>;
+      return (
+        <Badge variant="warning">
+          <TriangleAlert aria-hidden />
+          Partly synced
+        </Badge>
+      );
     case "failed":
-      return <Badge variant="destructive">Failed</Badge>;
+      return (
+        <Badge variant="destructive">
+          <CircleX aria-hidden />
+          Failed
+        </Badge>
+      );
   }
 }
 

@@ -31,6 +31,8 @@
   --color-destructive-muted: var(--destructive-muted);
   --color-success: var(--success);
   --color-success-muted: var(--success-muted);
+  --color-pending: var(--pending);
+  --color-pending-muted: var(--pending-muted);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
   --color-highlight: var(--highlight);
@@ -88,6 +90,8 @@
   --destructive-muted: #fcebe9;
   --success: #186839;
   --success-muted: #e6f2eb;
+  --pending: #353e43; /* Charcoal text on a cool grey tint: in-progress states (badges) */
+  --pending-muted: #dde2e6;
   --warning: #fdcf0e;
   --warning-foreground: #171c1a;
   --border: #d9d9d9; /* Mist: decorative dividers */

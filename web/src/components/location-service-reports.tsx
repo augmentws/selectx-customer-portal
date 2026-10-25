@@ -54,7 +54,7 @@ export function LocationServiceReports({
                     ? "success"
                     : r.status === "superseded"
                       ? "outline"
-                      : "secondary"
+                      : "pending"
                 }
               >
                 {{ final: "Final", superseded: "Superseded", drafting: "Drafting" }[r.status] ??

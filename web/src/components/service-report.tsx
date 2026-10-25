@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/page-tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useDocumentTitle } from "@/lib/use-document-title";
 import { errorMessage } from "@/lib/api/errors";
@@ -630,7 +630,11 @@ export function ServiceReportEditor() {
         <Breadcrumbs trail={r.trail} />
         <h1 className="mt-2 flex flex-wrap items-center gap-3 text-3xl">
           {r.template_name}
-          <Badge variant={r.status === "final" ? "success" : "secondary"}>
+          <Badge
+            variant={
+              r.status === "final" ? "success" : r.status === "superseded" ? "outline" : "pending"
+            }
+          >
             {STATUS_LABEL[r.status] ?? r.status}
           </Badge>
           {r.revision > 1 && <Badge variant="outline">Revision {r.revision}</Badge>}

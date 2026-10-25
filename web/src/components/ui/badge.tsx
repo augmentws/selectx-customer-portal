@@ -15,6 +15,9 @@ const badgeVariants = cva(
           "bg-destructive-muted text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20",
         // Status tints; never filled green, so a status can't be mistaken for a button.
         success: "bg-success-muted text-success",
+        // In progress or waiting (Open, Draft, Queued, Syncing): a tint, not filled Charcoal,
+        // which is the secondary button colour.
+        pending: "bg-pending-muted text-pending",
         warning: "bg-warning text-warning-foreground",
         outline:
           "border-input text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",

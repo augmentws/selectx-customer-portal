@@ -49,7 +49,7 @@ function SignatureBadge({ status }: { status: SignatureStatus }) {
 function StatusBadge({ status }: { status: WebhookEventStatus }) {
   if (status === "failed") return <Badge variant="destructive">Failed</Badge>;
   if (status === "processed") return <Badge variant="success">Processed</Badge>;
-  return <Badge variant="secondary">Received</Badge>;
+  return <Badge variant="pending">Received</Badge>;
 }
 
 /** Pretty-prints a JSON body; shows it as sent if it doesn't parse. */

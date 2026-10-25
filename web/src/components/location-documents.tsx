@@ -7,7 +7,7 @@ import { formatPestPacDate } from "@/components/service-order-list";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/page-tabs";
 import { errorMessage } from "@/lib/api/errors";
 import { useLocationsListDocuments } from "@/lib/api/generated/locations/locations";
 import type { DocumentRead } from "@/lib/api/generated/model";
@@ -59,7 +59,7 @@ export function DocumentRow({ doc }: { doc: DocumentRead }) {
           </span>
         )}
         <Badge variant="outline">{TYPE_LABELS[doc.document_type] ?? doc.document_type}</Badge>
-        {doc.include_on.portal && <Badge variant="secondary">On portal</Badge>}
+        {doc.include_on.portal && <Badge variant="outline">On portal</Badge>}
         <span className="ml-auto text-sm text-muted-foreground">
           {formatPestPacDate(doc.document_date, true)}
         </span>
