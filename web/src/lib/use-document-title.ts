@@ -10,7 +10,10 @@ const SUFFIX = "Select Exterminating";
  * Next.js rewrites the title from the layout's metadata after every navigation (switching a
  * URL tab too), later than our effects run, so the title is watched and put back. */
 export function useDocumentTitle(...parts: (string | null | undefined)[]) {
-  const title = [...parts.filter(Boolean), SUFFIX].join(" · ");
+  // Whitespace collapsed as the browser does: document.title reads back "A  B" as "A B", so an
+  // uncollapsed title would never match, and setting it again would retrigger the observer
+  // forever (a frozen page, e.g. for a store named "MAGGIANOS  KING OF PRUSSIA").
+  const title = [...parts.filter(Boolean), SUFFIX].join(" · ").replace(/\s+/g, " ").trim();
   useEffect(() => {
     const previous = document.title;
     const apply = () => {
