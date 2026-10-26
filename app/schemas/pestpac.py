@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
@@ -339,6 +340,40 @@ class NoteSyncCounts(BaseModel):
     invoices_found: int = 0
 
 
+def _cp1252_byte(char: str) -> int:
+    """The single byte a character came from when bytes were read as Windows-1252. The five
+    bytes Windows-1252 leaves undefined (0x81, 0x8D, 0x8F, 0x90, 0x9D) read as the same code
+    point; anything else wasn't a byte at all."""
+    try:
+        encoded = char.encode("cp1252")
+    except UnicodeEncodeError:
+        if ord(char) < 0x100:
+            return ord(char)
+        raise
+    return encoded[0]
+
+
+# A UTF-8 lead byte (0xC2-0xF4) followed by a continuation byte (0x80-0xBF), both as read in
+# Windows-1252: e.g. "â€”" for an em dash. Real text almost never contains these pairs.
+_CONTINUATION = "".join(
+    bytes([b]).decode("cp1252", errors="ignore") or chr(b) for b in range(0x80, 0xC0)
+)
+_MOJIBAKE = re.compile(f"[\u00c2-\u00f4][{re.escape(_CONTINUATION)}]")
+
+
+def repair_mojibake(text: str) -> str:
+    """Undo UTF-8 text that was read as Windows-1252 before it reached PestPac (confirmed: it
+    sends "â€”" for an em dash, correctly encoded, so the damage is in its data). Only when the
+    text has the telltale pattern and every character turns back into bytes that are valid
+    UTF-8; otherwise it's returned unchanged."""
+    if not _MOJIBAKE.search(text):
+        return text
+    try:
+        return bytes(_cp1252_byte(c) for c in text).decode("utf-8")
+    except UnicodeError:
+        return text
+
+
 def _snake(name: str) -> str:
     return "".join(f"_{c.lower()}" if c.isupper() and i else c.lower() for i, c in enumerate(name))
 
@@ -362,7 +397,7 @@ class PestPacDocument(BaseModel):
     def from_api(cls, body: dict) -> PestPacDocument:
         def text(key: str, max_len: int) -> str | None:
             raw = body.get(key)
-            value = str(raw).strip() if raw is not None else ""
+            value = repair_mojibake(str(raw).strip()) if raw is not None else ""
             return value[:max_len] or None
 
         include_on = body.get("IncludeOn")

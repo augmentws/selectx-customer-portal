@@ -310,3 +310,32 @@ def test_file_not_stored_yet_is_404(client, onboarded, pestpac, monkeypatch):
     [doc] = _documents(client, onboarded)
     resp = client.get(f"/v1/documents/{doc['id']}/file", headers=onboarded["headers"])
     assert resp.status_code == 404 and resp.json()["detail"] == "File not stored yet"
+
+
+@pytest.mark.parametrize(
+    ("garbled", "repaired"),
+    [
+        ("Filbert â€” Service Report.pdf", "Filbert — Service Report.pdf"),
+        ("CafÃ© menu.pdf", "Café menu.pdf"),
+        ("He said â€œhiâ€\x9d.pdf", "He said “hi”.pdf"),  # 0x9D: undefined in Windows-1252
+        ("Crème brûlée.pdf", "Crème brûlée.pdf"),  # real accents: left alone
+        ("Price €5 – ok", "Price €5 – ok"),
+        ("日本語 â€” mixed", "日本語 â€” mixed"),  # can't be undone safely: left alone
+    ],
+)
+def test_repair_mojibake(garbled, repaired):
+    from app.schemas.pestpac import repair_mojibake
+
+    assert repair_mojibake(garbled) == repaired
+
+
+def test_names_garbled_in_pestpac_are_stored_repaired(client, onboarded, pestpac):
+    """PestPac holds some names as UTF-8 read as Windows-1252 ("â€”" for "—"), sent correctly
+    encoded, so they're repaired on the way in; a later sync fixes ones stored before."""
+    pestpac.documents_by_location[STORE] = [
+        pestpac_document(1, name="Report â€” Night 1", file_name="Filbert â€” Service 17.pdf")
+    ]
+    _sync_locations(client, onboarded)
+    [doc] = _documents(client, onboarded)
+    assert doc["name"] == "Report — Night 1"
+    assert doc["file_name"] == "Filbert — Service 17.pdf"
