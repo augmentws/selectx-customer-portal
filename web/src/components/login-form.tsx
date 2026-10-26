@@ -55,7 +55,14 @@ export function LoginForm() {
         <CardDescription>Use your portal email and password.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
+        {/* method="post": if the form is submitted before the page hydrates, the browser must not
+            put the password in the URL. */}
+        <form
+          method="post"
+          onSubmit={handleSubmit(onSubmit)}
+          className="flex flex-col gap-4"
+          noValidate
+        >
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
