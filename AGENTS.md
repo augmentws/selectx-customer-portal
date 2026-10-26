@@ -31,7 +31,7 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - `GET /health`
 - Auth: `POST /v1/auth/login`, `/refresh`, `/logout`, `/password`; `GET /v1/auth/me` (includes memberships and permissions)
 - `GET/POST /v1/operators`, `GET/PATCH /v1/operators/{id}`, `GET/POST /v1/operators/{id}/companies`
-- `GET/PATCH /v1/companies/{id}`, `GET/POST /v1/companies/{id}/bill-tos`, `GET /v1/companies/{id}/posted-service-orders`, `GET /v1/companies/{id}/open-service-orders`
+- `GET/PATCH /v1/companies/{id}`, `GET/POST /v1/companies/{id}/bill-tos`, `GET /v1/companies/{id}/locations`, `GET /v1/companies/{id}/posted-service-orders`, `GET /v1/companies/{id}/open-service-orders`
 - `GET/PATCH /v1/bill-tos/{id}`, `POST /v1/bill-tos/{id}/refresh`, `GET /v1/bill-tos/{id}/locations`, `GET /v1/bill-tos/{id}/service-orders`, `GET /v1/bill-tos/{id}/posted-service-orders`, `GET /v1/bill-tos/{id}/open-service-orders`, `POST /v1/bill-tos/{id}/service-orders/sync`, `GET /v1/bill-tos/{id}/sync-jobs`
 - `GET /v1/locations/{id}`, `GET /v1/locations/{id}/notes`, `GET /v1/locations/{id}/service-orders`, `GET /v1/locations/{id}/posted-service-orders`, `GET /v1/locations/{id}/invoiced-service-orders` (`billing:read`), `GET /v1/locations/{id}/open-service-orders`, `POST /v1/locations/{id}/service-orders/sync`
 - Invoices (`billing:read`): `GET /v1/locations/{id}/invoices` (`limit`/`offset`), `GET /v1/invoices/{id}`, `GET /v1/bill-tos/{id}/invoiced-orders`, `GET /v1/companies/{id}/invoiced-orders` (each invoice with its service order)
@@ -70,7 +70,7 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - Store only identifying bill-to fields (BillToCode, Company, address, phone, Type), whitelisted in `PestPacBillToDetails`. Don't persist balances, credit/collection data, contacts, or the raw response.
 - Onboarding and refresh also sync the bill-to's locations from `GET /BillTos/{id}/locations/pageable` (bare JSON array; a short page ends paging; `PESTPAC_PAGE_SIZE` default 50, `PESTPAC_MAX_PAGES` cap; a page that doesn't advance is an error). Everything is fetched before anything is written, in one transaction.
 - Locations are upserted by `(operator_id, LocationID)`: moved locations are reassigned to their new bill-to, and ones PestPac stops listing get `removed_at` (never deleted; service orders will reference them). Kept fields are whitelisted in `PestPacLocationDetails`: LocationCode, Company (the location's name), address, phone, email, Type, AccountType, latitude/longitude, Active. Contact names and user-defined fields (which include staff names) are not stored.
-- Locations are read with `bill_tos:read` via `GET /v1/bill-tos/{id}/locations`.
+- Locations are read with `bill_tos:read` via `GET /v1/bill-tos/{id}/locations`, or across all a company's bill-tos via `GET /v1/companies/{id}/locations` (same shape and counts; the company page's Locations tab, which names each row's bill-to when the company has more than one). A company's bill-to cards link to their bill-to pages by title.
 
 ## Service Orders, Technicians, and Notes
 

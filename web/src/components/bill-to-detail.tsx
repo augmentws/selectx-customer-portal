@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback } from "react";
 
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { BillToLocations } from "@/components/bill-to-locations";
+import { LocationsTable } from "@/components/locations-table";
 import { BillToDetailLines } from "@/components/bill-to-onboarding";
 import { LocationSyncResult } from "@/components/location-sync-result";
 import { InvoicedOrders } from "@/components/invoiced-orders";
@@ -143,7 +143,7 @@ export function BillToDetail() {
           <TabsTrigger value="open">Open orders</TabsTrigger>
         </TabsList>
         <TabsContent value="locations" className="pt-4">
-          <BillToLocations locations={locations} />
+          <LocationsTable locations={locations} />
         </TabsContent>
         <TabsContent value="posted" className="pt-4">
           <PostedServiceOrders

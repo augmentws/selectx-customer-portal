@@ -10,6 +10,7 @@ import { AddDialog } from "@/components/add-dialog";
 import { BillToDetailLines, OnboardBillTo } from "@/components/bill-to-onboarding";
 import { LocationSyncResult } from "@/components/location-sync-result";
 import { InvoicedOrders } from "@/components/invoiced-orders";
+import { LocationsTable } from "@/components/locations-table";
 import { PostedServiceOrders } from "@/components/posted-service-orders";
 import { ReportTemplatesSection } from "@/components/report-templates";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -26,6 +27,7 @@ import {
   getCompaniesListBillTosQueryKey,
   useCompaniesGetCompany,
   useCompaniesListBillTos,
+  useCompaniesListLocations,
 } from "@/lib/api/generated/companies/companies";
 import { Can, usePermissions } from "@/lib/permissions";
 import { useUrlTab } from "@/lib/use-url-tab";
@@ -33,13 +35,17 @@ import { useUrlTab } from "@/lib/use-url-tab";
 export function CompanyDetail() {
   const { companyId } = useParams<{ companyId: string }>();
   const [tab, setTab] = useUrlTab(
-    ["bill-tos", "posted", "invoiced", "open", "templates"],
+    ["bill-tos", "locations", "posted", "invoiced", "open", "templates"],
     "bill-tos",
   );
   const queryClient = useQueryClient();
   const { can } = usePermissions();
   const company = useCompaniesGetCompany(companyId);
   const billTos = useCompaniesListBillTos(companyId);
+  // Every store across the bill-tos: fetched only once the tab is opened.
+  const locations = useCompaniesListLocations(companyId, {
+    query: { enabled: tab === "locations" },
+  });
   useDocumentTitle(company.data?.data.name);
   const invalidateList = () =>
     queryClient.invalidateQueries({ queryKey: getCompaniesListBillTosQueryKey(companyId) });
@@ -108,6 +114,7 @@ export function CompanyDetail() {
       <Tabs value={shownTab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="bill-tos">Bill-tos</TabsTrigger>
+          <TabsTrigger value="locations">Locations</TabsTrigger>
           <TabsTrigger value="posted">Posted service orders</TabsTrigger>
           {can("billing:read", c.operator_id) && (
             <TabsTrigger value="invoiced">Invoiced orders</TabsTrigger>
@@ -146,7 +153,9 @@ export function CompanyDetail() {
                 <li key={b.id} className="flex flex-wrap items-start justify-between gap-3 p-4">
                   <div className="flex flex-col gap-2">
                     <span className="flex flex-wrap items-center gap-2 font-medium">
-                      {b.name}
+                      <Link href={`/bill-tos/${b.id}`} className="text-primary hover:underline">
+                        {b.name}
+                      </Link>
                       <span className="text-sm font-normal text-muted-foreground">
                         BillToID {b.pestpac_bill_to_id}
                       </span>
@@ -200,6 +209,18 @@ export function CompanyDetail() {
               ))}
             </ul>
           )}
+        </TabsContent>
+        <TabsContent value="locations" className="pt-4">
+          <LocationsTable
+            locations={locations}
+            // With several bill-tos, each row says which one the store is under.
+            billTos={
+              (billTos.data?.data.length ?? 0) > 1
+                ? new Map(billTos.data?.data.map((b) => [b.id, b.name]))
+                : undefined
+            }
+            emptyText="PestPac lists no locations under this company's bill-tos."
+          />
         </TabsContent>
         <TabsContent value="posted" className="pt-4">
           <PostedServiceOrders companyId={companyId} operatorId={c.operator_id} />

@@ -38,10 +38,12 @@ const SORT_VALUE: Record<SortKey, (l: LocationRead) => string | number> = {
   last: (l) => l.last_service_at ?? "",
 };
 
-/** Name, store number, street, city, state, and zip, lower-cased for type-ahead matching. */
-function searchText(location: LocationRead): string {
+/** Name, store number, street, city, state, zip, and bill-to (when shown), lower-cased for
+ * type-ahead matching. */
+function searchText(location: LocationRead, billTo: string | undefined): string {
   return [
     location.pestpac_company,
+    billTo,
     location.pestpac_location_code,
     String(location.pestpac_location_id),
     location.address,
@@ -100,7 +102,7 @@ function SortHeader({
   );
 }
 
-function LocationRow({ location: l }: { location: LocationRead }) {
+function LocationRow({ location: l, billTo }: { location: LocationRead; billTo?: string }) {
   const removed = l.removed_at !== null;
   const open = scheduled(l);
   return (
@@ -122,6 +124,7 @@ function LocationRow({ location: l }: { location: LocationRead }) {
         <div className="text-xs text-muted-foreground">
           <span className="sm:hidden">{place(l) && `${place(l)} · `}</span>
           LocationID {l.pestpac_location_id}
+          {billTo && ` · Bill-to: ${billTo}`}
         </div>
       </td>
       <td className="hidden py-2 pr-3 sm:table-cell">{place(l)}</td>
@@ -135,10 +138,19 @@ function LocationRow({ location: l }: { location: LocationRead }) {
 }
 
 /**
- * A bill-to's locations as a table: open and worked order counts and the last service, sortable
- * by column, filtered as you type, 50 rows at a time. Each opens its location page.
+ * Locations as a table: open and worked order counts and the last service, sortable by column,
+ * filtered as you type, 50 rows at a time. Each opens its location page.
  */
-export function BillToLocations({ locations }: { locations: QueryState<LocationRead> }) {
+export function LocationsTable({
+  locations,
+  billTos,
+  emptyText = "PestPac lists no locations under this bill-to.",
+}: {
+  locations: QueryState<LocationRead>;
+  /** Bill-to names by id: each row then names its bill-to (for lists spanning several). */
+  billTos?: Map<string, string>;
+  emptyText?: string;
+}) {
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const [sort, setSort] = useState<Sort>({ key: "name", desc: false });
@@ -160,7 +172,7 @@ export function BillToLocations({ locations }: { locations: QueryState<LocationR
     terms.length === 0
       ? all
       : all.filter((l) => {
-          const text = searchText(l);
+          const text = searchText(l, billTos?.get(l.bill_to_id));
           return terms.every((t) => text.includes(t));
         });
   const rows = sorted(matching, sort);
@@ -204,9 +216,7 @@ export function BillToLocations({ locations }: { locations: QueryState<LocationR
       </div>
 
       {all.length === 0 ? (
-        <p className="border border-border bg-card p-4 text-muted-foreground">
-          PestPac lists no locations under this bill-to.
-        </p>
+        <p className="border border-border bg-card p-4 text-muted-foreground">{emptyText}</p>
       ) : matching.length === 0 ? (
         <p className="border border-border bg-card p-4 text-muted-foreground">
           No locations match “{deferredQuery}”.
@@ -255,7 +265,11 @@ export function BillToLocations({ locations }: { locations: QueryState<LocationR
             </thead>
             <tbody className="divide-y divide-border">
               {visible.map((location) => (
-                <LocationRow key={location.id} location={location} />
+                <LocationRow
+                  key={location.id}
+                  location={location}
+                  billTo={billTos?.get(location.bill_to_id)}
+                />
               ))}
             </tbody>
           </table>

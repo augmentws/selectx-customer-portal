@@ -123,11 +123,20 @@ def apply_locations(
     return LocationSyncSummary(total=len(fetched), added=added, updated=updated, removed=removed)
 
 
-def list_locations(db: Session, bill_to_id: uuid.UUID) -> list[Location]:
+def list_locations(
+    db: Session, bill_to_id: uuid.UUID | None = None, *, company_id: uuid.UUID | None = None
+) -> list[Location]:
+    """One bill-to's locations, or (with `company_id`) those of all the company's bill-tos."""
+    query = select(Location)
+    if bill_to_id is not None:
+        query = query.where(Location.bill_to_id == bill_to_id)
+    if company_id is not None:
+        query = query.where(
+            Location.bill_to_id.in_(select(BillTo.id).where(BillTo.company_id == company_id))
+        )
     return list(
         db.scalars(
-            select(Location)
-            .where(Location.bill_to_id == bill_to_id)
+            query
             # Current locations first, then by store name.
             .order_by(Location.removed_at.is_not(None), Location.pestpac_company, Location.id)
         )

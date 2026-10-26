@@ -20,11 +20,12 @@ from app.schemas.tenancy import (
     CompanyDetail,
     CompanyRead,
     CompanyUpdate,
+    LocationRead,
     PostedServiceOrderPage,
 )
 from app.security.access import AccessScope, get_scope
 from app.security.permissions import Perm
-from app.services import tenancy, trail
+from app.services import locations, service_orders, tenancy, trail
 
 router = APIRouter(prefix="/companies", tags=["companies"])
 
@@ -69,6 +70,19 @@ def list_bill_tos(
     company = _company_or_404(db, company_id)
     scope.require(Perm.bill_tos_read, company.operator_id, read_perm=Perm.companies_read)
     return bill_to_reads(db, tenancy.list_bill_tos(db, company.id))
+
+
+@router.get("/{company_id}/locations", response_model=list[LocationRead])
+def list_locations(
+    company_id: uuid.UUID, db: Session = Depends(get_db), scope: AccessScope = Depends(get_scope)
+):
+    """Every location of the company's bill-tos, current ones first, with the same order counts
+    as a bill-to's locations."""
+    company = _company_or_404(db, company_id)
+    scope.require(Perm.bill_tos_read, company.operator_id, read_perm=Perm.companies_read)
+    rows = locations.list_locations(db, company_id=company.id)
+    stats = service_orders.location_order_stats(db, [loc.id for loc in rows])
+    return [service_orders.location_read(loc, stats) for loc in rows]
 
 
 @router.get("/{company_id}/posted-service-orders", response_model=PostedServiceOrderPage)

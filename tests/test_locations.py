@@ -240,3 +240,18 @@ def _assert_not_onboarded(pestpac_bill_to_id: int) -> None:
             )
             == 0
         )
+
+
+def test_a_companys_locations_span_its_bill_tos(client, world, pestpac):
+    admin = headers_for(client, world.emails["admin_a"])
+    assert _onboard(client, admin, world.company_a).status_code == 201  # 3 more stores
+
+    rows = client.get(f"/v1/companies/{world.company_a}/locations", headers=admin).json()
+    bill_tos = {r["bill_to_id"] for r in rows}
+    assert len(bill_tos) == 2 and str(world.bill_to_a) in bill_tos  # the world's and the new one
+    assert str(world.location_a) in {r["id"] for r in rows}
+    assert len(rows) == 4
+    assert all("open_order_count" in r for r in rows)
+    # Company B has no bill-tos: nothing of company A's shows there.
+    platform = headers_for(client, world.emails["platform_admin"])
+    assert client.get(f"/v1/companies/{world.company_b}/locations", headers=platform).json() == []

@@ -694,6 +694,59 @@
         }
       }
     },
+    "/v1/companies/{company_id}/locations": {
+      "get": {
+        "tags": [
+          "companies"
+        ],
+        "summary": "List Locations",
+        "description": "Every location of the company's bill-tos, current ones first, with the same order counts\nas a bill-to's locations.",
+        "operationId": "companies-list_locations",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Company Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LocationRead"
+                  },
+                  "title": "Response Companies-List Locations"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/companies/{company_id}/posted-service-orders": {
       "get": {
         "tags": [
@@ -8143,6 +8196,7 @@
           },
           "password": {
             "type": "string",
+            "maxLength": 256,
             "title": "Password"
           }
         },
