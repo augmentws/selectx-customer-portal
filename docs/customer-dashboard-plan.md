@@ -2,6 +2,8 @@
 
 Status: proposal, not started · Written 2026-10-21 · Billing is planned separately in [billing-dashboard-plan.md](billing-dashboard-plan.md)
 
+Data review 2026-10-25: [dashboard-data-plan.md](dashboard-data-plan.md) replaces the "What we have vs. what's missing" table below with what's synced now and what to ingest.
+
 Goal: a dashboard like the Chipotle RAMP Intelligence Portal (`../select-ramp-portal`), built from the data this app collects from PestPac instead of hand-built spreadsheets and Drive extractions, and usable for every customer enrolled in a program.
 
 ## Decisions so far
