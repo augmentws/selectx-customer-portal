@@ -218,8 +218,14 @@ def sync_locations(
 
 @router.get("/{bill_to_id}/sync-jobs", response_model=list[SyncJobRead])
 def list_sync_jobs(
-    bill_to_id: uuid.UUID, db: Session = Depends(get_db), scope: AccessScope = Depends(get_scope)
+    bill_to_id: uuid.UUID,
+    location_id: uuid.UUID | None = Query(
+        default=None,
+        description="Only jobs covering this location: the newest of each kind.",
+    ),
+    db: Session = Depends(get_db),
+    scope: AccessScope = Depends(get_scope),
 ):
     bill_to = _bill_to_or_404(db, bill_to_id)
     scope.require(Perm.bill_tos_read, bill_to.operator_id, read_perm=Perm.bill_tos_read)
-    return sync_jobs.jobs_for_bill_to(db, bill_to.id)
+    return sync_jobs.jobs_for_bill_to(db, bill_to.id, location_id=location_id)

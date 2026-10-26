@@ -11,6 +11,7 @@ from app.models import (
     PestPacConnection,
     ServiceOrder,
     SyncJob,
+    SyncJobKind,
     SyncJobStatus,
     Technician,
     Tenant,
@@ -311,6 +312,57 @@ def test_fresh_running_job_is_not_claimed_twice(onboarded):
         assert claimed is not None
     with SessionLocal() as db:
         assert sync_jobs.claim_next(db) is None
+
+
+def test_location_sync_status_is_not_crowded_out_by_other_locations(client, onboarded):
+    """Webhooks queue many syncs for other locations; a location still sees its newest job of
+    each kind (its own or bill-to-wide)."""
+    now = datetime.now(UTC)
+    with SessionLocal() as db:
+        locations = {
+            loc.pestpac_location_id: loc
+            for loc in db.scalars(
+                select(Location).where(Location.bill_to_id == onboarded["bill_to_id"])
+            )
+        }
+        mine, other = locations[900001], locations[900002]
+        # The onboarding job is older than all of these.
+        db.execute(
+            SyncJob.__table__.update()
+            .where(SyncJob.bill_to_id == mine.bill_to_id)
+            .values(created_at=now - timedelta(days=2))
+        )
+
+        def job(kind, location, age):
+            row = SyncJob(
+                operator_id=mine.operator_id,
+                kind=kind,
+                status=SyncJobStatus.succeeded,
+                bill_to_id=mine.bill_to_id,
+                location_id=location.id if location else None,
+                created_at=now - age,
+            )
+            db.add(row)
+            return row
+
+        old_orders = job(SyncJobKind.location_service_orders, mine, timedelta(hours=5))
+        orders = job(SyncJobKind.location_service_orders, mine, timedelta(hours=4))
+        documents = job(SyncJobKind.bill_to_location_sync, None, timedelta(hours=3))
+        for n in range(15):
+            job(SyncJobKind.location_service_orders, other, timedelta(minutes=n))
+        db.commit()
+        expected = [documents.id, orders.id]
+        assert old_orders.id not in expected
+
+    url = f"/v1/bill-tos/{onboarded['bill_to_id']}/sync-jobs"
+    crowded = client.get(url, headers=onboarded["headers"]).json()
+    assert all(j["location_id"] == str(other.id) for j in crowded)
+    resp = client.get(url, params={"location_id": str(mine.id)}, headers=onboarded["headers"])
+    assert resp.status_code == 200
+    # Newest of each kind: these two and the onboarding job (bill-to-wide, orders).
+    ids = [j["id"] for j in resp.json()]
+    assert ids[:2] == [str(i) for i in expected]
+    assert len(ids) == 3
 
 
 def test_service_orders_are_never_deleted(client, onboarded, pestpac):

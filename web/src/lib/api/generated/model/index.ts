@@ -12,6 +12,7 @@ export * from './billToRead';
 export * from './billTosListPostedServiceOrdersParams';
 export * from './billTosListServiceOrdersParams';
 export * from './billTosListServiceOrdersStatus';
+export * from './billTosListSyncJobsParams';
 export * from './billToSynced';
 export * from './billToUpdate';
 export * from './companiesListPostedServiceOrdersParams';

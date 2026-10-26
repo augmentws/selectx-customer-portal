@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 from pydantic import BaseModel
 from sqlalchemy import or_, select
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -328,12 +329,32 @@ def _add(total: BaseModel, counts: BaseModel) -> None:
         setattr(total, field, getattr(total, field) + getattr(counts, field))
 
 
-def jobs_for_bill_to(db: Session, bill_to_id: uuid.UUID, limit: int = 10) -> list[SyncJob]:
+def jobs_for_bill_to(
+    db: Session, bill_to_id: uuid.UUID, *, location_id: uuid.UUID | None = None, limit: int = 10
+) -> list[SyncJob]:
+    """The bill-to's newest jobs. With `location_id`: the newest job of each kind covering that
+    location (its own or bill-to-wide), since webhooks queue syncs for other locations faster
+    than a plain newest-first list would reach this one's. Newest first either way."""
+    if location_id is None:
+        return list(
+            db.scalars(
+                select(SyncJob)
+                .where(SyncJob.bill_to_id == bill_to_id)
+                .order_by(SyncJob.created_at.desc())
+                .limit(limit)
+            )
+        )
+    latest = (
+        select(SyncJob.id)
+        .where(
+            SyncJob.bill_to_id == bill_to_id,
+            or_(SyncJob.location_id == location_id, SyncJob.location_id.is_(None)),
+        )
+        .order_by(SyncJob.kind, SyncJob.created_at.desc())
+        .ext(distinct_on(SyncJob.kind))
+    )
     return list(
         db.scalars(
-            select(SyncJob)
-            .where(SyncJob.bill_to_id == bill_to_id)
-            .order_by(SyncJob.created_at.desc())
-            .limit(limit)
+            select(SyncJob).where(SyncJob.id.in_(latest)).order_by(SyncJob.created_at.desc())
         )
     )

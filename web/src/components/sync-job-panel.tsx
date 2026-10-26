@@ -180,15 +180,21 @@ export function SyncJobPanel({
 }) {
   const queryClient = useQueryClient();
   const jobsKey = getBillTosListSyncJobsQueryKey(billToId);
-  const jobs = useBillTosListSyncJobs(billToId, {
-    query: {
-      refetchInterval: (query) => {
-        const list = query.state.data?.data ?? [];
-        return list.some((j) => isActive(j)) ? POLL_MS : false;
+  // On a location, the API returns its newest job of each kind (its own or bill-to-wide), so
+  // syncs queued for other locations can't push it out of the list.
+  const jobs = useBillTosListSyncJobs(
+    billToId,
+    locationId ? { location_id: locationId } : undefined,
+    {
+      query: {
+        refetchInterval: (query) => {
+          const list = query.state.data?.data ?? [];
+          return list.some((j) => isActive(j)) ? POLL_MS : false;
+        },
       },
     },
-  });
-  // A location is covered by its own jobs and by bill-to-wide ones (newest first from the API).
+  );
+  // Newest first from the API.
   const latest = jobs.data?.data.find(
     (j) =>
       JOB_KINDS[kind].includes(j.kind) &&

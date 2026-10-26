@@ -30,6 +30,7 @@ import type {
   BillToUpdate,
   BillTosListPostedServiceOrdersParams,
   BillTosListServiceOrdersParams,
+  BillTosListSyncJobsParams,
   HTTPValidationError,
   LocationRead,
   PostedServiceOrderPage,
@@ -958,20 +959,29 @@ export type billTosListSyncJobsResponseError = (billTosListSyncJobsResponse422) 
   headers: Headers;
 };
 
-export const getBillTosListSyncJobsUrl = (billToId: string,) => {
+export const getBillTosListSyncJobsUrl = (billToId: string,
+    params?: BillTosListSyncJobsParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/v1/bill-tos/${billToId}/sync-jobs`
+  return stringifiedParams.length > 0 ? `/v1/bill-tos/${billToId}/sync-jobs?${stringifiedParams}` : `/v1/bill-tos/${billToId}/sync-jobs`
 }
 
 /**
  * @summary List Sync Jobs
  */
-export const billTosListSyncJobs = async (billToId: string, options?: Parameters<typeof bffFetch>[1]): Promise<billTosListSyncJobsResponseSuccess> => {
+export const billTosListSyncJobs = async (billToId: string,
+    params?: BillTosListSyncJobsParams, options?: Parameters<typeof bffFetch>[1]): Promise<billTosListSyncJobsResponseSuccess> => {
 
-  return bffFetch<billTosListSyncJobsResponseSuccess>(getBillTosListSyncJobsUrl(billToId),
+  return bffFetch<billTosListSyncJobsResponseSuccess>(getBillTosListSyncJobsUrl(billToId,params),
   {
     ...options,
     method: 'GET'
@@ -984,23 +994,25 @@ export const billTosListSyncJobs = async (billToId: string, options?: Parameters
 
 
 
-export const getBillTosListSyncJobsQueryKey = (billToId: string,) => {
+export const getBillTosListSyncJobsQueryKey = (billToId: string,
+    params?: BillTosListSyncJobsParams,) => {
     return [
-    `/v1/bill-tos/${billToId}/sync-jobs`
+    `/v1/bill-tos/${billToId}/sync-jobs`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getBillTosListSyncJobsQueryOptions = <TData = Awaited<ReturnType<typeof billTosListSyncJobs>>, TError = HTTPValidationError>(billToId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListSyncJobs>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+export const getBillTosListSyncJobsQueryOptions = <TData = Awaited<ReturnType<typeof billTosListSyncJobs>>, TError = HTTPValidationError>(billToId: string,
+    params?: BillTosListSyncJobsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListSyncJobs>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getBillTosListSyncJobsQueryKey(billToId);
+  const queryKey =  queryOptions?.queryKey ?? getBillTosListSyncJobsQueryKey(billToId,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof billTosListSyncJobs>>> = ({ signal }) => billTosListSyncJobs(billToId, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof billTosListSyncJobs>>> = ({ signal }) => billTosListSyncJobs(billToId,params, { signal, ...requestOptions });
 
 
 
@@ -1014,7 +1026,8 @@ export type BillTosListSyncJobsQueryError = HTTPValidationError
 
 
 export function useBillTosListSyncJobs<TData = Awaited<ReturnType<typeof billTosListSyncJobs>>, TError = HTTPValidationError>(
- billToId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListSyncJobs>>, TError, TData>> & Pick<
+ billToId: string,
+    params: undefined |  BillTosListSyncJobsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListSyncJobs>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof billTosListSyncJobs>>,
           TError,
@@ -1024,7 +1037,8 @@ export function useBillTosListSyncJobs<TData = Awaited<ReturnType<typeof billTos
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useBillTosListSyncJobs<TData = Awaited<ReturnType<typeof billTosListSyncJobs>>, TError = HTTPValidationError>(
- billToId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListSyncJobs>>, TError, TData>> & Pick<
+ billToId: string,
+    params?: BillTosListSyncJobsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListSyncJobs>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof billTosListSyncJobs>>,
           TError,
@@ -1034,7 +1048,8 @@ export function useBillTosListSyncJobs<TData = Awaited<ReturnType<typeof billTos
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useBillTosListSyncJobs<TData = Awaited<ReturnType<typeof billTosListSyncJobs>>, TError = HTTPValidationError>(
- billToId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListSyncJobs>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ billToId: string,
+    params?: BillTosListSyncJobsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListSyncJobs>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -1042,11 +1057,12 @@ export function useBillTosListSyncJobs<TData = Awaited<ReturnType<typeof billTos
  */
 
 export function useBillTosListSyncJobs<TData = Awaited<ReturnType<typeof billTosListSyncJobs>>, TError = HTTPValidationError>(
- billToId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListSyncJobs>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ billToId: string,
+    params?: BillTosListSyncJobsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListSyncJobs>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getBillTosListSyncJobsQueryOptions(billToId,options)
+  const queryOptions = getBillTosListSyncJobsQueryOptions(billToId,params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
