@@ -83,8 +83,39 @@ function summary(job: SyncJobRead): string {
   return parts.length > 0 ? parts.join(", ") : "no changes";
 }
 
-function JobBadge({ job }: { job: SyncJobRead }) {
-  switch (job.status) {
+// Where a bill-to-wide job records each step's failed locations.
+const FAILURE_LISTS = [
+  ["failed_locations", null],
+  ["notes_failed_locations", "Notes"],
+  ["invoices_failed_locations", "Invoices"],
+  ["conditions_failed_locations", "Conditions"],
+] as const;
+
+/** One location's failures in a bill-to-wide job: the location itself failed (nothing of it
+ * synced), or only a later step (notes, invoices, conditions) did. */
+function locationFailures(
+  job: SyncJobRead,
+  pestpacLocationId: number,
+): { failed: boolean; errors: string[] } {
+  let failed = false;
+  const errors: string[] = [];
+  for (const [key, step] of FAILURE_LISTS) {
+    const list = job.progress[key];
+    if (!Array.isArray(list)) continue;
+    for (const entry of list) {
+      if (typeof entry !== "object" || entry === null) continue;
+      const item = entry as { pestpac_location_id?: unknown; error?: unknown };
+      if (item.pestpac_location_id !== pestpacLocationId) continue;
+      if (step === null) failed = true;
+      const error = typeof item.error === "string" ? item.error : "failed";
+      errors.push(step ? `${step}: ${error}` : error);
+    }
+  }
+  return { failed, errors };
+}
+
+function JobBadge({ status }: { status: SyncJobRead["status"] }) {
+  switch (status) {
     case "queued":
       return (
         <Badge variant="pending">
@@ -123,11 +154,43 @@ function JobBadge({ job }: { job: SyncJobRead }) {
   }
 }
 
-/** `checkedAt`: when the job list was last fetched (it polls while a job is active). */
-function JobLine({ job, checkedAt }: { job: SyncJobRead; checkedAt: number }) {
+/** `checkedAt`: when the job list was last fetched (it polls while a job is active).
+ * `pestpacLocationId`: shown on a location's page, where a finished bill-to-wide job is
+ * reported for that location only, not with the whole bill-to's totals and failures. */
+function JobLine({
+  job,
+  checkedAt,
+  pestpacLocationId,
+}: {
+  job: SyncJobRead;
+  checkedAt: number;
+  pestpacLocationId?: number;
+}) {
   const total = num(job, "locations_total");
   const done = num(job, "locations_done") ?? 0;
   const queuedFor = checkedAt - new Date(job.created_at).getTime();
+  const when = job.finished_at ? new Date(job.finished_at).toLocaleString() : "";
+  if (pestpacLocationId !== undefined && job.location_id === null && !isActive(job)) {
+    const { failed, errors } = locationFailures(job, pestpacLocationId);
+    // A job that failed outright never reached the locations: its own error applies.
+    const status: SyncJobRead["status"] =
+      job.status === "failed" || failed ? "failed" : errors.length ? "partial" : "succeeded";
+    return (
+      <div className="flex flex-col gap-2" role="status" aria-live="polite">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <JobBadge status={status} />
+          <span className="text-muted-foreground">
+            {when}: in the sync of all the bill-to&apos;s locations.
+          </span>
+        </div>
+        {(job.status === "failed" && job.error ? [job.error] : errors).map((error) => (
+          <p key={error} className="text-sm text-destructive">
+            {error}
+          </p>
+        ))}
+      </div>
+    );
+  }
   let text: string;
   if (job.status === "queued") {
     text =
@@ -137,13 +200,12 @@ function JobLine({ job, checkedAt }: { job: SyncJobRead; checkedAt: number }) {
   } else if (job.status === "running") {
     text = total ? `Syncing location ${Math.min(done + 1, total)} of ${total}…` : "Starting…";
   } else {
-    const when = job.finished_at ? new Date(job.finished_at).toLocaleString() : "";
     text = `${when}: ${summary(job)}.`;
   }
   return (
     <div className="flex flex-col gap-2" role="status" aria-live="polite">
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <JobBadge job={job} />
+        <JobBadge status={job.status} />
         <span className="text-muted-foreground">{text}</span>
       </div>
       {job.error && job.status !== "running" && (
@@ -168,12 +230,15 @@ function JobLine({ job, checkedAt }: { job: SyncJobRead; checkedAt: number }) {
 export function SyncJobPanel({
   billToId,
   locationId,
+  pestpacLocationId,
   kind = "serviceOrders",
   canSync,
   onFinished,
 }: {
   billToId: string;
   locationId?: string;
+  /** With `locationId`: its PestPac LocationID, to find it in a bill-to-wide job's results. */
+  pestpacLocationId?: number;
   kind?: SyncKind;
   canSync: boolean;
   onFinished: () => void;
@@ -227,7 +292,11 @@ export function SyncJobPanel({
         <div className="flex min-w-0 flex-col gap-1">
           <span className="font-medium">{TITLE[kind]}</span>
           {latest ? (
-            <JobLine job={latest} checkedAt={jobs.dataUpdatedAt} />
+            <JobLine
+              job={latest}
+              checkedAt={jobs.dataUpdatedAt}
+              pestpacLocationId={pestpacLocationId}
+            />
           ) : (
             jobs.isSuccess && (
               <p className="text-sm text-muted-foreground">Not synced from PestPac yet.</p>
@@ -267,12 +336,14 @@ export function SyncJobPanel({
 export function PestPacSync({
   billToId,
   locationId,
+  pestpacLocationId,
   canSync,
   onOrdersSynced,
   onLocationSynced,
 }: {
   billToId: string;
   locationId?: string;
+  pestpacLocationId?: number;
   canSync: boolean;
   onOrdersSynced: () => void;
   onLocationSynced: () => void;
@@ -286,6 +357,7 @@ export function PestPacSync({
         <SyncJobPanel
           billToId={billToId}
           locationId={locationId}
+          pestpacLocationId={pestpacLocationId}
           canSync={canSync}
           onFinished={onOrdersSynced}
         />
@@ -293,6 +365,7 @@ export function PestPacSync({
         <SyncJobPanel
           billToId={billToId}
           locationId={locationId}
+          pestpacLocationId={pestpacLocationId}
           kind="location"
           canSync={canSync}
           onFinished={onLocationSynced}

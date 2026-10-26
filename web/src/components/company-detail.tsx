@@ -58,6 +58,13 @@ export function CompanyDetail() {
   const c = company.data.data;
   const canWrite = can("bill_tos:write", c.operator_id);
 
+  // Tabs the caller can't see fall back to Bill-tos.
+  const shownTab =
+    (tab === "invoiced" && !can("billing:read", c.operator_id)) ||
+    (tab === "templates" && !can("reports:read", c.operator_id))
+      ? "bill-tos"
+      : tab;
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -82,28 +89,23 @@ export function CompanyDetail() {
               Dashboard
             </Link>
           </Can>
-          <Can perm="bill_tos:write" tenantId={c.operator_id}>
-            <AddDialog
-              label="Onboard bill-to"
-              title="Onboard bill-to"
-              description="Look up a BillToID in PestPac, check its details, then onboard it."
-            >
-              {() => <OnboardBillTo companyId={companyId} operatorId={c.operator_id} />}
-            </AddDialog>
-          </Can>
+          {/* Onboarding adds to the Bill-tos list, so it's offered only there. */}
+          {shownTab === "bill-tos" && (
+            <Can perm="bill_tos:write" tenantId={c.operator_id}>
+              <AddDialog
+                label="Onboard bill-to"
+                title="Onboard bill-to"
+                description="Look up a BillToID in PestPac, check its details, then onboard it."
+              >
+                {() => <OnboardBillTo companyId={companyId} operatorId={c.operator_id} />}
+              </AddDialog>
+            </Can>
+          )}
         </div>
       </div>
 
       {/* Tabs the user can't see (by permission) fall back to Bill-tos when named in a URL. */}
-      <Tabs
-        value={
-          (tab === "invoiced" && !can("billing:read", c.operator_id)) ||
-          (tab === "templates" && !can("reports:read", c.operator_id))
-            ? "bill-tos"
-            : tab
-        }
-        onValueChange={setTab}
-      >
+      <Tabs value={shownTab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="bill-tos">Bill-tos</TabsTrigger>
           <TabsTrigger value="posted">Posted service orders</TabsTrigger>

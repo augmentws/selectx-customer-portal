@@ -175,6 +175,7 @@ export function LocationDetail() {
             <PestPacSync
               billToId={loc.bill_to_id}
               locationId={loc.id}
+              pestpacLocationId={loc.pestpac_location_id}
               canSync={b !== undefined && can("bill_tos:write", b.operator_id)}
               onOrdersSynced={onSynced}
               onLocationSynced={onLocationSynced}
