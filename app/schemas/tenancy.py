@@ -319,6 +319,8 @@ class DocumentRead(BaseModel):
     size_bytes: int | None
     # Why the file isn't stored yet, if a download was tried.
     file_error: str | None
+    # PestPac can't provide the file (e.g. over its API's 10 MB limit): not tried again.
+    file_unavailable: bool
 
 
 class ConditionInspectionRead(BaseModel):

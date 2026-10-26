@@ -150,6 +150,38 @@ def test_a_failed_file_is_recorded_and_retried(client, onboarded, pestpac):
     assert photo["has_file"] and photo["file_error"] is None
 
 
+# PestPac's API gateway answer for a file over its 10 MB limit (confirmed against PestPac).
+TOO_BIG = (
+    b'{"fault":{"faultstring":"Body buffer overflow",'
+    b'"detail":{"errorcode":"protocol.http.TooBigBody"}}}'
+)
+
+
+def test_a_file_too_big_for_pestpac_fails_once_and_isnt_tried_again(client, onboarded, pestpac):
+    _photo_and_contract(pestpac)
+    pestpac.document_files[2314160] = (502, "application/json", TOO_BIG)
+    job = _sync_locations(client, onboarded)
+    assert job["progress"]["documents"]["files_failed"] == 1
+    photo = _documents(client, onboarded)[0]
+    assert not photo["has_file"] and photo["file_unavailable"]
+    assert "over its 10 MB limit" in photo["file_error"]
+
+    calls = _download_calls(pestpac)
+    job = _sync_locations(client, onboarded)
+    assert _download_calls(pestpac) == calls  # not downloaded again
+    assert job["progress"]["documents"]["files_failed"] == 0
+    assert _documents(client, onboarded)[0]["file_unavailable"]  # the record stays
+
+
+def test_other_gateway_errors_are_retried(client, onboarded, pestpac):
+    _photo_and_contract(pestpac)
+    pestpac.document_files[2314160] = (502, "text/html", b"<html>Bad gateway</html>")
+    _sync_locations(client, onboarded)
+    photo = _documents(client, onboarded)[0]
+    assert photo["file_error"] == "PestPac download returned 502"
+    assert not photo["file_unavailable"]
+
+
 def test_json_instead_of_a_file_is_not_stored(client, onboarded, pestpac, storage):
     pestpac.documents_by_location[STORE] = [pestpac_document(1)]
     pestpac.document_files[1] = (200, "application/json; charset=utf-8", b'{"Message": "x"}')

@@ -9,6 +9,7 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    false,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -79,6 +80,9 @@ class Document(Base):
     # Why the file isn't stored (download failed, too large); cleared once it is.
     file_error: Mapped[str | None] = mapped_column(String(500))
     file_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    # PestPac can't send the file at all (its API gateway refuses bodies over 10 MB), so it
+    # isn't tried again; file_error says why. The document row is kept.
+    file_unavailable: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
     removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     pestpac_fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

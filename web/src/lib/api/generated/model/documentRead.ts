@@ -24,4 +24,5 @@ export interface DocumentRead {
   content_type: string | null;
   size_bytes: number | null;
   file_error: string | null;
+  file_unavailable: boolean;
 }

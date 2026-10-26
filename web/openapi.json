@@ -6349,6 +6349,10 @@
               }
             ],
             "title": "File Error"
+          },
+          "file_unavailable": {
+            "type": "boolean",
+            "title": "File Unavailable"
           }
         },
         "type": "object",
@@ -6369,7 +6373,8 @@
           "has_file",
           "content_type",
           "size_bytes",
-          "file_error"
+          "file_error",
+          "file_unavailable"
         ],
         "title": "DocumentRead"
       },

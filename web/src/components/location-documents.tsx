@@ -60,6 +60,10 @@ export function DocumentRow({ doc }: { doc: DocumentRead }) {
         )}
         <Badge variant="outline">{TYPE_LABELS[doc.document_type] ?? doc.document_type}</Badge>
         {doc.include_on.portal && <Badge variant="outline">On portal</Badge>}
+        {!doc.has_file && doc.file_error && (
+          // Why is the text next to it; one PestPac can't send at all isn't tried again.
+          <Badge variant="destructive">File failed</Badge>
+        )}
         <span className="ml-auto text-sm text-muted-foreground">
           {formatPestPacDate(doc.document_date, true)}
         </span>
