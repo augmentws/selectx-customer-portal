@@ -1,11 +1,12 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import case, delete, func, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.models import AuthSession, Credential, User
+from app.models import AuthSession, Credential, LoginThrottle, User
 from app.schemas.auth import TokenPair
 from app.security.passwords import hash_password, needs_rehash, verify_password
 from app.security.tokens import TokenError, create_token, decode_token
@@ -17,6 +18,14 @@ class AuthError(Exception):
 
 class PasswordReuseError(AuthError):
     pass
+
+
+class LoginLockedError(AuthError):
+    """Too many failed sign-ins for this email; `retry_after` is in seconds."""
+
+    def __init__(self, retry_after: int):
+        super().__init__("too many failed sign-ins")
+        self.retry_after = retry_after
 
 
 def normalize_email(email: str) -> str:
@@ -83,14 +92,57 @@ def _issue(session: AuthSession) -> TokenPair:
     )
 
 
+def _record_failure(db: Session, email: str, now: datetime) -> None:
+    """Count a failed sign-in for the email, locking it once the window holds too many.
+    Commits. An upsert, so concurrent failures for the same email all count."""
+    settings = get_settings()
+    stale = LoginThrottle.first_failed_at < now - timedelta(
+        minutes=settings.login_failure_window_minutes
+    )
+    failures = db.execute(
+        pg_insert(LoginThrottle)
+        .values(email=email, failures=1, first_failed_at=now)
+        .on_conflict_do_update(
+            index_elements=[LoginThrottle.email],
+            set_={
+                "failures": case((stale, 1), else_=LoginThrottle.failures + 1),
+                "first_failed_at": case((stale, now), else_=LoginThrottle.first_failed_at),
+            },
+        )
+        .returning(LoginThrottle.failures)
+    ).scalar_one()
+    if failures >= settings.login_max_failures:
+        db.execute(
+            update(LoginThrottle)
+            .where(LoginThrottle.email == email)
+            .values(
+                failures=0,
+                first_failed_at=now,
+                locked_until=now + timedelta(minutes=settings.login_lock_minutes),
+            )
+        )
+    db.commit()
+
+
 def login(db: Session, *, email: str, password: str) -> TokenPair:
+    """Raises LoginLockedError (before checking the password) while the email is locked, and
+    AuthError for wrong credentials, counted towards a lockout."""
+    key = normalize_email(email)
+    now = datetime.now(UTC)
+    throttle = db.get(LoginThrottle, key)
+    if throttle is not None and throttle.locked_until is not None and throttle.locked_until > now:
+        raise LoginLockedError(int((throttle.locked_until - now).total_seconds()) + 1)
+
     user = get_user_by_email(db, email)
     if user is None or not user.is_active or user.credential is None:
         # Hash anyway so response time doesn't reveal whether the email exists.
         hash_password(password)
+        _record_failure(db, key, now)
         raise AuthError("invalid credentials")
     if not verify_password(user.credential.password_hash, password):
+        _record_failure(db, key, now)
         raise AuthError("invalid credentials")
+    db.execute(delete(LoginThrottle).where(LoginThrottle.email == key))
     if needs_rehash(user.credential.password_hash):
         user.credential.password_hash = hash_password(password)
 
@@ -118,6 +170,12 @@ def refresh(db: Session, refresh_token: str) -> TokenPair:
     session = db.scalar(select(AuthSession).where(AuthSession.id == session_id).with_for_update())
     if session is None or session.revoked_at is not None:
         raise AuthError("session revoked")
+    user = db.get(User, session.user_id)
+    if user is None or not user.is_active:
+        # Deactivated: end the session rather than keep issuing tokens it can't use.
+        session.revoked_at = datetime.now(UTC)
+        db.commit()
+        raise AuthError("user inactive")
     if session.current_jti != jti:
         # An already-rotated token was replayed: treat the family as compromised.
         session.revoked_at = datetime.now(UTC)

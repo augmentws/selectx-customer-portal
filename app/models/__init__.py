@@ -14,7 +14,7 @@ from app.models.service_order import (
     Technician,
 )
 from app.models.tenant import Tenant, TenantKind
-from app.models.user import AuthSession, Credential, User
+from app.models.user import AuthSession, Credential, LoginThrottle, User
 from app.models.webhook import (
     GoCanvasRequest,
     SignatureStatus,
@@ -25,6 +25,7 @@ from app.models.webhook import (
 
 __all__ = [
     "AuthSession",
+    "LoginThrottle",
     "BillTo",
     "Company",
     "Condition",

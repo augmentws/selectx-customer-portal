@@ -1,22 +1,30 @@
 from datetime import date
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # Settings hold secrets: a validation error names the setting, never its value.
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
 
     database_url: str = (
         "postgresql+psycopg://customer_portal:customer_portal@localhost:5433/customer_portal"
     )
 
-    jwt_secret: str
+    # Signs every token: anyone who knows it can mint sessions. At least 32 characters, and never
+    # the .env.example placeholder (checked below), so a copied example can't go live.
+    jwt_secret: str = Field(min_length=32)
     jwt_algorithm: str = "HS256"
     access_token_ttl_minutes: int = 15
     refresh_token_ttl_days: int = 14
 
+    # Sign-in lockout: this many failures for one email within the window locks it for
+    # login_lock_minutes (counted per email, whether or not it has an account).
+    login_max_failures: int = Field(default=5, ge=1)
+    login_failure_window_minutes: int = Field(default=15, ge=1)
+    login_lock_minutes: int = Field(default=15, ge=1)
     bootstrap_admin_email: str | None = None
     bootstrap_admin_password: str | None = None
 
@@ -65,6 +73,13 @@ class Settings(BaseSettings):
     openrouter_app_title: str = "SELECTX Customer Portal"
     # Logs prompts and completions (customer data). Local debugging only.
     openrouter_debug_bodies: bool = False
+
+    @field_validator("jwt_secret")
+    @classmethod
+    def _not_the_placeholder(cls, value: str) -> str:
+        if value.startswith("change-me"):
+            raise ValueError("JWT_SECRET is the .env.example placeholder; set a random value")
+        return value
 
 
 @lru_cache

@@ -195,10 +195,17 @@ def test_oversized_bodies_are_rejected(client, monkeypatch):
     get_settings.cache_clear()
     try:
         resp = client.post(URL, content="x" * 200, headers={"Content-Type": "application/json"})
+        # Chunked: no Content-Length to refuse up front, so the stream itself is cut off.
+        chunked = client.post(
+            URL,
+            content=(b"x" * 50 for _ in range(4)),
+            headers={"Content-Type": "application/json"},
+        )
     finally:
         monkeypatch.undo()
         get_settings.cache_clear()
     assert resp.status_code == 413
+    assert chunked.status_code == 413
 
 
 def test_raw_bodies_are_cleared_after_retention(client, onboarded):

@@ -9,7 +9,8 @@ PASSWORD_MIN_LENGTH = 12
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    # Capped like new passwords: every attempt is an Argon2 hash, so a huge one costs CPU.
+    password: str = Field(max_length=256)
 
 
 class RefreshRequest(BaseModel):

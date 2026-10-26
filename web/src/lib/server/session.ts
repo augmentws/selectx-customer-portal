@@ -27,7 +27,18 @@ export function apiUnreachable(error: unknown) {
   );
 }
 
-const secure = process.env.NODE_ENV === "production";
+/** Whether the browser reached us over HTTPS, so cookies can be marked Secure. Behind a tunnel
+ * or proxy the request arrives as plain HTTP, so its forwarded scheme or the page's origin
+ * tells. (A page served over plain HTTP can't claim an https:// origin, so this can't mark
+ * cookies Secure where the browser would then refuse them.) */
+function overHttps(req: NextRequest): boolean {
+  return (
+    process.env.NODE_ENV === "production" ||
+    req.nextUrl.protocol === "https:" ||
+    req.headers.get("x-forwarded-proto") === "https" ||
+    (req.headers.get("origin") ?? req.headers.get("referer") ?? "").startsWith("https://")
+  );
+}
 const REFRESH_MAX_AGE = 60 * 60 * 24 * 14;
 
 export type TokenPair = {
@@ -36,7 +47,8 @@ export type TokenPair = {
   expires_in: number;
 };
 
-export function setSessionCookies(res: NextResponse, tokens: TokenPair) {
+export function setSessionCookies(req: NextRequest, res: NextResponse, tokens: TokenPair) {
+  const secure = overHttps(req);
   const base = { httpOnly: true, secure, sameSite: "lax" as const, path: "/" };
   res.cookies.set(ACCESS_COOKIE, tokens.access_token, { ...base, maxAge: tokens.expires_in });
   res.cookies.set(REFRESH_COOKIE, tokens.refresh_token, { ...base, maxAge: REFRESH_MAX_AGE });

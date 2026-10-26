@@ -115,7 +115,7 @@ Current API surface (keep the versioned shape unless a contract change is reques
 
 ## PestPac Webhooks
 
-- `POST /v1/webhooks/pestpac` is public (no session); the only route exempt from the access matrix besides auth. It answers 200 whether an event was stored, dropped, or a redelivery, so callers can't probe which bill-tos are onboarded; 400 for a malformed envelope, 413 above `WEBHOOK_MAX_BODY_BYTES`.
+- `POST /v1/webhooks/pestpac` is public (no session); the only route exempt from the access matrix besides auth. It answers 200 whether an event was stored, dropped, or a redelivery, so callers can't probe which bill-tos are onboarded; 400 for a malformed envelope, 413 above `WEBHOOK_MAX_BODY_BYTES` (read in chunks and cut off at the limit, declared or not).
 - Envelope: `TenantId` (matched to `pestpac_tenant_id`), `EntityType`, `EntityId`, `Action`, `EntityBody`. Captured: Bill-To, Employee, Location, Note (create/update/delete), Service Order (create/update/post/delete), and Invoice (any action); everything else is dropped.
 - Signature: HMAC-SHA256 of the serialized `EntityBody` plus the `timestamputc` header, in `signature` headers, keyed by the operator's optional, write-only webhook secret (encrypted on `pestpac_connections`). Report mode: the result (`valid`/`invalid`/`missing`/`no_secret`) is recorded, never refused, until the scheme is confirmed against real deliveries.
 - Only events matching the bill-to rule are stored in `webhook_events`: the bill-to (or the body's `BillToID`) is onboarded and active, or the entity is one we already hold (deletes may lack a body). Employees always match: technicians are operator-wide. Note body fields (`LocationID`, `OrderID`) are assumed until a sample confirms them.
@@ -183,14 +183,17 @@ Current API surface (keep the versioned shape unless a contract change is reques
 
 - Login accepts email and password only. Emails are globally unique.
 - Hash passwords with Argon2id; keep credentials separate from the user record.
-- FastAPI mints signed JWT access and refresh tokens. Preserve refresh-token rotation, session records, revocation, and logout.
+- FastAPI mints signed JWT access and refresh tokens. Preserve refresh-token rotation, session records, revocation, and logout. A refresh for a deactivated user revokes the session. `JWT_SECRET` must be at least 32 characters and not the `.env.example` placeholder (startup fails otherwise); settings errors never echo values.
+- Sign-in lockout: `LOGIN_MAX_FAILURES` (5) failures for one email within `LOGIN_FAILURE_WINDOW_MINUTES` (15) lock it for `LOGIN_LOCK_MINUTES` (15): 429 with `Retry-After`, the password not checked. Counted per normalized email in `login_throttles` whether or not an account exists, so a lockout reveals nothing; a successful sign-in clears it. Login passwords are capped at 256 characters (each attempt is an Argon2 hash).
 - Bootstrap the first platform administrator from environment settings with `python -m app.bootstrap`; keep it idempotent.
 - Never commit `.env` files or credentials.
 
 Next.js is a thin backend-for-frontend (BFF):
 
 - The browser calls Next.js, not FastAPI.
-- Next.js stores tokens in `HttpOnly`, `Secure`, `SameSite` cookies. Browser JavaScript never receives JWTs or stores them in `localStorage`/`sessionStorage`.
+- Next.js stores tokens in `HttpOnly`, `Secure`, `SameSite` cookies (`Secure` in production and whenever the request came over HTTPS, including through a tunnel). Browser JavaScript never receives JWTs or stores them in `localStorage`/`sessionStorage`.
+- The BFF proxy forwards no `/v1/auth/*` route except `me` and `password` (trailing slashes ignored), and never follows FastAPI redirects.
+- `next.config.ts` sets X-Frame-Options (SAMEORIGIN), Referrer-Policy, nosniff, Permissions-Policy, and HSTS on every response, and no X-Powered-By. Not a global Content-Security-Policy: document files carry their own (`sandbox`).
 - Next.js forwards requests with the access token as a Bearer header and coordinates refresh.
 - State-changing BFF endpoints have CSRF protection. Prefer same-origin deployment.
 - Next.js may own route protection, redirects, forwarding, refresh coordination, and UI-specific aggregation. It must not access the database or duplicate authentication, authorization, or other domain rules.

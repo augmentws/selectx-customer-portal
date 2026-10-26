@@ -13,7 +13,14 @@ import {
 } from "@/lib/server/session";
 
 // Token-issuing endpoints are only reachable through /api/auth/*, which keeps tokens in cookies.
-const BLOCKED = new Set(["v1/auth/login", "v1/auth/refresh", "v1/auth/logout"]);
+// So of FastAPI's /v1/auth routes, only these pass; matched after dropping trailing slashes, so
+// "v1/auth/login/" (FastAPI redirects it to the login route) is refused too.
+const ALLOWED_AUTH = new Set(["v1/auth/me", "v1/auth/password"]);
+
+function isBlocked(path: string): boolean {
+  const normalized = path.replace(/\/+$/, "");
+  return normalized.startsWith("v1/auth/") && !ALLOWED_AUTH.has(normalized);
+}
 
 const FORWARDED_REQUEST_HEADERS = ["accept", "content-type"];
 const FORWARDED_RESPONSE_HEADERS = [
@@ -44,12 +51,14 @@ async function forward(
     headers,
     body,
     cache: "no-store",
+    // Never follow FastAPI's redirects: one could lead to a route this proxy refuses.
+    redirect: "manual",
   });
 }
 
 async function handler(req: NextRequest, ctx: RouteContext<"/api/bff/[...path]">) {
   const path = (await ctx.params).path.join("/");
-  if (BLOCKED.has(path)) {
+  if (isBlocked(path)) {
     return NextResponse.json({ detail: "Not found" }, { status: 404 });
   }
   if (!checkCsrf(req)) {
@@ -78,7 +87,7 @@ async function handler(req: NextRequest, ctx: RouteContext<"/api/bff/[...path]">
   }
   const res = new NextResponse(upstream.body, { status: upstream.status, headers });
 
-  if (rotated) setSessionCookies(res, rotated);
+  if (rotated) setSessionCookies(req, res, rotated);
   else if (upstream.status === 401 && refreshToken) clearSessionCookies(res);
   return res;
 }

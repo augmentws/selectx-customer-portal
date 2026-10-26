@@ -32,6 +32,6 @@ export async function POST(req: NextRequest) {
 
   // Tokens go into HttpOnly cookies only; the browser gets no token in the body.
   const res = NextResponse.json({ ok: true });
-  setSessionCookies(res, (await upstream.json()) as TokenPair);
+  setSessionCookies(req, res, (await upstream.json()) as TokenPair);
   return res;
 }

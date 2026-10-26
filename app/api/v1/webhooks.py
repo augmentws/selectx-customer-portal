@@ -26,15 +26,19 @@ def _client(request: Request) -> RequestClient:
 
 
 async def _body(request: Request) -> bytes:
-    """The request body, refusing anything over WEBHOOK_MAX_BODY_BYTES (413)."""
+    """The request body, refusing anything over WEBHOOK_MAX_BODY_BYTES (413), declared or not."""
     limit = get_settings().webhook_max_body_bytes
     declared = request.headers.get("content-length", "")
     if declared.isdigit() and int(declared) > limit:
         raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="Too large")
-    raw = await request.body()
-    if len(raw) > limit:
-        raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="Too large")
-    return raw
+    # Read in chunks and stop at the limit: a chunked request declares no length, and reading
+    # it whole first would let a public endpoint buffer any amount.
+    raw = bytearray()
+    async for chunk in request.stream():
+        raw += chunk
+        if len(raw) > limit:
+            raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="Too large")
+    return bytes(raw)
 
 
 @router.post("/pestpac", response_model=WebhookAck)

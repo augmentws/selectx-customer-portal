@@ -43,6 +43,16 @@ export function LoginForm() {
       body: JSON.stringify(values),
     });
     if (!res.ok) {
+      if (res.status === 429) {
+        // Locked after repeated failures; the API says for how long.
+        const body: unknown = await res.json().catch(() => null);
+        const detail =
+          typeof body === "object" && body !== null && "detail" in body ? body.detail : null;
+        setError(
+          typeof detail === "string" ? detail : "Too many failed sign-ins. Try again later.",
+        );
+        return;
+      }
       setError(res.status === 401 ? "Invalid email or password." : "Sign-in failed. Try again.");
       return;
     }

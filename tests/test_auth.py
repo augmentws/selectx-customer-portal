@@ -1,12 +1,12 @@
 import re
 import uuid
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import jwt
 from sqlalchemy import select
 
 from app.db.session import SessionLocal
-from app.models import Credential, User
+from app.models import AuthSession, Credential, LoginThrottle, User
 from app.security.tokens import create_token
 from tests.conftest import PASSWORD, login
 
@@ -131,3 +131,60 @@ def test_refresh_token_and_forged_tokens_are_refused_as_bearer(client, world):
     assert client.get("/v1/auth/me", headers=_bearer(forged)).status_code == 401
     unsigned = jwt.encode(_claims(tokens["access_token"]), None, algorithm="none")
     assert client.get("/v1/auth/me", headers=_bearer(unsigned)).status_code == 401
+
+
+def _fail(client, email, times):
+    for _ in range(times):
+        assert login(client, email, password="wrong password").status_code == 401
+
+
+def test_repeated_failures_lock_the_email_without_checking_the_password(client, world):
+    email = world.emails["staff_a"]
+    _fail(client, email, 5)  # LOGIN_MAX_FAILURES
+    locked = login(client, email)  # the right password, but locked
+    assert locked.status_code == 429
+    assert int(locked.headers["Retry-After"]) > 0
+    assert "Try again in 15 minutes" in locked.json()["detail"]
+
+    # An email without an account locks the same way, so a lockout reveals nothing.
+    _fail(client, "nobody@test.example", 5)
+    assert login(client, "nobody@test.example").status_code == 429
+
+    with SessionLocal() as db:  # the lock has run out
+        db.get(LoginThrottle, email).locked_until = datetime.now(UTC) - timedelta(seconds=1)
+        db.commit()
+    assert login(client, email).status_code == 200
+
+
+def test_a_successful_sign_in_clears_the_failures(client, world):
+    email = world.emails["staff_a"]
+    _fail(client, email, 4)
+    assert login(client, email).status_code == 200
+    _fail(client, email, 4)
+    assert login(client, email).status_code == 200
+
+
+def test_failures_older_than_the_window_dont_count(client, world):
+    email = world.emails["staff_a"]
+    _fail(client, email, 4)
+    with SessionLocal() as db:
+        db.get(LoginThrottle, email).first_failed_at = datetime.now(UTC) - timedelta(hours=1)
+        db.commit()
+    _fail(client, email, 4)  # a new window: 4, not 8
+    assert login(client, email).status_code == 200
+
+
+def test_an_overlong_password_is_refused_before_hashing(client, world):
+    assert login(client, world.emails["staff_a"], password="x" * 257).status_code == 422
+
+
+def test_refresh_ends_the_session_of_a_deactivated_user(client, world):
+    email = world.emails["staff_a"]
+    tokens = login(client, email).json()
+    with SessionLocal() as db:
+        db.scalar(select(User).where(User.email == email)).is_active = False
+        db.commit()
+    resp = client.post("/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    assert resp.status_code == 401
+    with SessionLocal() as db:
+        assert db.scalar(select(AuthSession.revoked_at)) is not None

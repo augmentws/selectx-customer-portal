@@ -22,6 +22,14 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     try:
         return auth_service.login(db, email=data.email, password=data.password)
+    except auth_service.LoginLockedError as exc:
+        minutes = -(-exc.retry_after // 60)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many failed sign-ins. Try again in {minutes} "
+            f"minute{'s' if minutes != 1 else ''}.",
+            headers={"Retry-After": str(exc.retry_after)},
+        ) from None
     except auth_service.AuthError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password"
