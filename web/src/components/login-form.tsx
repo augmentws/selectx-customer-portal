@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -18,13 +18,15 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
-// Only same-site relative paths, so ?next= can't send users to another origin.
+// Only same-site relative paths, so ?next= can't send users to another origin. Browsers read
+// a backslash as a slash, so /\evil.com would be //evil.com: refused too.
 function safeNext(next: string | null): string {
-  return next && next.startsWith("/") && !next.startsWith("//") ? next : "/operators";
+  return next && next.startsWith("/") && !next.startsWith("//") && !next.includes("\\")
+    ? next
+    : "/operators";
 }
 
 export function LoginForm() {
-  const router = useRouter();
   const params = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const {
@@ -44,8 +46,10 @@ export function LoginForm() {
       setError(res.status === 401 ? "Invalid email or password." : "Sign-in failed. Try again.");
       return;
     }
-    router.replace(safeNext(params.get("next")));
-    router.refresh();
+    // A full page load, not router.replace + router.refresh: on a slow connection the refresh
+    // (of /login, still the current page) could cancel the navigation and land back on /login.
+    // It also drops any client-side cache from before sign-in.
+    window.location.replace(safeNext(params.get("next")));
   };
 
   return (
