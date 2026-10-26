@@ -6,12 +6,14 @@ import { InvoiceRow } from "@/components/location-invoices";
 import { OrderRow } from "@/components/service-order-list";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { errorMessage } from "@/lib/api/errors";
 import {
   useInvoicesListBillToInvoicedOrders,
   useInvoicesListCompanyInvoicedOrders,
 } from "@/lib/api/generated/invoices/invoices";
 import type { InvoicedOrderPage } from "@/lib/api/generated/model";
+import { useUrlParams } from "@/lib/use-url-params";
 
 const PAGE_SIZE = 50;
 
@@ -19,6 +21,7 @@ function InvoicedOrderList({
   query,
   offset,
   setOffset,
+  oldestFirst,
 }: {
   query: {
     isPending: boolean;
@@ -28,6 +31,7 @@ function InvoicedOrderList({
   };
   offset: number;
   setOffset: (offset: number) => void;
+  oldestFirst: boolean;
 }) {
   if (query.isPending) return <p className="text-muted-foreground">Loading…</p>;
   if (query.isError || !query.data) {
@@ -79,7 +83,7 @@ function InvoicedOrderList({
               disabled={offset === 0}
               onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
             >
-              Newer
+              {oldestFirst ? "Older" : "Newer"}
             </Button>
             <Button
               variant="outline"
@@ -87,7 +91,7 @@ function InvoicedOrderList({
               disabled={page.offset + page.items.length >= page.total}
               onClick={() => setOffset(offset + PAGE_SIZE)}
             >
-              Older
+              {oldestFirst ? "Newer" : "Older"}
             </Button>
           </div>
         </div>
@@ -96,10 +100,14 @@ function InvoicedOrderList({
   );
 }
 
-/** Invoices for a bill-to or a whole company, newest first, each with the order it bills. */
+/** Invoices for a bill-to or a whole company, by invoice date (newest first unless chosen
+ * otherwise), each with the order it bills. */
 export function InvoicedOrders(props: { billToId: string } | { companyId: string }) {
   const [offset, setOffset] = useState(0);
-  const params = { limit: PAGE_SIZE, offset };
+  // In the URL like the other lists' filters; its own name so it doesn't leak into them.
+  const [{ isort }, setUrl] = useUrlParams(["isort"]);
+  const oldestFirst = isort === "asc";
+  const params = { limit: PAGE_SIZE, offset, ...(oldestFirst && { sort: "asc" as const }) };
   const isBillTo = "billToId" in props;
   const billTo = useInvoicesListBillToInvoicedOrders(isBillTo ? props.billToId : "", params, {
     query: { enabled: isBillTo },
@@ -110,12 +118,28 @@ export function InvoicedOrders(props: { billToId: string } | { companyId: string
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">
-        Invoices from PestPac, newest first, with the service order each one bills.
+        Invoices from PestPac, {oldestFirst ? "oldest" : "newest"} first, with the service order
+        each one bills.
       </p>
+      <div>
+        <NativeSelect
+          size="sm"
+          aria-label="Date order"
+          value={isort}
+          onChange={(e) => {
+            setOffset(0);
+            setUrl({ isort: e.target.value });
+          }}
+        >
+          <NativeSelectOption value="">Newest first</NativeSelectOption>
+          <NativeSelectOption value="asc">Oldest first</NativeSelectOption>
+        </NativeSelect>
+      </div>
       <InvoicedOrderList
         query={isBillTo ? billTo : company}
         offset={offset}
         setOffset={setOffset}
+        oldestFirst={oldestFirst}
       />
     </div>
   );

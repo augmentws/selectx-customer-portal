@@ -12,6 +12,7 @@ order is billed it disappears there and `GET /ServiceOrders/{id}` stops returnin
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Literal
 
 import requests
 from sqlalchemy import exists, func, or_, select
@@ -219,12 +220,23 @@ def list_orders(
     return orders
 
 
-def _posted_orders(bill_to_id: uuid.UUID | None, company_id: uuid.UUID | None):
-    """Worked orders without a stored invoice, for one bill-to or a whole company."""
-    query = select(ServiceOrder).where(
-        ServiceOrder.posted.is_(True),
-        ~exists().where(Invoice.service_order_id == ServiceOrder.id),
-    )
+OrderListState = Literal["posted", "open"]
+
+
+def _posted_orders(
+    bill_to_id: uuid.UUID | None, company_id: uuid.UUID | None, state: OrderListState = "posted"
+):
+    """For one bill-to or a whole company: `posted`, worked orders without a stored invoice;
+    `open`, orders not worked yet that PestPac still lists."""
+    if state == "posted":
+        query = select(ServiceOrder).where(
+            ServiceOrder.posted.is_(True),
+            ~exists().where(Invoice.service_order_id == ServiceOrder.id),
+        )
+    else:
+        query = select(ServiceOrder).where(
+            ServiceOrder.posted.is_(False), ServiceOrder.closed_at.is_(None)
+        )
     if bill_to_id is not None:
         query = query.where(ServiceOrder.bill_to_id == bill_to_id)
     if company_id is not None:
@@ -247,15 +259,18 @@ def list_posted_orders(
     q: str | None = None,
     technician_id: uuid.UUID | None = None,
     service_code: str | None = None,
+    state: OrderListState = "posted",
+    newest_first: bool = False,
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[tuple[ServiceOrder, str | None]], int]:
-    """Worked orders without a stored invoice, oldest first, with their location's name.
+    """Worked orders without a stored invoice (or, with `state="open"`, orders not worked yet),
+    by WorkDate (oldest first unless `newest_first`; undated last), with their location's name.
     Invoiced ones are listed from their invoices instead (`invoices.list_invoices`).
 
     `q` matches the order number or OrderID exactly, or the location's name (which carries the
     store number) anywhere."""
-    query = _posted_orders(bill_to_id, company_id).outerjoin(
+    query = _posted_orders(bill_to_id, company_id, state).outerjoin(
         Location, Location.id == ServiceOrder.location_id
     )
     if q and q.strip():
@@ -275,7 +290,12 @@ def list_posted_orders(
     rows = db.execute(
         query.add_columns(Location.pestpac_company)
         .options(selectinload(ServiceOrder.technician))
-        .order_by(ServiceOrder.work_date.asc().nulls_last(), ServiceOrder.id)
+        .order_by(
+            (
+                ServiceOrder.work_date.desc() if newest_first else ServiceOrder.work_date.asc()
+            ).nulls_last(),
+            ServiceOrder.id,
+        )
         .limit(limit)
         .offset(offset)
     ).all()
@@ -283,11 +303,16 @@ def list_posted_orders(
 
 
 def posted_order_facets(
-    db: Session, *, bill_to_id: uuid.UUID | None = None, company_id: uuid.UUID | None = None
+    db: Session,
+    *,
+    bill_to_id: uuid.UUID | None = None,
+    company_id: uuid.UUID | None = None,
+    state: OrderListState = "posted",
 ) -> tuple[list[tuple[uuid.UUID, str]], list[str]]:
-    """The technicians (id, name) and service codes among the unfiltered posted orders, for
-    the list's filter choices. Technicians not yet resolved from PestPac aren't offered."""
-    orders = _posted_orders(bill_to_id, company_id).subquery()
+    """The technicians (id, name) and service codes among the unfiltered posted (or open)
+    orders, for the list's filter choices. Technicians not yet resolved from PestPac aren't
+    offered."""
+    orders = _posted_orders(bill_to_id, company_id, state).subquery()
     techs = db.execute(
         select(Technician)
         .where(Technician.id.in_(select(orders.c.technician_id)))

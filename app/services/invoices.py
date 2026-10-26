@@ -263,11 +263,12 @@ def list_invoices(
     location_id: uuid.UUID | None = None,
     bill_to_id: uuid.UUID | None = None,
     company_id: uuid.UUID | None = None,
+    newest_first: bool = True,
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[Invoice], int]:
     """Invoices with their lines, technician, location, and service order (with its
-    technician). Newest first by invoice date."""
+    technician), by invoice date: newest first unless `newest_first` is false; undated last."""
     query = select(Invoice)
     if location_id is not None:
         query = query.where(Invoice.location_id == location_id)
@@ -285,7 +286,13 @@ def list_invoices(
             selectinload(Invoice.location),
             selectinload(Invoice.service_order).selectinload(ServiceOrder.technician),
         )
-        .order_by(Invoice.invoice_date.desc().nulls_last(), Invoice.pestpac_invoice_id.desc())
+        .order_by(
+            *(
+                (Invoice.invoice_date.desc().nulls_last(), Invoice.pestpac_invoice_id.desc())
+                if newest_first
+                else (Invoice.invoice_date.asc().nulls_last(), Invoice.pestpac_invoice_id.asc())
+            )
+        )
         .limit(limit)
         .offset(offset)
     )

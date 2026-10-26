@@ -4,11 +4,16 @@
  * Customer Portal API
  * OpenAPI spec version: 0.1.0
  */
+import type { CompaniesListPostedServiceOrdersSort } from './companiesListPostedServiceOrdersSort';
 
 export type CompaniesListPostedServiceOrdersParams = {
 q?: string | null;
 technician_id?: string | null;
 service_code?: string | null;
+/**
+ * By WorkDate: oldest (asc) or newest (desc) first.
+ */
+sort?: CompaniesListPostedServiceOrdersSort;
 /**
  * @minimum 1
  * @maximum 200

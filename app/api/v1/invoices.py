@@ -1,4 +1,5 @@
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -11,6 +12,9 @@ from app.security.permissions import Perm
 from app.services import invoices
 
 router = APIRouter(tags=["invoices"])
+
+DateSort = Literal["asc", "desc"]
+SORT_HELP = "By invoice date: newest (desc) or oldest (asc) first."
 
 
 def _not_found() -> HTTPException:
@@ -67,32 +71,40 @@ def _invoiced_order_page(
 @router.get("/bill-tos/{bill_to_id}/invoiced-orders", response_model=InvoicedOrderPage)
 def list_bill_to_invoiced_orders(
     bill_to_id: uuid.UUID,
+    sort: DateSort = Query(default="desc", description=SORT_HELP),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     scope: AccessScope = Depends(get_scope),
 ):
-    """The bill-to's invoices, newest first, each with the service order it bills."""
+    """The bill-to's invoices, newest first unless `sort=asc`, each with the service order it
+    bills."""
     bill_to = db.get(BillTo, bill_to_id)
     if bill_to is None:
         raise _not_found()
     scope.require(Perm.billing_read, bill_to.operator_id, read_perm=Perm.bill_tos_read)
-    rows, total = invoices.list_invoices(db, bill_to_id=bill_to.id, limit=limit, offset=offset)
+    rows, total = invoices.list_invoices(
+        db, bill_to_id=bill_to.id, newest_first=sort == "desc", limit=limit, offset=offset
+    )
     return _invoiced_order_page(rows, total, limit, offset)
 
 
 @router.get("/companies/{company_id}/invoiced-orders", response_model=InvoicedOrderPage)
 def list_company_invoiced_orders(
     company_id: uuid.UUID,
+    sort: DateSort = Query(default="desc", description=SORT_HELP),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     scope: AccessScope = Depends(get_scope),
 ):
-    """Invoices across all the company's bill-tos, newest first, each with its service order."""
+    """Invoices across all the company's bill-tos, newest first unless `sort=asc`, each with its
+    service order."""
     company = db.get(Company, company_id)
     if company is None:
         raise _not_found()
     scope.require(Perm.billing_read, company.operator_id, read_perm=Perm.companies_read)
-    rows, total = invoices.list_invoices(db, company_id=company.id, limit=limit, offset=offset)
+    rows, total = invoices.list_invoices(
+        db, company_id=company.id, newest_first=sort == "desc", limit=limit, offset=offset
+    )
     return _invoiced_order_page(rows, total, limit, offset)

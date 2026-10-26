@@ -78,11 +78,25 @@ def list_posted_service_orders(
     db: Session = Depends(get_db),
     scope: AccessScope = Depends(get_scope),
 ):
-    """Worked orders without a stored invoice across all the company's bill-tos, oldest first,
-    filtered as for a bill-to."""
+    """Worked orders without a stored invoice across all the company's bill-tos, oldest first
+    unless `sort=desc`, filtered as for a bill-to."""
     company = _company_or_404(db, company_id)
     scope.require(Perm.bill_tos_read, company.operator_id, read_perm=Perm.companies_read)
     return posted_order_page(db, filters, company_id=company.id)
+
+
+@router.get("/{company_id}/open-service-orders", response_model=PostedServiceOrderPage)
+def list_open_service_orders(
+    company_id: uuid.UUID,
+    filters: PostedOrderFilters = Depends(),
+    db: Session = Depends(get_db),
+    scope: AccessScope = Depends(get_scope),
+):
+    """Orders not worked yet across all the company's bill-tos, filtered and sorted as its
+    posted orders."""
+    company = _company_or_404(db, company_id)
+    scope.require(Perm.bill_tos_read, company.operator_id, read_perm=Perm.companies_read)
+    return posted_order_page(db, filters, company_id=company.id, state="open")
 
 
 @router.post(

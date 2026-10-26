@@ -336,7 +336,8 @@ export const getInvoicesListBillToInvoicedOrdersUrl = (billToId: string,
 }
 
 /**
- * The bill-to's invoices, newest first, each with the service order it bills.
+ * The bill-to's invoices, newest first unless `sort=asc`, each with the service order it
+ * bills.
  * @summary List Bill To Invoiced Orders
  */
 export const invoicesListBillToInvoicedOrders = async (billToId: string,
@@ -469,7 +470,8 @@ export const getInvoicesListCompanyInvoicedOrdersUrl = (companyId: string,
 }
 
 /**
- * Invoices across all the company's bill-tos, newest first, each with its service order.
+ * Invoices across all the company's bill-tos, newest first unless `sort=asc`, each with its
+ * service order.
  * @summary List Company Invoiced Orders
  */
 export const invoicesListCompanyInvoicedOrders = async (companyId: string,

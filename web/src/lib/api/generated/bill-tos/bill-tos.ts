@@ -28,6 +28,7 @@ import type {
   BillToRead,
   BillToSynced,
   BillToUpdate,
+  BillTosListOpenServiceOrdersParams,
   BillTosListPostedServiceOrdersParams,
   BillTosListServiceOrdersParams,
   BillTosListSyncJobsParams,
@@ -658,8 +659,9 @@ export const getBillTosListPostedServiceOrdersUrl = (billToId: string,
 }
 
 /**
- * The bill-to's worked orders without a stored invoice, oldest first. `q` matches the
- * order number or OrderID exactly, or the location's name (store number) anywhere.
+ * The bill-to's worked orders without a stored invoice, oldest first unless `sort=desc`.
+ * `q` matches the order number or OrderID exactly, or the location's name (store number)
+ * anywhere.
  * @summary List Posted Service Orders
  */
 export const billTosListPostedServiceOrders = async (billToId: string,
@@ -747,6 +749,140 @@ export function useBillTosListPostedServiceOrders<TData = Awaited<ReturnType<typ
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getBillTosListPostedServiceOrdersQueryOptions(billToId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type billTosListOpenServiceOrdersResponse200 = {
+  data: PostedServiceOrderPage
+  status: 200
+}
+
+export type billTosListOpenServiceOrdersResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type billTosListOpenServiceOrdersResponseSuccess = (billTosListOpenServiceOrdersResponse200) & {
+  headers: Headers;
+};
+export type billTosListOpenServiceOrdersResponseError = (billTosListOpenServiceOrdersResponse422) & {
+  headers: Headers;
+};
+
+export const getBillTosListOpenServiceOrdersUrl = (billToId: string,
+    params?: BillTosListOpenServiceOrdersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/v1/bill-tos/${billToId}/open-service-orders?${stringifiedParams}` : `/v1/bill-tos/${billToId}/open-service-orders`
+}
+
+/**
+ * The bill-to's orders not worked yet (PestPac still lists them), filtered and sorted as
+ * its posted orders.
+ * @summary List Open Service Orders
+ */
+export const billTosListOpenServiceOrders = async (billToId: string,
+    params?: BillTosListOpenServiceOrdersParams, options?: Parameters<typeof bffFetch>[1]): Promise<billTosListOpenServiceOrdersResponseSuccess> => {
+
+  return bffFetch<billTosListOpenServiceOrdersResponseSuccess>(getBillTosListOpenServiceOrdersUrl(billToId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getBillTosListOpenServiceOrdersQueryKey = (billToId: string,
+    params?: BillTosListOpenServiceOrdersParams,) => {
+    return [
+    `/v1/bill-tos/${billToId}/open-service-orders`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getBillTosListOpenServiceOrdersQueryOptions = <TData = Awaited<ReturnType<typeof billTosListOpenServiceOrders>>, TError = HTTPValidationError>(billToId: string,
+    params?: BillTosListOpenServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListOpenServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getBillTosListOpenServiceOrdersQueryKey(billToId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof billTosListOpenServiceOrders>>> = ({ signal }) => billTosListOpenServiceOrders(billToId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: billToId !== null && billToId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof billTosListOpenServiceOrders>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type BillTosListOpenServiceOrdersQueryResult = NonNullable<Awaited<ReturnType<typeof billTosListOpenServiceOrders>>>
+export type BillTosListOpenServiceOrdersQueryError = HTTPValidationError
+
+
+export function useBillTosListOpenServiceOrders<TData = Awaited<ReturnType<typeof billTosListOpenServiceOrders>>, TError = HTTPValidationError>(
+ billToId: string,
+    params: undefined |  BillTosListOpenServiceOrdersParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListOpenServiceOrders>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof billTosListOpenServiceOrders>>,
+          TError,
+          Awaited<ReturnType<typeof billTosListOpenServiceOrders>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBillTosListOpenServiceOrders<TData = Awaited<ReturnType<typeof billTosListOpenServiceOrders>>, TError = HTTPValidationError>(
+ billToId: string,
+    params?: BillTosListOpenServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListOpenServiceOrders>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof billTosListOpenServiceOrders>>,
+          TError,
+          Awaited<ReturnType<typeof billTosListOpenServiceOrders>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBillTosListOpenServiceOrders<TData = Awaited<ReturnType<typeof billTosListOpenServiceOrders>>, TError = HTTPValidationError>(
+ billToId: string,
+    params?: BillTosListOpenServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListOpenServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Open Service Orders
+ */
+
+export function useBillTosListOpenServiceOrders<TData = Awaited<ReturnType<typeof billTosListOpenServiceOrders>>, TError = HTTPValidationError>(
+ billToId: string,
+    params?: BillTosListOpenServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billTosListOpenServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getBillTosListOpenServiceOrdersQueryOptions(billToId,params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

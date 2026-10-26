@@ -244,3 +244,28 @@ def test_invoiced_orders_leave_posted_and_list_under_their_invoice(client, onboa
         assert item["invoice_number"] == "A3048012" and item["location_name"] is not None
         assert item["service_order"]["pestpac_order_id"] == ORDER_ID
         assert item["service_order"]["technician_comment"] is not None
+
+
+def test_invoiced_orders_sort_by_invoice_date(client, onboarded, pestpac):
+    pestpac.orders_by_location[STORE] = [
+        _posted_order(),
+        pestpac_order(1854700, STORE, ONBOARDED_BILL_TO, Posted=True, OrderNumber="3049999"),
+    ]
+    pestpac.invoices[3494466] = pestpac_invoice(InvoiceDate="2026-10-22T00:00:00")
+    pestpac.invoices[3494467] = pestpac_invoice(
+        3494467,
+        OrderID=1854700,
+        OrderNumber="3049999",
+        InvoiceNumber="A3049999",
+        InvoiceDate="2026-09-01T00:00:00",
+    )
+    _drain()
+    path = f"/v1/bill-tos/{onboarded['bill_to_id']}/invoiced-orders"
+
+    def ids(**params):
+        page = client.get(path, params=params, headers=onboarded["headers"]).json()
+        return [i["pestpac_invoice_id"] for i in page["items"]]
+
+    assert ids() == [3494466, 3494467]  # newest first by default
+    assert ids(sort="asc") == [3494467, 3494466]
+    assert client.get(path, params={"sort": "up"}, headers=onboarded["headers"]).status_code == 422

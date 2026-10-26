@@ -700,7 +700,7 @@
           "companies"
         ],
         "summary": "List Posted Service Orders",
-        "description": "Worked orders without a stored invoice across all the company's bill-tos, oldest first,\nfiltered as for a bill-to.",
+        "description": "Worked orders without a stored invoice across all the company's bill-tos, oldest first\nunless `sort=desc`, filtered as for a bill-to.",
         "operationId": "companies-list_posted_service_orders",
         "security": [
           {
@@ -768,6 +768,161 @@
               ],
               "title": "Service Code"
             }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "description": "By WorkDate: oldest (asc) or newest (desc) first.",
+              "default": "asc",
+              "title": "Sort"
+            },
+            "description": "By WorkDate: oldest (asc) or newest (desc) first."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostedServiceOrderPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/companies/{company_id}/open-service-orders": {
+      "get": {
+        "tags": [
+          "companies"
+        ],
+        "summary": "List Open Service Orders",
+        "description": "Orders not worked yet across all the company's bill-tos, filtered and sorted as its\nposted orders.",
+        "operationId": "companies-list_open_service_orders",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Company Id"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "technician_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Technician Id"
+            }
+          },
+          {
+            "name": "service_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Service Code"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "description": "By WorkDate: oldest (asc) or newest (desc) first.",
+              "default": "asc",
+              "title": "Sort"
+            },
+            "description": "By WorkDate: oldest (asc) or newest (desc) first."
           },
           {
             "name": "limit",
@@ -1223,7 +1378,7 @@
           "bill_tos"
         ],
         "summary": "List Posted Service Orders",
-        "description": "The bill-to's worked orders without a stored invoice, oldest first. `q` matches the\norder number or OrderID exactly, or the location's name (store number) anywhere.",
+        "description": "The bill-to's worked orders without a stored invoice, oldest first unless `sort=desc`.\n`q` matches the order number or OrderID exactly, or the location's name (store number)\nanywhere.",
         "operationId": "bill_tos-list_posted_service_orders",
         "security": [
           {
@@ -1291,6 +1446,161 @@
               ],
               "title": "Service Code"
             }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "description": "By WorkDate: oldest (asc) or newest (desc) first.",
+              "default": "asc",
+              "title": "Sort"
+            },
+            "description": "By WorkDate: oldest (asc) or newest (desc) first."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostedServiceOrderPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bill-tos/{bill_to_id}/open-service-orders": {
+      "get": {
+        "tags": [
+          "bill_tos"
+        ],
+        "summary": "List Open Service Orders",
+        "description": "The bill-to's orders not worked yet (PestPac still lists them), filtered and sorted as\nits posted orders.",
+        "operationId": "bill_tos-list_open_service_orders",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bill_to_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Bill To Id"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "technician_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Technician Id"
+            }
+          },
+          {
+            "name": "service_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Service Code"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "description": "By WorkDate: oldest (asc) or newest (desc) first.",
+              "default": "asc",
+              "title": "Sort"
+            },
+            "description": "By WorkDate: oldest (asc) or newest (desc) first."
           },
           {
             "name": "limit",
@@ -2048,7 +2358,7 @@
           "invoices"
         ],
         "summary": "List Bill To Invoiced Orders",
-        "description": "The bill-to's invoices, newest first, each with the service order it bills.",
+        "description": "The bill-to's invoices, newest first unless `sort=asc`, each with the service order it\nbills.",
         "operationId": "invoices-list_bill_to_invoiced_orders",
         "security": [
           {
@@ -2065,6 +2375,22 @@
               "format": "uuid",
               "title": "Bill To Id"
             }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "description": "By invoice date: newest (desc) or oldest (asc) first.",
+              "default": "desc",
+              "title": "Sort"
+            },
+            "description": "By invoice date: newest (desc) or oldest (asc) first."
           },
           {
             "name": "limit",
@@ -2120,7 +2446,7 @@
           "invoices"
         ],
         "summary": "List Company Invoiced Orders",
-        "description": "Invoices across all the company's bill-tos, newest first, each with its service order.",
+        "description": "Invoices across all the company's bill-tos, newest first unless `sort=asc`, each with its\nservice order.",
         "operationId": "invoices-list_company_invoiced_orders",
         "security": [
           {
@@ -2137,6 +2463,22 @@
               "format": "uuid",
               "title": "Company Id"
             }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "description": "By invoice date: newest (desc) or oldest (asc) first.",
+              "default": "desc",
+              "title": "Sort"
+            },
+            "description": "By invoice date: newest (desc) or oldest (asc) first."
           },
           {
             "name": "limit",

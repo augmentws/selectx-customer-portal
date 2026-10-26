@@ -28,6 +28,7 @@ import type {
   BillToLookup,
   BillToRead,
   BillToSynced,
+  CompaniesListOpenServiceOrdersParams,
   CompaniesListPostedServiceOrdersParams,
   CompaniesLookupBillToParams,
   CompanyDetail,
@@ -537,8 +538,8 @@ export const getCompaniesListPostedServiceOrdersUrl = (companyId: string,
 }
 
 /**
- * Worked orders without a stored invoice across all the company's bill-tos, oldest first,
- * filtered as for a bill-to.
+ * Worked orders without a stored invoice across all the company's bill-tos, oldest first
+ * unless `sort=desc`, filtered as for a bill-to.
  * @summary List Posted Service Orders
  */
 export const companiesListPostedServiceOrders = async (companyId: string,
@@ -626,6 +627,140 @@ export function useCompaniesListPostedServiceOrders<TData = Awaited<ReturnType<t
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getCompaniesListPostedServiceOrdersQueryOptions(companyId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type companiesListOpenServiceOrdersResponse200 = {
+  data: PostedServiceOrderPage
+  status: 200
+}
+
+export type companiesListOpenServiceOrdersResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type companiesListOpenServiceOrdersResponseSuccess = (companiesListOpenServiceOrdersResponse200) & {
+  headers: Headers;
+};
+export type companiesListOpenServiceOrdersResponseError = (companiesListOpenServiceOrdersResponse422) & {
+  headers: Headers;
+};
+
+export const getCompaniesListOpenServiceOrdersUrl = (companyId: string,
+    params?: CompaniesListOpenServiceOrdersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/v1/companies/${companyId}/open-service-orders?${stringifiedParams}` : `/v1/companies/${companyId}/open-service-orders`
+}
+
+/**
+ * Orders not worked yet across all the company's bill-tos, filtered and sorted as its
+ * posted orders.
+ * @summary List Open Service Orders
+ */
+export const companiesListOpenServiceOrders = async (companyId: string,
+    params?: CompaniesListOpenServiceOrdersParams, options?: Parameters<typeof bffFetch>[1]): Promise<companiesListOpenServiceOrdersResponseSuccess> => {
+
+  return bffFetch<companiesListOpenServiceOrdersResponseSuccess>(getCompaniesListOpenServiceOrdersUrl(companyId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getCompaniesListOpenServiceOrdersQueryKey = (companyId: string,
+    params?: CompaniesListOpenServiceOrdersParams,) => {
+    return [
+    `/v1/companies/${companyId}/open-service-orders`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getCompaniesListOpenServiceOrdersQueryOptions = <TData = Awaited<ReturnType<typeof companiesListOpenServiceOrders>>, TError = HTTPValidationError>(companyId: string,
+    params?: CompaniesListOpenServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof companiesListOpenServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCompaniesListOpenServiceOrdersQueryKey(companyId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof companiesListOpenServiceOrders>>> = ({ signal }) => companiesListOpenServiceOrders(companyId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: companyId !== null && companyId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof companiesListOpenServiceOrders>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type CompaniesListOpenServiceOrdersQueryResult = NonNullable<Awaited<ReturnType<typeof companiesListOpenServiceOrders>>>
+export type CompaniesListOpenServiceOrdersQueryError = HTTPValidationError
+
+
+export function useCompaniesListOpenServiceOrders<TData = Awaited<ReturnType<typeof companiesListOpenServiceOrders>>, TError = HTTPValidationError>(
+ companyId: string,
+    params: undefined |  CompaniesListOpenServiceOrdersParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof companiesListOpenServiceOrders>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof companiesListOpenServiceOrders>>,
+          TError,
+          Awaited<ReturnType<typeof companiesListOpenServiceOrders>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCompaniesListOpenServiceOrders<TData = Awaited<ReturnType<typeof companiesListOpenServiceOrders>>, TError = HTTPValidationError>(
+ companyId: string,
+    params?: CompaniesListOpenServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof companiesListOpenServiceOrders>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof companiesListOpenServiceOrders>>,
+          TError,
+          Awaited<ReturnType<typeof companiesListOpenServiceOrders>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCompaniesListOpenServiceOrders<TData = Awaited<ReturnType<typeof companiesListOpenServiceOrders>>, TError = HTTPValidationError>(
+ companyId: string,
+    params?: CompaniesListOpenServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof companiesListOpenServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Open Service Orders
+ */
+
+export function useCompaniesListOpenServiceOrders<TData = Awaited<ReturnType<typeof companiesListOpenServiceOrders>>, TError = HTTPValidationError>(
+ companyId: string,
+    params?: CompaniesListOpenServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof companiesListOpenServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getCompaniesListOpenServiceOrdersQueryOptions(companyId,params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

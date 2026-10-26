@@ -113,19 +113,23 @@ def list_service_orders(
 
 
 class PostedOrderFilters:
-    """Query parameters shared by the bill-to and company posted-order lists."""
+    """Query parameters shared by the bill-to and company posted- and open-order lists."""
 
     def __init__(
         self,
         q: str | None = Query(default=None, max_length=100),
         technician_id: uuid.UUID | None = None,
         service_code: str | None = Query(default=None, max_length=100),
+        sort: Literal["asc", "desc"] = Query(
+            default="asc", description="By WorkDate: oldest (asc) or newest (desc) first."
+        ),
         limit: int = Query(default=50, ge=1, le=200),
         offset: int = Query(default=0, ge=0),
     ):
         self.q = q
         self.technician_id = technician_id
         self.service_code = service_code
+        self.sort = sort
         self.limit = limit
         self.offset = offset
 
@@ -136,6 +140,7 @@ def posted_order_page(
     *,
     bill_to_id: uuid.UUID | None = None,
     company_id: uuid.UUID | None = None,
+    state: service_orders.OrderListState = "posted",
 ) -> PostedServiceOrderPage:
     rows, total = service_orders.list_posted_orders(
         db,
@@ -144,11 +149,13 @@ def posted_order_page(
         q=filters.q,
         technician_id=filters.technician_id,
         service_code=filters.service_code,
+        state=state,
+        newest_first=filters.sort == "desc",
         limit=filters.limit,
         offset=filters.offset,
     )
     techs, codes = service_orders.posted_order_facets(
-        db, bill_to_id=bill_to_id, company_id=company_id
+        db, bill_to_id=bill_to_id, company_id=company_id, state=state
     )
     reports = service_reports.report_ids_for_orders(db, [order.id for order, _ in rows])
     items = [
@@ -175,11 +182,26 @@ def list_posted_service_orders(
     db: Session = Depends(get_db),
     scope: AccessScope = Depends(get_scope),
 ):
-    """The bill-to's worked orders without a stored invoice, oldest first. `q` matches the
-    order number or OrderID exactly, or the location's name (store number) anywhere."""
+    """The bill-to's worked orders without a stored invoice, oldest first unless `sort=desc`.
+    `q` matches the order number or OrderID exactly, or the location's name (store number)
+    anywhere."""
     bill_to = _bill_to_or_404(db, bill_to_id)
     scope.require(Perm.bill_tos_read, bill_to.operator_id, read_perm=Perm.bill_tos_read)
     return posted_order_page(db, filters, bill_to_id=bill_to.id)
+
+
+@router.get("/{bill_to_id}/open-service-orders", response_model=PostedServiceOrderPage)
+def list_open_service_orders(
+    bill_to_id: uuid.UUID,
+    filters: PostedOrderFilters = Depends(),
+    db: Session = Depends(get_db),
+    scope: AccessScope = Depends(get_scope),
+):
+    """The bill-to's orders not worked yet (PestPac still lists them), filtered and sorted as
+    its posted orders."""
+    bill_to = _bill_to_or_404(db, bill_to_id)
+    scope.require(Perm.bill_tos_read, bill_to.operator_id, read_perm=Perm.bill_tos_read)
+    return posted_order_page(db, filters, bill_to_id=bill_to.id, state="open")
 
 
 @router.post(

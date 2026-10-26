@@ -272,6 +272,44 @@ def test_posted_orders_are_listed_oldest_first_and_paged(client, onboarded, pest
         ).json()
         assert [o["pestpac_order_id"] for o in page["items"]] == [1]
 
+        page = client.get(path, params={"sort": "desc"}, headers=onboarded["headers"]).json()
+        assert [o["pestpac_order_id"] for o in page["items"]] == [1, 4, 3]
+
+
+def test_open_orders_are_unworked_ones_pestpac_still_lists(client, onboarded, pestpac):
+    _run_worker()  # drain the onboarding job
+    pestpac.orders_by_location[900001] = [
+        pestpac_order(1, 900001, BILL_TO, Posted=True, WorkDate="2026-10-19T14:00:00"),
+        pestpac_order(2, 900001, BILL_TO, Posted=False, WorkDate="2026-11-03T09:00:00"),
+        pestpac_order(3, 900001, BILL_TO, Posted=False, WorkDate="2026-10-27T09:00:00"),
+    ]
+    pestpac.orders_by_location[900002] = [
+        pestpac_order(4, 900002, BILL_TO, Posted=False, WorkDate="2026-10-01T09:00:00"),
+    ]
+    _sync(client, onboarded)
+    pestpac.orders_by_location[900002] = []  # order 4 dropped by PestPac: no longer open
+    _sync(client, onboarded)
+
+    company_id = client.get(
+        f"/v1/bill-tos/{onboarded['bill_to_id']}", headers=onboarded["headers"]
+    ).json()["company_id"]
+    ours = {1, 2, 3, 4}  # the test world holds an open order of its own
+
+    def ids(page):
+        return [o["pestpac_order_id"] for o in page["items"] if o["pestpac_order_id"] in ours]
+
+    for path in (
+        f"/v1/bill-tos/{onboarded['bill_to_id']}/open-service-orders",
+        f"/v1/companies/{company_id}/open-service-orders",
+    ):
+        page = client.get(path, headers=onboarded["headers"]).json()
+        assert ids(page) == [3, 2]
+        assert all(not o["posted"] and o["closed_at"] is None for o in page["items"])
+        assert page["items"][0]["location_name"] is not None
+
+        page = client.get(path, params={"sort": "desc"}, headers=onboarded["headers"]).json()
+        assert ids(page) == [2, 3]
+
 
 def test_order_listed_under_the_wrong_location_fails_that_location(client, onboarded, pestpac):
     # PestPac lists it under 900001 but says it belongs to 999999: rejected as inconsistent.

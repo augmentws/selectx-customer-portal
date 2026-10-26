@@ -4,8 +4,13 @@
  * Customer Portal API
  * OpenAPI spec version: 0.1.0
  */
+import type { InvoicesListCompanyInvoicedOrdersSort } from './invoicesListCompanyInvoicedOrdersSort';
 
 export type InvoicesListCompanyInvoicedOrdersParams = {
+/**
+ * By invoice date: newest (desc) or oldest (asc) first.
+ */
+sort?: InvoicesListCompanyInvoicedOrdersSort;
 /**
  * @minimum 1
  * @maximum 200

@@ -126,6 +126,18 @@ CASES = [
         _all(404, platform_admin=200, admin_a=200, staff_a=200),
     ),
     Case(
+        "list open service orders of bill-to A",
+        "GET",
+        lambda w: f"/v1/bill-tos/{w.bill_to_a}/open-service-orders",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "list open service orders of company A",
+        "GET",
+        lambda w: f"/v1/companies/{w.company_a}/open-service-orders",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
         "list invoices of a location in A",
         "GET",
         lambda w: f"/v1/locations/{w.location_a}/invoices",

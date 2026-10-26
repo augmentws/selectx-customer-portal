@@ -29,7 +29,7 @@ import { useUrlTab } from "@/lib/use-url-tab";
 
 export function BillToDetail() {
   const { billToId } = useParams<{ billToId: string }>();
-  const [tab, setTab] = useUrlTab(["locations", "posted", "invoiced"], "locations");
+  const [tab, setTab] = useUrlTab(["locations", "posted", "invoiced", "open"], "locations");
   const queryClient = useQueryClient();
   const { can } = usePermissions();
   const billTo = useBillTosGetBillTo(billToId);
@@ -140,6 +140,7 @@ export function BillToDetail() {
           {can("billing:read", b.operator_id) && (
             <TabsTrigger value="invoiced">Invoiced orders</TabsTrigger>
           )}
+          <TabsTrigger value="open">Open orders</TabsTrigger>
         </TabsList>
         <TabsContent value="locations" className="pt-4">
           <BillToLocations locations={locations} />
@@ -156,6 +157,14 @@ export function BillToDetail() {
             <InvoicedOrders billToId={billToId} />
           </TabsContent>
         )}
+        <TabsContent value="open" className="pt-4">
+          <PostedServiceOrders
+            kind="open"
+            billToId={billToId}
+            companyId={b.company_id}
+            operatorId={b.operator_id}
+          />
+        </TabsContent>
       </Tabs>
     </div>
   );

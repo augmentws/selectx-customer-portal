@@ -32,7 +32,10 @@ import { useUrlTab } from "@/lib/use-url-tab";
 
 export function CompanyDetail() {
   const { companyId } = useParams<{ companyId: string }>();
-  const [tab, setTab] = useUrlTab(["bill-tos", "posted", "invoiced", "templates"], "bill-tos");
+  const [tab, setTab] = useUrlTab(
+    ["bill-tos", "posted", "invoiced", "open", "templates"],
+    "bill-tos",
+  );
   const queryClient = useQueryClient();
   const { can } = usePermissions();
   const company = useCompaniesGetCompany(companyId);
@@ -107,6 +110,7 @@ export function CompanyDetail() {
           {can("billing:read", c.operator_id) && (
             <TabsTrigger value="invoiced">Invoiced orders</TabsTrigger>
           )}
+          <TabsTrigger value="open">Open orders</TabsTrigger>
           {can("reports:read", c.operator_id) && (
             <TabsTrigger value="templates">Report templates</TabsTrigger>
           )}
@@ -203,6 +207,9 @@ export function CompanyDetail() {
             <InvoicedOrders companyId={companyId} />
           </TabsContent>
         )}
+        <TabsContent value="open" className="pt-4">
+          <PostedServiceOrders kind="open" companyId={companyId} operatorId={c.operator_id} />
+        </TabsContent>
         {can("reports:read", c.operator_id) && (
           <TabsContent value="templates" className="pt-4">
             <ReportTemplatesSection companyId={companyId} operatorId={c.operator_id} />
