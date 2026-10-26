@@ -4,6 +4,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.v1.bill_tos import PostedOrderFilters, posted_order_page
 from app.db.session import get_db
 from app.models import BillTo, Location, SyncJobKind
 from app.schemas.tenancy import (
@@ -12,6 +13,7 @@ from app.schemas.tenancy import (
     DocumentRead,
     LocationDetail,
     NoteRead,
+    PostedServiceOrderPage,
     ServiceOrderRead,
     SyncJobRead,
 )
@@ -100,6 +102,48 @@ def list_service_orders(
     location = _location_or_404(db, location_id)
     scope.require(Perm.bill_tos_read, location.operator_id, read_perm=Perm.bill_tos_read)
     return service_orders.list_orders(db, location_id=location.id, status=status, oldest_first=True)
+
+
+@router.get("/{location_id}/posted-service-orders", response_model=PostedServiceOrderPage)
+def list_posted_service_orders(
+    location_id: uuid.UUID,
+    filters: PostedOrderFilters = Depends(),
+    db: Session = Depends(get_db),
+    scope: AccessScope = Depends(get_scope),
+):
+    """The location's worked orders without a stored invoice, filtered and sorted as a
+    bill-to's."""
+    location = _location_or_404(db, location_id)
+    scope.require(Perm.bill_tos_read, location.operator_id, read_perm=Perm.bill_tos_read)
+    return posted_order_page(db, filters, location_id=location.id)
+
+
+@router.get("/{location_id}/invoiced-service-orders", response_model=PostedServiceOrderPage)
+def list_invoiced_service_orders(
+    location_id: uuid.UUID,
+    filters: PostedOrderFilters = Depends(),
+    db: Session = Depends(get_db),
+    scope: AccessScope = Depends(get_scope),
+):
+    """The location's orders that have a stored invoice (the orders only, not the invoices),
+    filtered and sorted as its posted orders. Needs billing:read, like invoices."""
+    location = _location_or_404(db, location_id)
+    scope.require(Perm.billing_read, location.operator_id, read_perm=Perm.bill_tos_read)
+    return posted_order_page(db, filters, location_id=location.id, state="invoiced")
+
+
+@router.get("/{location_id}/open-service-orders", response_model=PostedServiceOrderPage)
+def list_open_service_orders(
+    location_id: uuid.UUID,
+    filters: PostedOrderFilters = Depends(),
+    db: Session = Depends(get_db),
+    scope: AccessScope = Depends(get_scope),
+):
+    """The location's orders not worked yet (PestPac still lists them), filtered and sorted as
+    its posted orders."""
+    location = _location_or_404(db, location_id)
+    scope.require(Perm.bill_tos_read, location.operator_id, read_perm=Perm.bill_tos_read)
+    return posted_order_page(db, filters, location_id=location.id, state="open")
 
 
 @router.post(

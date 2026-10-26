@@ -140,12 +140,14 @@ def posted_order_page(
     *,
     bill_to_id: uuid.UUID | None = None,
     company_id: uuid.UUID | None = None,
+    location_id: uuid.UUID | None = None,
     state: service_orders.OrderListState = "posted",
 ) -> PostedServiceOrderPage:
     rows, total = service_orders.list_posted_orders(
         db,
         bill_to_id=bill_to_id,
         company_id=company_id,
+        location_id=location_id,
         q=filters.q,
         technician_id=filters.technician_id,
         service_code=filters.service_code,
@@ -155,7 +157,7 @@ def posted_order_page(
         offset=filters.offset,
     )
     techs, codes = service_orders.posted_order_facets(
-        db, bill_to_id=bill_to_id, company_id=company_id, state=state
+        db, bill_to_id=bill_to_id, company_id=company_id, location_id=location_id, state=state
     )
     reports = service_reports.report_ids_for_orders(db, [order.id for order, _ in rows])
     items = [

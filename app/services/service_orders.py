@@ -220,23 +220,29 @@ def list_orders(
     return orders
 
 
-OrderListState = Literal["posted", "open"]
+OrderListState = Literal["posted", "invoiced", "open"]
 
 
 def _posted_orders(
-    bill_to_id: uuid.UUID | None, company_id: uuid.UUID | None, state: OrderListState = "posted"
+    bill_to_id: uuid.UUID | None,
+    company_id: uuid.UUID | None,
+    state: OrderListState = "posted",
+    location_id: uuid.UUID | None = None,
 ):
-    """For one bill-to or a whole company: `posted`, worked orders without a stored invoice;
-    `open`, orders not worked yet that PestPac still lists."""
+    """For one location, one bill-to, or a whole company: `posted`, worked orders without a
+    stored invoice; `invoiced`, orders with one; `open`, orders not worked yet that PestPac
+    still lists."""
+    invoiced = exists().where(Invoice.service_order_id == ServiceOrder.id)
     if state == "posted":
-        query = select(ServiceOrder).where(
-            ServiceOrder.posted.is_(True),
-            ~exists().where(Invoice.service_order_id == ServiceOrder.id),
-        )
+        query = select(ServiceOrder).where(ServiceOrder.posted.is_(True), ~invoiced)
+    elif state == "invoiced":
+        query = select(ServiceOrder).where(invoiced)
     else:
         query = select(ServiceOrder).where(
             ServiceOrder.posted.is_(False), ServiceOrder.closed_at.is_(None)
         )
+    if location_id is not None:
+        query = query.where(ServiceOrder.location_id == location_id)
     if bill_to_id is not None:
         query = query.where(ServiceOrder.bill_to_id == bill_to_id)
     if company_id is not None:
@@ -256,6 +262,7 @@ def list_posted_orders(
     *,
     bill_to_id: uuid.UUID | None = None,
     company_id: uuid.UUID | None = None,
+    location_id: uuid.UUID | None = None,
     q: str | None = None,
     technician_id: uuid.UUID | None = None,
     service_code: str | None = None,
@@ -264,13 +271,13 @@ def list_posted_orders(
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[tuple[ServiceOrder, str | None]], int]:
-    """Worked orders without a stored invoice (or, with `state="open"`, orders not worked yet),
+    """Worked orders without a stored invoice (or, by `state`, invoiced or not yet worked ones),
     by WorkDate (oldest first unless `newest_first`; undated last), with their location's name.
     Invoiced ones are listed from their invoices instead (`invoices.list_invoices`).
 
     `q` matches the order number or OrderID exactly, or the location's name (which carries the
     store number) anywhere."""
-    query = _posted_orders(bill_to_id, company_id, state).outerjoin(
+    query = _posted_orders(bill_to_id, company_id, state, location_id).outerjoin(
         Location, Location.id == ServiceOrder.location_id
     )
     if q and q.strip():
@@ -307,12 +314,12 @@ def posted_order_facets(
     *,
     bill_to_id: uuid.UUID | None = None,
     company_id: uuid.UUID | None = None,
+    location_id: uuid.UUID | None = None,
     state: OrderListState = "posted",
 ) -> tuple[list[tuple[uuid.UUID, str]], list[str]]:
-    """The technicians (id, name) and service codes among the unfiltered posted (or open)
-    orders, for the list's filter choices. Technicians not yet resolved from PestPac aren't
-    offered."""
-    orders = _posted_orders(bill_to_id, company_id, state).subquery()
+    """The technicians (id, name) and service codes among the unfiltered orders of the list,
+    for its filter choices. Technicians not yet resolved from PestPac aren't offered."""
+    orders = _posted_orders(bill_to_id, company_id, state, location_id).subquery()
     techs = db.execute(
         select(Technician)
         .where(Technician.id.in_(select(orders.c.technician_id)))

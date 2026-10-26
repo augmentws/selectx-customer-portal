@@ -28,8 +28,12 @@ import type {
   DocumentRead,
   HTTPValidationError,
   LocationDetail,
+  LocationsListInvoicedServiceOrdersParams,
+  LocationsListOpenServiceOrdersParams,
+  LocationsListPostedServiceOrdersParams,
   LocationsListServiceOrdersParams,
   NoteRead,
+  PostedServiceOrderPage,
   ServiceOrderRead,
   SyncJobRead
 } from '../model';
@@ -650,6 +654,408 @@ export function useLocationsListServiceOrders<TData = Awaited<ReturnType<typeof 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getLocationsListServiceOrdersQueryOptions(locationId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type locationsListPostedServiceOrdersResponse200 = {
+  data: PostedServiceOrderPage
+  status: 200
+}
+
+export type locationsListPostedServiceOrdersResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type locationsListPostedServiceOrdersResponseSuccess = (locationsListPostedServiceOrdersResponse200) & {
+  headers: Headers;
+};
+export type locationsListPostedServiceOrdersResponseError = (locationsListPostedServiceOrdersResponse422) & {
+  headers: Headers;
+};
+
+export const getLocationsListPostedServiceOrdersUrl = (locationId: string,
+    params?: LocationsListPostedServiceOrdersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/v1/locations/${locationId}/posted-service-orders?${stringifiedParams}` : `/v1/locations/${locationId}/posted-service-orders`
+}
+
+/**
+ * The location's worked orders without a stored invoice, filtered and sorted as a
+ * bill-to's.
+ * @summary List Posted Service Orders
+ */
+export const locationsListPostedServiceOrders = async (locationId: string,
+    params?: LocationsListPostedServiceOrdersParams, options?: Parameters<typeof bffFetch>[1]): Promise<locationsListPostedServiceOrdersResponseSuccess> => {
+
+  return bffFetch<locationsListPostedServiceOrdersResponseSuccess>(getLocationsListPostedServiceOrdersUrl(locationId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getLocationsListPostedServiceOrdersQueryKey = (locationId: string,
+    params?: LocationsListPostedServiceOrdersParams,) => {
+    return [
+    `/v1/locations/${locationId}/posted-service-orders`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getLocationsListPostedServiceOrdersQueryOptions = <TData = Awaited<ReturnType<typeof locationsListPostedServiceOrders>>, TError = HTTPValidationError>(locationId: string,
+    params?: LocationsListPostedServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListPostedServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getLocationsListPostedServiceOrdersQueryKey(locationId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof locationsListPostedServiceOrders>>> = ({ signal }) => locationsListPostedServiceOrders(locationId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: locationId !== null && locationId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof locationsListPostedServiceOrders>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type LocationsListPostedServiceOrdersQueryResult = NonNullable<Awaited<ReturnType<typeof locationsListPostedServiceOrders>>>
+export type LocationsListPostedServiceOrdersQueryError = HTTPValidationError
+
+
+export function useLocationsListPostedServiceOrders<TData = Awaited<ReturnType<typeof locationsListPostedServiceOrders>>, TError = HTTPValidationError>(
+ locationId: string,
+    params: undefined |  LocationsListPostedServiceOrdersParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListPostedServiceOrders>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof locationsListPostedServiceOrders>>,
+          TError,
+          Awaited<ReturnType<typeof locationsListPostedServiceOrders>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useLocationsListPostedServiceOrders<TData = Awaited<ReturnType<typeof locationsListPostedServiceOrders>>, TError = HTTPValidationError>(
+ locationId: string,
+    params?: LocationsListPostedServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListPostedServiceOrders>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof locationsListPostedServiceOrders>>,
+          TError,
+          Awaited<ReturnType<typeof locationsListPostedServiceOrders>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useLocationsListPostedServiceOrders<TData = Awaited<ReturnType<typeof locationsListPostedServiceOrders>>, TError = HTTPValidationError>(
+ locationId: string,
+    params?: LocationsListPostedServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListPostedServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Posted Service Orders
+ */
+
+export function useLocationsListPostedServiceOrders<TData = Awaited<ReturnType<typeof locationsListPostedServiceOrders>>, TError = HTTPValidationError>(
+ locationId: string,
+    params?: LocationsListPostedServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListPostedServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getLocationsListPostedServiceOrdersQueryOptions(locationId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type locationsListInvoicedServiceOrdersResponse200 = {
+  data: PostedServiceOrderPage
+  status: 200
+}
+
+export type locationsListInvoicedServiceOrdersResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type locationsListInvoicedServiceOrdersResponseSuccess = (locationsListInvoicedServiceOrdersResponse200) & {
+  headers: Headers;
+};
+export type locationsListInvoicedServiceOrdersResponseError = (locationsListInvoicedServiceOrdersResponse422) & {
+  headers: Headers;
+};
+
+export const getLocationsListInvoicedServiceOrdersUrl = (locationId: string,
+    params?: LocationsListInvoicedServiceOrdersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/v1/locations/${locationId}/invoiced-service-orders?${stringifiedParams}` : `/v1/locations/${locationId}/invoiced-service-orders`
+}
+
+/**
+ * The location's orders that have a stored invoice (the orders only, not the invoices),
+ * filtered and sorted as its posted orders. Needs billing:read, like invoices.
+ * @summary List Invoiced Service Orders
+ */
+export const locationsListInvoicedServiceOrders = async (locationId: string,
+    params?: LocationsListInvoicedServiceOrdersParams, options?: Parameters<typeof bffFetch>[1]): Promise<locationsListInvoicedServiceOrdersResponseSuccess> => {
+
+  return bffFetch<locationsListInvoicedServiceOrdersResponseSuccess>(getLocationsListInvoicedServiceOrdersUrl(locationId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getLocationsListInvoicedServiceOrdersQueryKey = (locationId: string,
+    params?: LocationsListInvoicedServiceOrdersParams,) => {
+    return [
+    `/v1/locations/${locationId}/invoiced-service-orders`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getLocationsListInvoicedServiceOrdersQueryOptions = <TData = Awaited<ReturnType<typeof locationsListInvoicedServiceOrders>>, TError = HTTPValidationError>(locationId: string,
+    params?: LocationsListInvoicedServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListInvoicedServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getLocationsListInvoicedServiceOrdersQueryKey(locationId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof locationsListInvoicedServiceOrders>>> = ({ signal }) => locationsListInvoicedServiceOrders(locationId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: locationId !== null && locationId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof locationsListInvoicedServiceOrders>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type LocationsListInvoicedServiceOrdersQueryResult = NonNullable<Awaited<ReturnType<typeof locationsListInvoicedServiceOrders>>>
+export type LocationsListInvoicedServiceOrdersQueryError = HTTPValidationError
+
+
+export function useLocationsListInvoicedServiceOrders<TData = Awaited<ReturnType<typeof locationsListInvoicedServiceOrders>>, TError = HTTPValidationError>(
+ locationId: string,
+    params: undefined |  LocationsListInvoicedServiceOrdersParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListInvoicedServiceOrders>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof locationsListInvoicedServiceOrders>>,
+          TError,
+          Awaited<ReturnType<typeof locationsListInvoicedServiceOrders>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useLocationsListInvoicedServiceOrders<TData = Awaited<ReturnType<typeof locationsListInvoicedServiceOrders>>, TError = HTTPValidationError>(
+ locationId: string,
+    params?: LocationsListInvoicedServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListInvoicedServiceOrders>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof locationsListInvoicedServiceOrders>>,
+          TError,
+          Awaited<ReturnType<typeof locationsListInvoicedServiceOrders>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useLocationsListInvoicedServiceOrders<TData = Awaited<ReturnType<typeof locationsListInvoicedServiceOrders>>, TError = HTTPValidationError>(
+ locationId: string,
+    params?: LocationsListInvoicedServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListInvoicedServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Invoiced Service Orders
+ */
+
+export function useLocationsListInvoicedServiceOrders<TData = Awaited<ReturnType<typeof locationsListInvoicedServiceOrders>>, TError = HTTPValidationError>(
+ locationId: string,
+    params?: LocationsListInvoicedServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListInvoicedServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getLocationsListInvoicedServiceOrdersQueryOptions(locationId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type locationsListOpenServiceOrdersResponse200 = {
+  data: PostedServiceOrderPage
+  status: 200
+}
+
+export type locationsListOpenServiceOrdersResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type locationsListOpenServiceOrdersResponseSuccess = (locationsListOpenServiceOrdersResponse200) & {
+  headers: Headers;
+};
+export type locationsListOpenServiceOrdersResponseError = (locationsListOpenServiceOrdersResponse422) & {
+  headers: Headers;
+};
+
+export const getLocationsListOpenServiceOrdersUrl = (locationId: string,
+    params?: LocationsListOpenServiceOrdersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/v1/locations/${locationId}/open-service-orders?${stringifiedParams}` : `/v1/locations/${locationId}/open-service-orders`
+}
+
+/**
+ * The location's orders not worked yet (PestPac still lists them), filtered and sorted as
+ * its posted orders.
+ * @summary List Open Service Orders
+ */
+export const locationsListOpenServiceOrders = async (locationId: string,
+    params?: LocationsListOpenServiceOrdersParams, options?: Parameters<typeof bffFetch>[1]): Promise<locationsListOpenServiceOrdersResponseSuccess> => {
+
+  return bffFetch<locationsListOpenServiceOrdersResponseSuccess>(getLocationsListOpenServiceOrdersUrl(locationId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getLocationsListOpenServiceOrdersQueryKey = (locationId: string,
+    params?: LocationsListOpenServiceOrdersParams,) => {
+    return [
+    `/v1/locations/${locationId}/open-service-orders`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getLocationsListOpenServiceOrdersQueryOptions = <TData = Awaited<ReturnType<typeof locationsListOpenServiceOrders>>, TError = HTTPValidationError>(locationId: string,
+    params?: LocationsListOpenServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListOpenServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getLocationsListOpenServiceOrdersQueryKey(locationId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof locationsListOpenServiceOrders>>> = ({ signal }) => locationsListOpenServiceOrders(locationId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: locationId !== null && locationId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof locationsListOpenServiceOrders>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type LocationsListOpenServiceOrdersQueryResult = NonNullable<Awaited<ReturnType<typeof locationsListOpenServiceOrders>>>
+export type LocationsListOpenServiceOrdersQueryError = HTTPValidationError
+
+
+export function useLocationsListOpenServiceOrders<TData = Awaited<ReturnType<typeof locationsListOpenServiceOrders>>, TError = HTTPValidationError>(
+ locationId: string,
+    params: undefined |  LocationsListOpenServiceOrdersParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListOpenServiceOrders>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof locationsListOpenServiceOrders>>,
+          TError,
+          Awaited<ReturnType<typeof locationsListOpenServiceOrders>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useLocationsListOpenServiceOrders<TData = Awaited<ReturnType<typeof locationsListOpenServiceOrders>>, TError = HTTPValidationError>(
+ locationId: string,
+    params?: LocationsListOpenServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListOpenServiceOrders>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof locationsListOpenServiceOrders>>,
+          TError,
+          Awaited<ReturnType<typeof locationsListOpenServiceOrders>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useLocationsListOpenServiceOrders<TData = Awaited<ReturnType<typeof locationsListOpenServiceOrders>>, TError = HTTPValidationError>(
+ locationId: string,
+    params?: LocationsListOpenServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListOpenServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Open Service Orders
+ */
+
+export function useLocationsListOpenServiceOrders<TData = Awaited<ReturnType<typeof locationsListOpenServiceOrders>>, TError = HTTPValidationError>(
+ locationId: string,
+    params?: LocationsListOpenServiceOrdersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListOpenServiceOrders>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getLocationsListOpenServiceOrdersQueryOptions(locationId,params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

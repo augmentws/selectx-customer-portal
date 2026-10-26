@@ -4,14 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { NoteList } from "@/components/note-list";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { errorMessage } from "@/lib/api/errors";
 import type { ServiceOrderRead } from "@/lib/api/generated/model";
 import { useServiceOrdersListNotes } from "@/lib/api/generated/service-orders/service-orders";
-
-export type OrderStatusFilter = "open" | "closed" | "all";
 
 /** PestPac sends work dates as local wall-clock time without an offset; show them as-is. */
 export function formatPestPacDate(value: string | null, withTime = false): string {
@@ -156,80 +152,5 @@ export function OrderRow({
         </div>
       </details>
     </li>
-  );
-}
-
-export function OrderStatusSelect({
-  value,
-  onChange,
-}: {
-  value: OrderStatusFilter;
-  onChange: (value: OrderStatusFilter) => void;
-}) {
-  return (
-    <NativeSelect
-      size="sm"
-      aria-label="Show orders"
-      value={value}
-      onChange={(e) => onChange(e.target.value as OrderStatusFilter)}
-    >
-      <NativeSelectOption value="open">Open and worked</NativeSelectOption>
-      <NativeSelectOption value="closed">Billed</NativeSelectOption>
-      <NativeSelectOption value="all">All</NativeSelectOption>
-    </NativeSelect>
-  );
-}
-
-const EMPTY: Record<OrderStatusFilter, string> = {
-  open: "No open service orders.",
-  closed: "No billed service orders recorded yet.",
-  all: "No service orders recorded yet.",
-};
-
-export function ServiceOrderList({
-  query,
-  status,
-  locationNames,
-  showLocation = true,
-  actions,
-}: {
-  query: {
-    isPending: boolean;
-    isError: boolean;
-    error: unknown;
-    data?: { data: ServiceOrderRead[] };
-  };
-  status: OrderStatusFilter;
-  /** Location display names by our location id, for the bill-to view. */
-  locationNames?: Map<string, string>;
-  /** Off on a location's own page, where linking to the location goes nowhere. */
-  showLocation?: boolean;
-  /** Per-order controls, shown at the right of each order's heading. */
-  actions?: (order: ServiceOrderRead) => React.ReactNode;
-}) {
-  if (query.isPending) return <p className="text-muted-foreground">Loading…</p>;
-  if (query.isError || !query.data) {
-    return (
-      <Alert variant="destructive">
-        <AlertDescription>
-          {errorMessage(query.error, "Could not load service orders.")}
-        </AlertDescription>
-      </Alert>
-    );
-  }
-  const orders = query.data.data;
-  return (
-    <ul className="divide-y divide-border border border-border bg-card">
-      {orders.length === 0 && <li className="p-4 text-muted-foreground">{EMPTY[status]}</li>}
-      {orders.map((order) => (
-        <OrderRow
-          key={order.id}
-          order={order}
-          showLocation={showLocation}
-          actions={actions?.(order)}
-          locationName={order.location_id ? locationNames?.get(order.location_id) : undefined}
-        />
-      ))}
-    </ul>
   );
 }

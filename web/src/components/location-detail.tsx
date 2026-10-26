@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { LocationConditions } from "@/components/location-conditions";
@@ -10,14 +10,10 @@ import { LocationDocuments } from "@/components/location-documents";
 import { LocationInvoices } from "@/components/location-invoices";
 import { LocationServiceReports } from "@/components/location-service-reports";
 import { NoteList } from "@/components/note-list";
-import { ReportAction, useServiceReportTemplates } from "@/components/report-action";
+import { PostedServiceOrders } from "@/components/posted-service-orders";
+import { useServiceReportTemplates } from "@/components/report-action";
 import { LocationReports } from "@/components/report-templates";
-import {
-  formatPestPacDate,
-  type OrderStatusFilter,
-  OrderStatusSelect,
-  ServiceOrderList,
-} from "@/components/service-order-list";
+import { formatPestPacDate } from "@/components/service-order-list";
 import { PestPacSync } from "@/components/sync-job-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -31,40 +27,32 @@ import {
   getLocationsListConditionsQueryKey,
   getLocationsListDocumentsQueryKey,
   getLocationsListNotesQueryKey,
-  getLocationsListServiceOrdersQueryKey,
+  getLocationsListInvoicedServiceOrdersQueryKey,
+  getLocationsListOpenServiceOrdersQueryKey,
+  getLocationsListPostedServiceOrdersQueryKey,
   useLocationsGetLocation,
   useLocationsListNotes,
-  useLocationsListServiceOrders,
 } from "@/lib/api/generated/locations/locations";
-import { useReportsListServiceReports } from "@/lib/api/generated/reports/reports";
 import { usePermissions } from "@/lib/permissions";
 import { useUrlTab } from "@/lib/use-url-tab";
 
 const TABS = ["overview", "orders", "conditions", "documents", "invoices", "notes"] as const;
+const ORDER_TABS = ["posted", "invoiced", "open"] as const;
 
 export function LocationDetail() {
   const { locationId } = useParams<{ locationId: string }>();
   const queryClient = useQueryClient();
   const { can } = usePermissions();
   const [tab, setTab] = useUrlTab(TABS, "overview");
-  const [status, setStatus] = useState<OrderStatusFilter>("open");
+  const [ordersTab, setOrdersTab] = useUrlTab(ORDER_TABS, "posted", "orders");
   const location = useLocationsGetLocation(locationId);
   const billToId = location.data?.data.bill_to_id ?? "";
   const billTo = useBillTosGetBillTo(billToId, { query: { enabled: billToId !== "" } });
-  const orders = useLocationsListServiceOrders(locationId, { status });
   const notes = useLocationsListNotes(locationId);
-  const reports = useReportsListServiceReports(locationId);
   const templates = useServiceReportTemplates(
     billTo.data?.data.company_id,
     billTo.data?.data.operator_id,
   );
-  // An order's current version: the highest revision, preferring one that isn't superseded.
-  const rank = (r: { revision: number; status: string }) =>
-    r.revision * 2 + (r.status === "superseded" ? 0 : 1);
-  const reportByOrder = new Map<string, string>();
-  for (const r of [...(reports.data?.data ?? [])].sort((x, y) => rank(x) - rank(y))) {
-    reportByOrder.set(r.service_order_id, r.id);
-  }
   const l = location.data?.data;
   useDocumentTitle(
     l && (l.pestpac_company ?? `LocationID ${l.pestpac_location_id}`),
@@ -74,7 +62,9 @@ export function LocationDetail() {
   const onSynced = useCallback(() => {
     for (const queryKey of [
       getLocationsGetLocationQueryKey(locationId),
-      getLocationsListServiceOrdersQueryKey(locationId),
+      getLocationsListPostedServiceOrdersQueryKey(locationId),
+      getLocationsListInvoicedServiceOrdersQueryKey(locationId),
+      getLocationsListOpenServiceOrdersQueryKey(locationId),
       getLocationsListNotesQueryKey(locationId),
     ]) {
       queryClient.invalidateQueries({ queryKey });
@@ -199,23 +189,30 @@ export function LocationDetail() {
           )}
         </TabsContent>
 
-        <TabsContent value="orders" className="flex flex-col gap-3 pt-4">
-          <div className="flex justify-end">
-            <OrderStatusSelect value={status} onChange={setStatus} />
-          </div>
-          <ServiceOrderList
-            query={orders}
-            status={status}
-            showLocation={false}
-            actions={(order) => (
-              <ReportAction
-                orderId={order.id}
-                locationId={order.location_id}
-                reportId={reportByOrder.get(order.id)}
-                templates={templates}
-              />
-            )}
-          />
+        <TabsContent value="orders" className="pt-4">
+          {/* As on the customer page; invoiced orders need billing:read. */}
+          <Tabs
+            value={ordersTab === "invoiced" && !canBilling ? "posted" : ordersTab}
+            onValueChange={setOrdersTab}
+          >
+            <TabsList>
+              <TabsTrigger value="posted">Posted</TabsTrigger>
+              {canBilling && <TabsTrigger value="invoiced">Invoiced</TabsTrigger>}
+              <TabsTrigger value="open">Open</TabsTrigger>
+            </TabsList>
+            {ORDER_TABS.map((kind) => (
+              <TabsContent key={kind} value={kind} className="pt-4">
+                {b && (
+                  <PostedServiceOrders
+                    kind={kind}
+                    locationId={loc.id}
+                    companyId={b.company_id}
+                    operatorId={b.operator_id}
+                  />
+                )}
+              </TabsContent>
+            ))}
+          </Tabs>
         </TabsContent>
 
         <TabsContent value="conditions" className="pt-4">

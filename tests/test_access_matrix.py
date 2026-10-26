@@ -138,6 +138,24 @@ CASES = [
         _all(404, platform_admin=200, admin_a=200, staff_a=200),
     ),
     Case(
+        "list posted service orders of a location in A",
+        "GET",
+        lambda w: f"/v1/locations/{w.location_a}/posted-service-orders",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "list invoiced service orders of a location in A",
+        "GET",
+        lambda w: f"/v1/locations/{w.location_a}/invoiced-service-orders",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+    ),
+    Case(
+        "list open service orders of a location in A",
+        "GET",
+        lambda w: f"/v1/locations/{w.location_a}/open-service-orders",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
         "list invoices of a location in A",
         "GET",
         lambda w: f"/v1/locations/{w.location_a}/invoices",

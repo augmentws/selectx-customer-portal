@@ -10,6 +10,7 @@ from tests.conftest import (
     pestpac_invoice,
     pestpac_order,
 )
+from tests.test_notes import _store_id
 from tests.test_webhooks import envelope, post
 
 STORE = 900001
@@ -269,3 +270,44 @@ def test_invoiced_orders_sort_by_invoice_date(client, onboarded, pestpac):
     assert ids() == [3494466, 3494467]  # newest first by default
     assert ids(sort="asc") == [3494467, 3494466]
     assert client.get(path, params={"sort": "up"}, headers=onboarded["headers"]).status_code == 422
+
+
+def test_a_locations_orders_are_listed_as_posted_invoiced_and_open(client, onboarded, pestpac):
+    pestpac.orders_by_location[STORE] = [
+        _posted_order(WorkDate="2026-10-01T09:00:00"),  # invoiced below
+        pestpac_order(
+            1854700,
+            STORE,
+            ONBOARDED_BILL_TO,
+            Posted=True,
+            OrderNumber="3049999",
+            WorkDate="2026-10-05T09:00:00",
+        ),
+        pestpac_order(
+            1854701,
+            STORE,
+            ONBOARDED_BILL_TO,
+            Posted=False,
+            OrderNumber="3050000",
+            WorkDate="2026-11-02T09:00:00",
+        ),
+    ]
+    # Another location's worked order: not this location's.
+    pestpac.orders_by_location[900002] = [
+        pestpac_order(1854800, 900002, ONBOARDED_BILL_TO, Posted=True, OrderNumber="3051111")
+    ]
+    pestpac.invoices[3494466] = pestpac_invoice()  # bills ORDER_ID only
+    _drain()
+    base = f"/v1/locations/{_store_id(client, onboarded)}"
+
+    def ids(kind, **params):
+        resp = client.get(
+            f"{base}/{kind}-service-orders", params=params, headers=onboarded["headers"]
+        )
+        assert resp.status_code == 200, resp.text
+        return [o["pestpac_order_id"] for o in resp.json()["items"]]
+
+    assert ids("posted") == [1854700]
+    assert ids("invoiced") == [ORDER_ID]
+    assert ids("open") == [1854701]
+    assert ids("posted", q="3049999") == [1854700]
