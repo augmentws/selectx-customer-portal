@@ -4,15 +4,24 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from app import worker
 from app.db.session import SessionLocal
-from app.models import BillTo, PestPacConnection, ServiceOrder, SyncJob, WebhookEntity, WebhookEvent
+from app.models import (
+    BillTo,
+    Invoice,
+    Note,
+    PestPacConnection,
+    ServiceOrder,
+    SyncJob,
+    WebhookEntity,
+    WebhookEvent,
+)
 from app.security.secrets import encrypt
 from app.services import webhook_handlers
 from app.services.webhooks import purge_raw_bodies
-from tests.conftest import ONBOARDED_BILL_TO, WORLD_WEBHOOK_SHA, pestpac_order
+from tests.conftest import ONBOARDED_BILL_TO, WORLD_WEBHOOK_SHA, pestpac_invoice, pestpac_order
 
 URL = "/v1/webhooks/pestpac"
 TENANT = "115060"  # operator A
@@ -334,3 +343,134 @@ def test_handler_crash_is_recorded_not_retried(client, onboarded, monkeypatch):
     [event] = events()
     assert (event.status, event.error) == ("failed", "Handler error: RuntimeError")
     assert _process() == 0
+
+
+# --- Billed orders: PestPac no longer lists them; only the invoice remains ---
+
+BILLED_ORDER = 1865079
+BILLED_NUMBER = "3046886"
+
+
+def _billed_invoice(**overrides) -> dict:
+    fields = {
+        "OrderID": BILLED_ORDER,
+        "OrderNumber": BILLED_NUMBER,
+        "LocationID": STORE,
+        "BillToID": ONBOARDED_BILL_TO,
+        "TechnicianComment": "Sealed gap by the CO2 tank.",
+    }
+    return pestpac_invoice(3500001, **(fields | overrides))
+
+
+def _billed_event() -> dict:
+    order = pestpac_order(
+        BILLED_ORDER, STORE, ONBOARDED_BILL_TO, Posted=True, OrderNumber=BILLED_NUMBER
+    )
+    return envelope("Service Order", BILLED_ORDER, "Post", order)
+
+
+def test_billed_order_is_stored_from_its_invoice(client, onboarded, pestpac):
+    worker._Stop.requested = False
+    worker.run_pending()  # onboarding sync; PestPac never lists the (billed) order
+    pestpac.invoices[3500001] = _billed_invoice()
+    post(client, _billed_event())
+    [event] = events()
+    with SessionLocal() as db:  # a note PestPac associated with the order, synced earlier
+        db.add(
+            Note(
+                operator_id=event.operator_id,
+                pestpac_note_id=990001,
+                pestpac_order_id=BILLED_ORDER,
+                pestpac_fetched_at=datetime.now(UTC),
+            )
+        )
+        db.commit()
+
+    assert _process() == 1
+    [event] = events()
+    assert event.status == "processed" and event.error is None
+    order = _order(BILLED_ORDER)
+    assert order.order_number == BILLED_NUMBER
+    assert order.posted and order.posted_at and order.closed_at  # worked and billed
+    assert order.pestpac_invoice_id == 3500001
+    assert order.technician_comment == "Sealed gap by the CO2 tank."
+    assert order.location_id is not None and order.work_date is not None
+    with SessionLocal() as db:
+        invoice = db.scalar(select(Invoice).where(Invoice.pestpac_invoice_id == 3500001))
+        assert invoice.service_order_id == order.id
+        note = db.scalar(select(Note).where(Note.pestpac_note_id == 990001))
+        assert note.service_order_id == order.id
+
+    # The queued location sync doesn't list it, and leaves it billed.
+    worker.run_pending()
+    assert _order(BILLED_ORDER).closed_at is not None
+
+
+def test_open_order_is_left_to_the_sync(client, onboarded, pestpac):
+    post(client, _billed_event())  # no invoice: the order is still open
+    _process()
+    [event] = events()
+    assert event.status == "processed" and event.sync_job_id is not None
+    assert _order(BILLED_ORDER) is None
+
+
+def test_invoice_for_another_order_is_not_used(client, onboarded, pestpac):
+    pestpac.invoices[3500001] = _billed_invoice(OrderID=7777777)
+    post(client, _billed_event())
+    _process()
+    assert _order(BILLED_ORDER) is None
+
+
+def test_invoice_search_failure_fails_the_event(client, onboarded, pestpac):
+    pestpac.invoice_search_status = 500
+    post(client, _billed_event())
+    _process()
+    [event] = events()
+    assert event.status == "failed" and "billed" in event.error
+    assert event.sync_job_id is not None  # the location sync is still queued
+    assert _order(BILLED_ORDER) is None
+
+
+def test_requeue_fills_orders_billed_before_invoices_were_used(client, onboarded, pestpac):
+    pestpac.invoice_search_status = 500  # handled without its invoice (as before this fix)
+    post(client, _billed_event())
+    _process()
+    pestpac.invoice_search_status = 200
+    pestpac.invoices[3500001] = _billed_invoice()
+
+    with SessionLocal() as db:
+        assert webhook_handlers.requeue_unstored_orders(db) == 1
+        assert webhook_handlers.requeue_unstored_orders(db) == 0  # already queued
+    assert _process() == 1
+    assert _order(BILLED_ORDER).pestpac_invoice_id == 3500001
+    with SessionLocal() as db:
+        assert webhook_handlers.requeue_unstored_orders(db) == 0  # stored now
+
+
+def test_order_stored_meanwhile_by_another_worker_is_used(client, onboarded):
+    """Two workers can handle two events for the same billed order at once: the later insert
+    gives way to the stored copy instead of failing the event."""
+    from app.schemas.pestpac import PestPacInvoiceDetails
+    from app.services import invoices
+
+    post(client, _billed_event())
+    [event] = events()
+    with SessionLocal() as db:
+        bill_to = db.scalar(select(BillTo).where(BillTo.pestpac_bill_to_id == ONBOARDED_BILL_TO))
+        details = PestPacInvoiceDetails.from_api(_billed_invoice())
+        now = datetime.now(UTC)
+        first = invoices._order_from_invoice(
+            db, event.operator_id, details, bill_to.id, None, None, now
+        )
+        db.commit()
+        again = invoices._order_from_invoice(
+            db, event.operator_id, details, bill_to.id, None, None, now
+        )
+        db.commit()
+        assert again.id == first.id
+        count = db.scalar(
+            select(func.count())
+            .select_from(ServiceOrder)
+            .where(ServiceOrder.pestpac_order_id == BILLED_ORDER)
+        )
+        assert count == 1

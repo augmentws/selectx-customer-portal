@@ -113,6 +113,11 @@ def purge_webhook_bodies() -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--once", action="store_true", help="run queued jobs, then exit")
+    parser.add_argument(
+        "--requeue-unstored-orders",
+        action="store_true",
+        help="first send service order events whose order isn't stored back to the queue",
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     validate_keys()
@@ -123,6 +128,12 @@ def main(argv: list[str] | None = None) -> int:
 
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
+
+    if args.requeue_unstored_orders:
+        with SessionLocal() as db:
+            log.info(
+                "Requeued %s service order events", webhook_handlers.requeue_unstored_orders(db)
+            )
 
     if args.once:
         run_pending()

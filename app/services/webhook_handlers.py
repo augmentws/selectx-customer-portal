@@ -10,12 +10,20 @@ for the usual service-order sync, which re-reads PestPac, applies the field whit
 bill-to rule, marks the order worked, and collects the location's notes. Signatures are only
 reported for now, so the body isn't trusted beyond choosing what to sync. An event for a
 location that's already queued or syncing shares that job.
+
+That sync only sees orders PestPac still lists, and a billed order is gone from PestPac: only
+its invoice remains. So an event for an order we don't hold also searches its invoice by the
+body's OrderNumber; an invoice for that OrderID stores both, the order as worked and billed
+(`invoices.upsert_invoice(create_order=True)`), and links the order's notes. No invoice means
+the order is still open, and the sync stores it.
 """
 
+import json
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import cast, select, update
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -28,7 +36,8 @@ from app.models import (
     WebhookEvent,
     WebhookEventStatus,
 )
-from app.services import invoices, pestpac_connection, sync_jobs
+from app.schemas.pestpac import NoteSyncCounts
+from app.services import invoices, notes, pestpac_connection, sync_jobs
 from app.services.pestpac_connection import ConnectionNotReadyError, PestPacUnavailableError
 from app.services.technicians import TechnicianResolver
 
@@ -117,6 +126,55 @@ def _process_invoice(db: Session, event: WebhookEvent) -> str | None:
     return None
 
 
+def _held(db: Session, event: WebhookEvent) -> bool:
+    return (
+        db.scalar(
+            select(ServiceOrder.id).where(
+                ServiceOrder.operator_id == event.operator_id,
+                ServiceOrder.pestpac_order_id == event.pestpac_entity_id,
+            )
+        )
+        is not None
+    )
+
+
+def _body_order_number(event: WebhookEvent) -> str | None:
+    """The OrderNumber in the event's body, used only to look the invoice up (the invoice must
+    then name this event's OrderID). None once the raw body is purged."""
+    if event.raw_body is None:
+        return None
+    try:
+        body = json.loads(event.raw_body).get("EntityBody")
+    except ValueError, AttributeError:
+        return None
+    value = body.get("OrderNumber") if isinstance(body, dict) else None
+    if value is None:
+        return None
+    return str(value).strip() or None
+
+
+def _store_billed_order(db: Session, event: WebhookEvent) -> str | None:
+    """For an order we don't hold: store it from its invoice if it's already billed. Returns
+    an error message, or None (including when there's no invoice: the order is still open)."""
+    if _held(db, event):
+        return None
+    order_number = _body_order_number(event)
+    if order_number is None:
+        return None
+    operator = db.get(Tenant, event.operator_id)
+    try:
+        client = pestpac_connection.get_pestpac_client(db, operator)
+        found = invoices.fetch_invoices_for_order(client, order_number)
+    except (ConnectionNotReadyError, PestPacUnavailableError) as exc:
+        return f"Could not check whether the order is billed: {exc}"
+    technicians = TechnicianResolver(db, client, event.operator_id)
+    for details in found:
+        if details.pestpac_order_id == event.pestpac_entity_id:
+            invoices.upsert_invoice(db, event.operator_id, details, technicians, create_order=True)
+            notes.link_notes_to_orders(db, event.operator_id, NoteSyncCounts())
+    return None
+
+
 def process(db: Session, event: WebhookEvent) -> None:
     """Handle one event. Does not commit."""
     now = datetime.now(UTC)
@@ -131,11 +189,43 @@ def process(db: Session, event: WebhookEvent) -> None:
         event.status = WebhookEventStatus.processed
     else:
         job, error = _queue_sync(db, event)
+        if job is not None:
+            error = _store_billed_order(db, event)
         event.sync_job_id = job.id if job else None
         event.status = WebhookEventStatus.failed if error else WebhookEventStatus.processed
         event.error = error
     event.processed_at = now
     db.flush()
+
+
+def requeue_unstored_orders(db: Session) -> int:
+    """Send handled service order events whose order we still don't hold back to the worker
+    (e.g. billed orders handled before invoices could fill them in). Only events that still
+    have their body can be looked up. Commits; returns how many were requeued."""
+    held = (
+        select(ServiceOrder.id)
+        .where(
+            ServiceOrder.operator_id == WebhookEvent.operator_id,
+            ServiceOrder.pestpac_order_id == WebhookEvent.pestpac_entity_id,
+        )
+        .exists()
+    )
+    result = db.execute(
+        update(WebhookEvent)
+        .where(
+            WebhookEvent.entity == WebhookEntity.service_order,
+            WebhookEvent.action != "delete",
+            WebhookEvent.status.in_([WebhookEventStatus.processed, WebhookEventStatus.failed]),
+            # Bodies were valid JSON when received; only those naming an order number can be
+            # looked up.
+            cast(WebhookEvent.raw_body, JSONB)["EntityBody"]["OrderNumber"].is_not(None),
+            ~held,
+        )
+        .values(status=WebhookEventStatus.received, error=None, processed_at=None)
+        .execution_options(synchronize_session=False)
+    )
+    db.commit()
+    return result.rowcount or 0
 
 
 def mark_crashed(db: Session, event_id: uuid.UUID, error: str) -> None:

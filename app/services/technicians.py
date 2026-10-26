@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 import requests
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.integrations.pestpac import PestPacAuthError, PestPacClient
@@ -131,13 +132,23 @@ class TechnicianResolver:
             counts.technicians_unresolved += 1
             self._cache[tech_id] = None
             return None
-        technician = Technician(
-            operator_id=self._operator_id,
-            pestpac_fetched_at=datetime.now(UTC),
-            **details.model_dump(),
+        # Another worker may store the same technician meanwhile: then its row is used.
+        self._db.execute(
+            pg_insert(Technician)
+            .values(
+                id=uuid.uuid4(),
+                operator_id=self._operator_id,
+                pestpac_fetched_at=datetime.now(UTC),
+                **details.model_dump(),
+            )
+            .on_conflict_do_nothing(index_elements=["operator_id", "pestpac_tech_id"])
         )
-        self._db.add(technician)
-        self._db.flush()
+        technician_id = self._db.scalars(
+            select(Technician.id).where(
+                Technician.operator_id == self._operator_id,
+                Technician.pestpac_tech_id == tech_id,
+            )
+        ).one()
         counts.technicians_resolved += 1
-        self._cache[tech_id] = technician.id
-        return technician.id
+        self._cache[tech_id] = technician_id
+        return technician_id

@@ -1,7 +1,7 @@
 import re
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app import worker
 from app.db.session import SessionLocal
@@ -13,6 +13,7 @@ from app.models import (
     SyncJob,
     SyncJobStatus,
     Technician,
+    Tenant,
 )
 from app.services import sync_jobs
 from tests.conftest import headers_for, pestpac_order
@@ -505,3 +506,44 @@ def test_posted_orders_filter_by_search_technician_and_service_code(client, worl
     assert page["total"] == 0
     assert page["technicians"] == [{"id": pat_id, "name": "Pat Tester"}]
     assert page["service_codes"] == ["RAMP MONITOR", "RCOMMERCIAL"]
+
+
+def test_technician_stored_meanwhile_by_another_worker_is_used(client, onboarded, pestpac):
+    """Two workers can resolve the same new TechID at once: the later insert gives way to the
+    stored row instead of failing the job or webhook event."""
+    from app.schemas.pestpac import ServiceOrderSyncCounts
+    from app.services import pestpac_connection
+    from app.services.technicians import TechnicianResolver
+    from tests.conftest import TECHNICIAN_FIXTURE
+
+    tech_id = TECHNICIAN_FIXTURE["TechID"]
+    with SessionLocal() as db:
+        operator_id = db.scalar(select(PestPacConnection.operator_id))
+        client_ = pestpac_connection.get_pestpac_client(db, db.get(Tenant, operator_id))
+        first = TechnicianResolver(db, client_, operator_id).resolve(
+            tech_id, ServiceOrderSyncCounts()
+        )
+        db.commit()
+
+        # The other worker's lookup ran before that commit, so it saw no technician.
+        resolver = TechnicianResolver(db, client_, operator_id)
+        real_scalar = db.scalar
+        calls = {"n": 0}
+
+        def scalar_missing_once(statement, *args, **kwargs):
+            calls["n"] += 1
+            return None if calls["n"] == 1 else real_scalar(statement, *args, **kwargs)
+
+        db.scalar = scalar_missing_once
+        try:
+            again = resolver.resolve(tech_id, ServiceOrderSyncCounts())
+        finally:
+            del db.scalar
+        db.commit()
+        assert again == first
+        count = db.scalar(
+            select(func.count())
+            .select_from(Technician)
+            .where(Technician.pestpac_tech_id == tech_id)
+        )
+        assert count == 1

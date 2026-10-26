@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 
 import requests
 from sqlalchemy import exists, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, selectinload
 
 from app.integrations.pestpac import PestPacAuthError, PestPacClient
@@ -93,14 +94,69 @@ def _complete_order(order: ServiceOrder, invoice: Invoice, now: datetime) -> Non
         order.technician_comment = invoice.technician_comment
 
 
+def _order_from_invoice(
+    db: Session,
+    operator_id: uuid.UUID,
+    details: PestPacInvoiceDetails,
+    bill_to_id: uuid.UUID,
+    location_id: uuid.UUID | None,
+    technician_id: uuid.UUID | None,
+    now: datetime,
+) -> ServiceOrder:
+    """Our copy of an order PestPac no longer lists: once billed, only its invoice remains. It
+    carries the order's id, number, service, work date, position-1 technician, instructions, and
+    technician comment; Tech1's username isn't on the invoice.
+
+    Inserted with ON CONFLICT DO NOTHING, then read back: another worker handling another event
+    for the same order may store it first, and then that copy is used."""
+    db.execute(
+        pg_insert(ServiceOrder)
+        .values(
+            id=uuid.uuid4(),
+            operator_id=operator_id,
+            bill_to_id=bill_to_id,
+            location_id=location_id,
+            pestpac_order_id=details.pestpac_order_id,
+            pestpac_location_id=details.pestpac_location_id,
+            order_number=details.order_number,
+            service_code=details.service_code,
+            description=details.description,
+            work_date=details.work_date,
+            tech_id=details.pestpac_tech_id,
+            technician_id=technician_id,
+            location_instructions=details.location_instructions,
+            service_instructions=details.service_instructions,
+            order_instructions=details.order_instructions,
+            technician_comment=details.technician_comment,
+            pestpac_invoice_id=details.pestpac_invoice_id,
+            posted=True,
+            posted_at=now,
+            closed_at=now,
+            pestpac_fetched_at=now,
+        )
+        .on_conflict_do_nothing(index_elements=["operator_id", "pestpac_order_id"])
+    )
+    return db.scalars(
+        select(ServiceOrder).where(
+            ServiceOrder.operator_id == operator_id,
+            ServiceOrder.pestpac_order_id == details.pestpac_order_id,
+        )
+    ).one()
+
+
 def upsert_invoice(
     db: Session,
     operator_id: uuid.UUID,
     details: PestPacInvoiceDetails,
     technicians: TechnicianResolver,
+    *,
+    create_order: bool = False,
 ) -> Invoice | None:
     """Store the invoice if its bill-to is onboarded and active (None otherwise). Does not
-    commit."""
+    commit.
+
+    `create_order`: when we don't hold the invoice's order, store it from the invoice as worked
+    and billed (for orders PestPac had already billed when we heard of them)."""
     bill_to = db.scalar(
         select(BillTo).where(
             BillTo.operator_id == operator_id,
@@ -111,15 +167,9 @@ def upsert_invoice(
     if bill_to is None:
         return None
     now = datetime.now(UTC)
-    invoice = _find(db, operator_id, details.pestpac_invoice_id)
-    if invoice is None:
-        invoice = Invoice(operator_id=operator_id, pestpac_invoice_id=details.pestpac_invoice_id)
-        db.add(invoice)
-    for field in PestPacInvoiceDetails.model_fields:
-        if field != "lines":
-            setattr(invoice, field, getattr(details, field))
-    invoice.bill_to_id = bill_to.id
-    invoice.location_id = (
+    # Before the invoice joins the session: resolving may store a technician and flush.
+    technician_id = technicians.resolve(details.pestpac_tech_id, ServiceOrderSyncCounts())
+    location_id = (
         db.scalar(
             select(Location.id).where(
                 Location.operator_id == operator_id,
@@ -139,8 +189,26 @@ def upsert_invoice(
         if details.pestpac_order_id is not None
         else None
     )
+    if (
+        order is None
+        and create_order
+        and details.pestpac_order_id is not None
+        and details.pestpac_location_id is not None
+    ):
+        order = _order_from_invoice(
+            db, operator_id, details, bill_to.id, location_id, technician_id, now
+        )
+    invoice = _find(db, operator_id, details.pestpac_invoice_id)
+    if invoice is None:
+        invoice = Invoice(operator_id=operator_id, pestpac_invoice_id=details.pestpac_invoice_id)
+        db.add(invoice)
+    for field in PestPacInvoiceDetails.model_fields:
+        if field != "lines":
+            setattr(invoice, field, getattr(details, field))
+    invoice.bill_to_id = bill_to.id
+    invoice.location_id = location_id
+    invoice.technician_id = technician_id
     invoice.service_order_id = order.id if order else None
-    invoice.technician_id = technicians.resolve(details.pestpac_tech_id, ServiceOrderSyncCounts())
     invoice.lines = [
         InvoiceLine(position=n, **line.model_dump()) for n, line in enumerate(details.lines, 1)
     ]
