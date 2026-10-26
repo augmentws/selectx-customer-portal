@@ -1,10 +1,11 @@
-"""PestPac conditions (issues) for a location: open ones, with inspections and documents.
+"""PestPac conditions (issues) for a location, open and closed, with inspections and documents.
 
-1. GET /Locations/{id}/conditions?status=Open lists open conditions (summaries, unpaged).
+1. GET /Locations/{id}/conditions lists the location's conditions (summaries, unpaged), with
+   no status filter, so closed ones (the remediation history) come too.
 2. GET /Conditions/{id} gives a condition's inspections and documents. It's fetched for new
    conditions and when the summary changes (LastInspectedDate moves when a technician
-   inspects, adding inspections and photos), and once more for a condition PestPac stops
-   listing as open, to record how it closed.
+   inspects, adding inspections and photos; the status changes when it closes), and once more
+   for an open condition PestPac stops listing, to record how it closed or that it's gone.
 
 A condition's documents go into `documents` (linked to the condition and location); their
 files are fetched by the location's file step like any other document.
@@ -36,10 +37,10 @@ def _get(client: PestPacClient, path: str, params: dict | None = None) -> reques
         raise PestPacUnavailableError(f"Could not reach PestPac: {type(exc).__name__}") from exc
 
 
-def fetch_open_conditions(
+def fetch_conditions(
     client: PestPacClient, pestpac_location_id: int
 ) -> list[PestPacConditionListItem]:
-    response = _get(client, f"/Locations/{pestpac_location_id}/conditions", {"status": "Open"})
+    response = _get(client, f"/Locations/{pestpac_location_id}/conditions")
     if response.status_code != 200:
         raise PestPacUnavailableError(
             f"PestPac /Locations/{pestpac_location_id}/conditions returned {response.status_code}"
@@ -139,8 +140,9 @@ def _changed(condition: Condition, item: PestPacConditionListItem) -> bool:
 def sync_location_conditions(
     db: Session, client: PestPacClient, location: Location, counts: ConditionSyncCounts
 ) -> None:
-    """Upsert the location's open conditions, and record ones that closed. Does not commit."""
-    listed = fetch_open_conditions(client, location.pestpac_location_id)
+    """Upsert the location's conditions, and record open ones that dropped off the list. Does
+    not commit."""
+    listed = fetch_conditions(client, location.pestpac_location_id)
     now = datetime.now(UTC)
     counts.total += len(listed)
     existing = {
@@ -174,10 +176,12 @@ def sync_location_conditions(
             counts.added += 1
         else:
             counts.updated += 1
+            if condition.status == "Open" and details.status != "Open":
+                counts.closed += 1
         _apply_details(db, condition, details, location, now, counts)
         condition.last_inspected_date = item.last_inspected_date
 
-    # Ones we hold as open that PestPac no longer lists as open: fetch to see how they closed.
+    # Ones we hold as open that PestPac no longer lists: fetch to see how they closed (or 404).
     held_open = [
         Condition.location_id == location.id,
         Condition.removed_at.is_(None),

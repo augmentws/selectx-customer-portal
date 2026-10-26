@@ -146,8 +146,9 @@ def _finish(db: Session, job: SyncJob, status: SyncJobStatus, error: str | None 
 
 
 def run_job(db: Session, job: SyncJob) -> SyncJob:
-    """Sync each location's open orders, committing per location so one failure doesn't undo
-    the rest. Ends `succeeded`, `partial` (some locations failed), or `failed`."""
+    """Sync each location's open orders, then its notes, invoices, and conditions, committing per
+    location so one failure doesn't undo the rest. Ends `succeeded`, `partial` (some locations
+    or steps failed), or `failed`."""
     operator = db.get(Tenant, job.operator_id)
     try:
         client = pestpac_connection.get_pestpac_client(db, operator)
@@ -173,6 +174,8 @@ def run_job(db: Session, job: SyncJob) -> SyncJob:
     note_totals = NoteSyncCounts()
     invoice_totals = InvoiceSyncCounts()
     invoices_failed: list[dict] = []
+    condition_totals = ConditionSyncCounts()
+    conditions_failed: list[dict] = []
     technicians = TechnicianResolver(db, client, job.operator_id)
     failed: list[dict] = []
     notes_failed: list[dict] = []
@@ -232,6 +235,22 @@ def run_job(db: Session, job: SyncJob) -> SyncJob:
                 invoices_failed.append(
                     {"pestpac_location_id": location.pestpac_location_id, "error": str(exc)[:300]}
                 )
+            # Then conditions: a posted order is when a technician's new conditions appear.
+            # Their documents are stored as rows; files wait for "Sync location". A failure
+            # never undoes the orders, notes, or invoices.
+            condition_counts = ConditionSyncCounts()
+            try:
+                conditions.sync_location_conditions(db, client, location, condition_counts)
+                db.commit()
+                _add(condition_totals, condition_counts)
+            except PestPacUnavailableError as exc:
+                db.rollback()
+                log.warning(
+                    "Conditions for location %s failed: %s", location.pestpac_location_id, exc
+                )
+                conditions_failed.append(
+                    {"pestpac_location_id": location.pestpac_location_id, "error": str(exc)[:300]}
+                )
         job = db.get(SyncJob, job.id)
         job.progress = {
             **progress,
@@ -239,20 +258,25 @@ def run_job(db: Session, job: SyncJob) -> SyncJob:
             "failed_locations": failed,
             "notes_failed_locations": notes_failed,
             "invoices_failed_locations": invoices_failed,
+            "conditions_failed_locations": conditions_failed,
             "orders": totals.model_dump(),
             "notes": note_totals.model_dump(),
             "invoices": invoice_totals.model_dump(),
+            "conditions": condition_totals.model_dump(),
         }
         job.heartbeat_at = datetime.now(UTC)
         db.commit()
 
     if failed and len(failed) == len(locations):
         _finish(db, job, SyncJobStatus.failed, "Every location failed; see progress")
-    elif failed or notes_failed or invoices_failed:
+    elif failed or notes_failed or invoices_failed or conditions_failed:
         problems = [
             f"{len(failed)} location(s) failed" if failed else "",
             f"notes failed for {len(notes_failed)} location(s)" if notes_failed else "",
             f"invoices failed for {len(invoices_failed)} location(s)" if invoices_failed else "",
+            f"conditions failed for {len(conditions_failed)} location(s)"
+            if conditions_failed
+            else "",
         ]
         _finish(db, job, SyncJobStatus.partial, "; ".join(p for p in problems if p))
     else:
@@ -266,7 +290,7 @@ LOCATION_SYNC_KINDS = (SyncJobKind.bill_to_location_sync, SyncJobKind.location_s
 def _run_location_sync(
     db: Session, job: SyncJob, client: PestPacClient, locations: list[Location]
 ) -> SyncJob:
-    """ "Sync location": per location, its documents list, its open conditions (which can add
+    """ "Sync location": per location, its documents list, its conditions (which can add
     condition documents), then files not stored yet. Locations are independent; one failing
     (PestPac or storage unreachable) leaves the others' work."""
     document_totals = DocumentSyncCounts()

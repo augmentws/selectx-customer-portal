@@ -50,17 +50,15 @@ def _open_condition(pestpac, issue_id=41008, **list_overrides):
 
 def test_open_conditions_are_stored_with_inspections_and_documents(client, onboarded, pestpac):
     pestpac.orders_by_location[STORE] = [pestpac_order(1865005, STORE, 180020)]
-    _open_condition(pestpac)
     _run_worker()  # the onboarding order sync, so the condition's order is ours
+    _open_condition(pestpac)  # after it: order syncs fetch conditions too
     job = _sync_locations(client, onboarded)
 
     assert job["status"] == "succeeded"
     assert job["progress"]["conditions"]["added"] == 1
     assert job["progress"]["conditions"]["details_fetched"] == 1
     assert job["progress"]["conditions"]["documents_linked"] == 1
-    assert any(
-        c.request.url.endswith(f"/Locations/{STORE}/conditions?status=Open") for c in pestpac.calls
-    )
+    assert any(c.request.url.endswith(f"/Locations/{STORE}/conditions") for c in pestpac.calls)
 
     [condition] = _conditions(client, onboarded)
     assert condition["pestpac_issue_id"] == 41008
@@ -143,6 +141,43 @@ def test_a_condition_no_longer_open_is_fetched_once_to_record_its_closing(
     assert _detail_calls(pestpac) == calls  # closed: not fetched again
 
 
+def test_closed_conditions_are_listed_and_stored(client, onboarded, pestpac):
+    """No status filter: conditions closed before our first sync are the remediation history."""
+    _run_worker()  # the onboarding order sync, before the condition exists
+    item = _open_condition(pestpac, status="Closed")
+    pestpac.condition_details[41008] = pestpac_condition_detail(
+        item, Status="Closed", DateClosed="2026-10-20T09:00:00"
+    )
+    job = _sync_locations(client, onboarded)
+    assert job["progress"]["conditions"]["added"] == 1
+    assert not any("status=" in c.request.url for c in pestpac.calls)
+    [condition] = _conditions(client, onboarded)
+    assert condition["status"] == "Closed"
+    assert condition["date_closed"].startswith("2026-10-20T09:00")
+
+    calls = _detail_calls(pestpac)
+    _sync_locations(client, onboarded)
+    assert _detail_calls(pestpac) == calls  # unchanged: not fetched again
+
+
+def test_a_condition_listed_as_closed_is_fetched_to_record_its_closing(client, onboarded, pestpac):
+    item = _open_condition(pestpac)
+    _sync_locations(client, onboarded)
+
+    closed = {**item, "Status": "Closed"}
+    pestpac.conditions_by_location[STORE] = [closed]
+    pestpac.condition_details[41008] = pestpac_condition_detail(
+        closed, DateClosed="2026-10-30T09:00:00"
+    )
+    calls = _detail_calls(pestpac)
+    job = _sync_locations(client, onboarded)
+    assert _detail_calls(pestpac) == calls + 1
+    assert job["progress"]["conditions"]["closed"] == 1
+    [condition] = _conditions(client, onboarded)
+    assert condition["status"] == "Closed"
+    assert condition["date_closed"].startswith("2026-10-30T09:00")
+
+
 def test_a_condition_pestpac_no_longer_has_is_marked_removed(client, onboarded, pestpac):
     _open_condition(pestpac)
     _sync_locations(client, onboarded)
@@ -165,7 +200,26 @@ def test_conditions_failure_fails_only_that_location(client, onboarded, pestpac)
     assert _conditions(client, onboarded) == []  # the location's lists rolled back together
 
 
-def test_order_syncs_leave_conditions_alone(client, onboarded, pestpac):
+def test_an_order_sync_also_syncs_the_locations_conditions(client, onboarded, pestpac):
+    """A posted order (webhook or Sync) is when a technician's new conditions appear."""
     _open_condition(pestpac)
-    _sync(client, onboarded)
-    assert not any("/conditions" in c.request.url for c in pestpac.calls)
+    job = _sync(client, onboarded)
+    assert job["status"] == "succeeded"
+    assert job["progress"]["conditions"]["added"] == 1
+    [condition] = _conditions(client, onboarded)
+    assert condition["pestpac_issue_id"] == 41008
+    # Its documents are stored as rows; files wait for "Sync location".
+    [document] = condition["documents"]
+    assert not any("/download" in c.request.url for c in pestpac.calls)
+    assert document["has_file"] is False
+
+
+def test_a_conditions_failure_leaves_the_orders_and_makes_the_job_partial(
+    client, onboarded, pestpac
+):
+    pestpac.orders_by_location[STORE] = [pestpac_order(1865005, STORE, 180020)]
+    pestpac.conditions_by_location[STORE] = 500
+    job = _sync(client, onboarded)
+    assert job["status"] == "partial"
+    assert "conditions failed for 1 location(s)" in job["error"]
+    assert job["progress"]["orders"]["added"] == 1

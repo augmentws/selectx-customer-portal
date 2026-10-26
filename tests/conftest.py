@@ -239,7 +239,7 @@ def pestpac_condition(
     last_inspected="2026-10-22T19:14:49.66",
     condition="Stagnant water interior",
 ):
-    """A GET /Locations/{id}/conditions?status=Open item, shaped like PestPac's."""
+    """A GET /Locations/{id}/conditions item, shaped like PestPac's."""
     return {
         "IssueID": issue_id,
         "LocationID": location_id,
