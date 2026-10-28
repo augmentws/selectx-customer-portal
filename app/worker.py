@@ -25,7 +25,10 @@ class _Stop:
 
 
 def run_pending() -> int:
-    """Handle webhook events, then run every claimable job and draft; returns how many ran."""
+    """Handle webhook events, then run every claimable job and draft; returns how many ran.
+    With SYNC_ACTIVE off, only drafts: events and jobs wait, since both call PestPac."""
+    if not get_settings().sync_active:
+        return run_pending_drafts()
     return run_pending_webhooks() + run_pending_jobs() + run_pending_drafts()
 
 
@@ -114,9 +117,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--once", action="store_true", help="run queued jobs, then exit")
     parser.add_argument(
-        "--requeue-unstored-orders",
+        "--requeue-failed-invoices",
         action="store_true",
-        help="first send service order events whose order isn't stored back to the queue",
+        help="first send failed invoice events whose invoice isn't stored back to the queue",
     )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -129,16 +132,16 @@ def main(argv: list[str] | None = None) -> int:
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
 
-    if args.requeue_unstored_orders:
+    if args.requeue_failed_invoices:
         with SessionLocal() as db:
-            log.info(
-                "Requeued %s service order events", webhook_handlers.requeue_unstored_orders(db)
-            )
+            log.info("Requeued %s invoice events", webhook_handlers.requeue_failed_invoices(db))
 
     if args.once:
         run_pending()
         purge_webhook_bodies()
         return 0
+    if not get_settings().sync_active:
+        log.warning("SYNC_ACTIVE is off: webhook events and sync jobs wait; nothing calls PestPac")
     poll = get_settings().worker_poll_seconds
     log.info("Worker started; polling every %ss", poll)
     last_purge = float("-inf")

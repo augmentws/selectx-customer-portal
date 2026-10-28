@@ -17,6 +17,10 @@ os.environ["APP_ENCRYPTION_KEYS"] = "Q2PYvKXuaXz5O3b4pV3-6dmgHAx5k5hvYb7Qm9H8u2Y
 os.environ["PESTPAC_DEBUG_BODIES"] = "false"
 # Never a real object store; tests get the in-memory one from the `storage` fixture.
 os.environ["S3_BUCKET"] = ""
+# Syncing on, whatever the local .env says; tests that need it off set it themselves.
+os.environ["SYNC_ACTIVE"] = "true"
+# Invoice events are handled at once; the batching tests set a wait themselves.
+os.environ["INVOICE_WEBHOOK_WAIT_MINUTES"] = "0"
 
 import json  # noqa: E402
 import re  # noqa: E402

@@ -376,11 +376,20 @@ def _billed_event() -> dict:
     return envelope("Service Order", BILLED_ORDER, "Post", order)
 
 
-def test_billed_order_is_stored_from_its_invoice(client, onboarded, pestpac):
+def _invoice_event(action: str = "Create", invoice_id: int = 3500001) -> dict:
+    body = {"InvoiceID": invoice_id, "BillToID": ONBOARDED_BILL_TO, "LocationID": STORE}
+    return envelope("Invoice", invoice_id, action, body)
+
+
+def _invoice_calls(pestpac) -> int:
+    return sum("/Invoices" in c.request.url for c in pestpac.calls)
+
+
+def test_billed_order_is_stored_from_its_invoice_event(client, onboarded, pestpac):
     worker._Stop.requested = False
     worker.run_pending()  # onboarding sync; PestPac never lists the (billed) order
     pestpac.invoices[3500001] = _billed_invoice()
-    post(client, _billed_event())
+    post(client, _invoice_event())
     [event] = events()
     with SessionLocal() as db:  # a note PestPac associated with the order, synced earlier
         db.add(
@@ -408,50 +417,98 @@ def test_billed_order_is_stored_from_its_invoice(client, onboarded, pestpac):
         note = db.scalar(select(Note).where(Note.pestpac_note_id == 990001))
         assert note.service_order_id == order.id
 
-    # The queued location sync doesn't list it, and leaves it billed.
-    worker.run_pending()
-    assert _order(BILLED_ORDER).closed_at is not None
 
-
-def test_open_order_is_left_to_the_sync(client, onboarded, pestpac):
-    post(client, _billed_event())  # no invoice: the order is still open
+def test_order_events_never_search_invoices(client, onboarded, pestpac):
+    """Billed orders arrive through their invoice events; an order event only queues a sync."""
+    pestpac.invoices[3500001] = _billed_invoice()
+    post(client, _billed_event())
     _process()
     [event] = events()
     assert event.status == "processed" and event.sync_job_id is not None
     assert _order(BILLED_ORDER) is None
+    assert _invoice_calls(pestpac) == 0
 
 
-def test_invoice_for_another_order_is_not_used(client, onboarded, pestpac):
-    pestpac.invoices[3500001] = _billed_invoice(OrderID=7777777)
-    post(client, _billed_event())
+def test_invoice_events_share_one_fetch_after_the_wait(client, onboarded, pestpac, monkeypatch):
+    from app.core.config import get_settings
+
+    monkeypatch.setenv("INVOICE_WEBHOOK_WAIT_MINUTES", "5")
+    get_settings.cache_clear()
+    try:
+        pestpac.invoices[3500001] = _billed_invoice()
+        post(client, _invoice_event("Create"), timestamp="2026-10-21T22:24:30Z")
+        post(client, _invoice_event("Update"), timestamp="2026-10-21T22:24:33Z")
+        assert _process() == 0  # waiting for more updates
+        assert _invoice_calls(pestpac) == 0
+
+        with SessionLocal() as db:  # five minutes on
+            db.execute(
+                update(WebhookEvent).values(
+                    received_at=WebhookEvent.received_at - timedelta(minutes=6)
+                )
+            )
+            db.commit()
+        assert _process() == 1
+    finally:
+        monkeypatch.undo()
+        get_settings.cache_clear()
+    assert [e.status for e in events()] == ["processed", "processed"]
+    assert _invoice_calls(pestpac) == 1
+    assert _order(BILLED_ORDER).pestpac_invoice_id == 3500001
+
+
+def test_three_updates_release_an_invoice_before_the_wait(client, onboarded, pestpac, monkeypatch):
+    from app.core.config import get_settings
+
+    monkeypatch.setenv("INVOICE_WEBHOOK_WAIT_MINUTES", "5")
+    get_settings.cache_clear()
+    try:
+        pestpac.invoices[3500001] = _billed_invoice()
+        post(client, _invoice_event("Create"), timestamp="2026-10-21T22:24:30Z")
+        post(client, _invoice_event("Update"), timestamp="2026-10-21T22:24:31Z")
+        post(client, _invoice_event("Update"), timestamp="2026-10-21T22:24:32Z")
+        assert _process() == 0
+        post(client, _invoice_event("Update"), timestamp="2026-10-21T22:24:33Z")
+        assert _process() == 1
+    finally:
+        monkeypatch.undo()
+        get_settings.cache_clear()
+    assert {e.status for e in events()} == {"processed"}
+    assert _invoice_calls(pestpac) == 1
+
+
+def test_invoice_event_after_a_fresh_fetch_makes_no_call(client, onboarded, pestpac):
+    pestpac.invoices[3500001] = _billed_invoice()
+    post(client, _invoice_event("Create"), timestamp="2026-10-21T22:24:30Z")
     _process()
-    assert _order(BILLED_ORDER) is None
-
-
-def test_invoice_search_failure_fails_the_event(client, onboarded, pestpac):
-    pestpac.invoice_search_status = 500
-    post(client, _billed_event())
+    with SessionLocal() as db:  # this event arrived before that fetch
+        db.execute(
+            update(Invoice).values(pestpac_fetched_at=datetime.now(UTC) + timedelta(minutes=1))
+        )
+        db.commit()
+    post(client, _invoice_event("Update"), timestamp="2026-10-21T22:24:33Z")
     _process()
-    [event] = events()
-    assert event.status == "failed" and "billed" in event.error
-    assert event.sync_job_id is not None  # the location sync is still queued
-    assert _order(BILLED_ORDER) is None
+    assert {e.status for e in events()} == {"processed"}
+    assert _invoice_calls(pestpac) == 1
 
 
-def test_requeue_fills_orders_billed_before_invoices_were_used(client, onboarded, pestpac):
-    pestpac.invoice_search_status = 500  # handled without its invoice (as before this fix)
-    post(client, _billed_event())
+def test_requeue_fetches_invoices_whose_events_failed(client, onboarded, pestpac):
+    post(client, _invoice_event("Create"), timestamp="2026-10-21T22:24:30Z")
+    post(client, _invoice_event("Update"), timestamp="2026-10-21T22:24:33Z")
+    pestpac.invoices[3500001] = 401  # PestPac refuses us for a while
     _process()
-    pestpac.invoice_search_status = 200
+    assert {e.status for e in events()} == {"failed"}
     pestpac.invoices[3500001] = _billed_invoice()
 
     with SessionLocal() as db:
-        assert webhook_handlers.requeue_unstored_orders(db) == 1
-        assert webhook_handlers.requeue_unstored_orders(db) == 0  # already queued
-    assert _process() == 1
-    assert _order(BILLED_ORDER).pestpac_invoice_id == 3500001
+        assert webhook_handlers.requeue_failed_invoices(db) == 2
+        assert webhook_handlers.requeue_failed_invoices(db) == 0  # already queued
+    calls = _invoice_calls(pestpac)
+    assert _process() == 1  # both events, one fetch
+    assert _invoice_calls(pestpac) == calls + 1
+    assert {e.status for e in events()} == {"processed"}
     with SessionLocal() as db:
-        assert webhook_handlers.requeue_unstored_orders(db) == 0  # stored now
+        assert webhook_handlers.requeue_failed_invoices(db) == 0  # stored now
 
 
 def test_order_stored_meanwhile_by_another_worker_is_used(client, onboarded):
@@ -481,3 +538,48 @@ def test_order_stored_meanwhile_by_another_worker_is_used(client, onboarded):
             .where(ServiceOrder.pestpac_order_id == BILLED_ORDER)
         )
         assert count == 1
+
+
+# --- SYNC_ACTIVE off: capture only ---
+
+
+@pytest.fixture
+def sync_off(monkeypatch):
+    from app.core.config import get_settings
+
+    monkeypatch.setenv("SYNC_ACTIVE", "false")
+    get_settings.cache_clear()
+    yield
+    monkeypatch.undo()
+    get_settings.cache_clear()
+
+
+def test_with_sync_off_webhooks_are_captured_but_nothing_runs(client, onboarded, pestpac, sync_off):
+    assert post(client, _posted_event()).status_code == 200
+    calls_before = len(pestpac.calls)
+
+    worker._Stop.requested = False
+    assert worker.run_pending() == 0
+    [event] = events()
+    assert event.status == "received" and event.processed_at is None
+    with SessionLocal() as db:
+        jobs = db.scalars(
+            select(SyncJob.status).where(SyncJob.bill_to_id == onboarded["bill_to_id"])
+        ).all()
+    assert jobs == ["queued"]  # the onboarding sync, not run
+    assert len(pestpac.calls) == calls_before
+
+
+def test_with_sync_off_sync_requests_are_refused(client, onboarded, sync_off):
+    headers = onboarded["headers"]
+    bill_to = onboarded["bill_to_id"]
+    store = client.get(f"/v1/bill-tos/{bill_to}/locations", headers=headers).json()[0]["id"]
+    for url in (
+        f"/v1/bill-tos/{bill_to}/service-orders/sync",
+        f"/v1/bill-tos/{bill_to}/locations/sync",
+        f"/v1/locations/{store}/service-orders/sync",
+        f"/v1/locations/{store}/sync",
+    ):
+        resp = client.post(url, headers=headers)
+        assert resp.status_code == 409, url
+        assert resp.json()["detail"] == "Syncing with PestPac is turned off"

@@ -22,7 +22,8 @@ import type {
 import type {
   HTTPValidationError,
   NoteRead,
-  ServiceOrderRead
+  ServiceOrderDetail,
+  ServiceOrderRelated
 } from '../model';
 
 import { bffFetch } from '../../fetcher';
@@ -48,7 +49,7 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
 };
 
 export type serviceOrdersGetServiceOrderResponse200 = {
-  data: ServiceOrderRead
+  data: ServiceOrderDetail
   status: 200
 }
 
@@ -73,6 +74,8 @@ export const getServiceOrdersGetServiceOrderUrl = (orderId: string,) => {
 }
 
 /**
+ * The order with its breadcrumb trail (down to its location), report, and stored
+ * invoice.
  * @summary Get Service Order
  */
 export const serviceOrdersGetServiceOrder = async (orderId: string, options?: Parameters<typeof bffFetch>[1]): Promise<serviceOrdersGetServiceOrderResponseSuccess> => {
@@ -153,6 +156,126 @@ export function useServiceOrdersGetServiceOrder<TData = Awaited<ReturnType<typeo
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getServiceOrdersGetServiceOrderQueryOptions(orderId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type serviceOrdersListRelatedResponse200 = {
+  data: ServiceOrderRelated
+  status: 200
+}
+
+export type serviceOrdersListRelatedResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type serviceOrdersListRelatedResponseSuccess = (serviceOrdersListRelatedResponse200) & {
+  headers: Headers;
+};
+export type serviceOrdersListRelatedResponseError = (serviceOrdersListRelatedResponse422) & {
+  headers: Headers;
+};
+
+export const getServiceOrdersListRelatedUrl = (orderId: string,) => {
+
+
+
+
+  return `/v1/service-orders/${orderId}/related`
+}
+
+/**
+ * Documents, conditions (with inspections and photos), and notes logged around the
+ * order: those PestPac links to it, then its location's from within a day of the work
+ * date (`link` says which).
+ * @summary List Related
+ */
+export const serviceOrdersListRelated = async (orderId: string, options?: Parameters<typeof bffFetch>[1]): Promise<serviceOrdersListRelatedResponseSuccess> => {
+
+  return bffFetch<serviceOrdersListRelatedResponseSuccess>(getServiceOrdersListRelatedUrl(orderId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getServiceOrdersListRelatedQueryKey = (orderId: string,) => {
+    return [
+    `/v1/service-orders/${orderId}/related`
+    ] as const;
+    }
+
+
+export const getServiceOrdersListRelatedQueryOptions = <TData = Awaited<ReturnType<typeof serviceOrdersListRelated>>, TError = HTTPValidationError>(orderId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceOrdersListRelated>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getServiceOrdersListRelatedQueryKey(orderId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof serviceOrdersListRelated>>> = ({ signal }) => serviceOrdersListRelated(orderId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orderId !== null && orderId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof serviceOrdersListRelated>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ServiceOrdersListRelatedQueryResult = NonNullable<Awaited<ReturnType<typeof serviceOrdersListRelated>>>
+export type ServiceOrdersListRelatedQueryError = HTTPValidationError
+
+
+export function useServiceOrdersListRelated<TData = Awaited<ReturnType<typeof serviceOrdersListRelated>>, TError = HTTPValidationError>(
+ orderId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceOrdersListRelated>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof serviceOrdersListRelated>>,
+          TError,
+          Awaited<ReturnType<typeof serviceOrdersListRelated>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useServiceOrdersListRelated<TData = Awaited<ReturnType<typeof serviceOrdersListRelated>>, TError = HTTPValidationError>(
+ orderId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceOrdersListRelated>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof serviceOrdersListRelated>>,
+          TError,
+          Awaited<ReturnType<typeof serviceOrdersListRelated>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useServiceOrdersListRelated<TData = Awaited<ReturnType<typeof serviceOrdersListRelated>>, TError = HTTPValidationError>(
+ orderId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceOrdersListRelated>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Related
+ */
+
+export function useServiceOrdersListRelated<TData = Awaited<ReturnType<typeof serviceOrdersListRelated>>, TError = HTTPValidationError>(
+ orderId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceOrdersListRelated>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getServiceOrdersListRelatedQueryOptions(orderId,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

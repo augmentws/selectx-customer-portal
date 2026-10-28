@@ -19,7 +19,14 @@ function SeverityBadge({ severity }: { severity: string | null }) {
   return <Badge variant={variant}>{severity} severity</Badge>;
 }
 
-function ConditionCard({ condition: c }: { condition: ConditionRead }) {
+export function ConditionCard({
+  condition: c,
+  extra,
+}: {
+  condition: ConditionRead;
+  /** Shown after the badges (e.g. how it relates to an order). */
+  extra?: React.ReactNode;
+}) {
   const open = c.status === "Open";
   const where = [c.area_hierarchy ?? c.area, c.specific_area].filter(Boolean).join(" · ");
   return (
@@ -33,6 +40,7 @@ function ConditionCard({ condition: c }: { condition: ConditionRead }) {
         <SeverityBadge severity={c.severity} />
         {c.category && <Badge variant="outline">{c.category}</Badge>}
         {c.responsibility && <Badge variant="outline">Responsibility: {c.responsibility}</Badge>}
+        {extra}
       </div>
       <div className="mt-1 flex flex-wrap gap-x-4 text-sm text-muted-foreground">
         {where && <span>{where}</span>}

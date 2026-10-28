@@ -223,3 +223,56 @@ def test_a_conditions_failure_leaves_the_orders_and_makes_the_job_partial(
     assert job["status"] == "partial"
     assert "conditions failed for 1 location(s)" in job["error"]
     assert job["progress"]["orders"]["added"] == 1
+
+
+def _condition(issue_id, order_id, inspections):
+    item = pestpac_condition(issue_id, STORE, order_id=order_id)
+    return item, pestpac_condition_detail(item, inspections=inspections, documents=[])
+
+
+def test_an_orders_page_lists_what_was_logged_on_it_and_that_day(client, onboarded, pestpac):
+    order_id = 1865005  # worked 2026-10-22
+    pestpac.orders_by_location[STORE] = [
+        pestpac_order(order_id, STORE, 180020, Posted=True, WorkDate="2026-10-22T19:00:00")
+    ]
+    _run_worker()  # the onboarding order sync, so the order is ours
+    conditions = [
+        _condition(41008, order_id, []),  # opened on the order
+        _condition(41009, 1, [pestpac_inspection(order_id, "2026-10-22T19:10:00", "Still wet")]),
+        _condition(41010, 1, [pestpac_inspection(2, "2026-10-22T08:00:00", "")]),  # that day
+        _condition(41011, 1, [pestpac_inspection(3, "2026-09-01T08:00:00", "")]),  # neither
+    ]
+    pestpac.conditions_by_location[STORE] = [item for item, _ in conditions]
+    for item, detail in conditions:
+        pestpac.condition_details[item["IssueID"]] = detail
+    pestpac.documents_by_location[STORE] = [
+        pestpac_document(1, order_id=order_id, date="2026-10-01T00:00:00"),  # linked by OrderID
+        pestpac_document(2, date="2026-10-22T10:00:00"),  # same day
+        pestpac_document(3, date="2026-08-01T10:00:00"),  # neither
+    ]
+    _sync_locations(client, onboarded)
+
+    orders = client.get(
+        f"/v1/locations/{_store_id(client, onboarded)}/service-orders",
+        params={"status": "all"},
+        headers=onboarded["headers"],
+    ).json()
+    order = next(o for o in orders if o["pestpac_order_id"] == order_id)
+
+    detail = client.get(f"/v1/service-orders/{order['id']}", headers=onboarded["headers"]).json()
+    assert [c["kind"] for c in detail["trail"]] == ["operator", "company", "bill_to", "location"]
+    assert detail["location_name"] and detail["invoice_id"] is None and detail["report_id"] is None
+
+    related = client.get(
+        f"/v1/service-orders/{order['id']}/related", headers=onboarded["headers"]
+    ).json()
+    assert [(d["pestpac_document_id"], d["link"]) for d in related["documents"]] == [
+        (1, "order"),
+        (2, "same_day"),
+    ]
+    assert {c["pestpac_issue_id"]: c["link"] for c in related["conditions"]} == {
+        41008: "opened",
+        41009: "inspected",
+        41010: "same_day",
+    }
+    assert related["conditions"][-1]["link"] == "same_day"  # linked ones first

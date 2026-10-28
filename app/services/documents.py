@@ -28,6 +28,28 @@ class DocumentFileError(RuntimeError):
     the document; the sync carries on with the next one."""
 
 
+class DocumentFileUnavailableError(DocumentFileError):
+    """PestPac can't send this file at all, so retrying is pointless."""
+
+
+# PestPac's API gateway (Apigee) refuses response bodies over 10 MB with a 502 and this fault
+# code, so larger files can't be downloaded through the API (confirmed against PestPac).
+_TOO_BIG_FAULT = "protocol.http.TooBigBody"
+
+
+def _gateway_fault(response: requests.Response) -> str | None:
+    """The API gateway's fault code, when the error body is one of its faults."""
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    if not isinstance(body, dict) or not isinstance(body.get("fault"), dict):
+        return None
+    detail = body["fault"].get("detail")
+    code = detail.get("errorcode") if isinstance(detail, dict) else None
+    return code if isinstance(code, str) else None
+
+
 def _get(client: PestPacClient, path: str, params: dict, accept: str) -> requests.Response:
     try:
         return client.custom_endpoint(path).get(params=params, accept=accept)
@@ -69,6 +91,10 @@ def download_file(client: PestPacClient, document: Document) -> tuple[bytes, str
         "*/*",
     )
     if response.status_code != 200:
+        if _gateway_fault(response) == _TOO_BIG_FAULT:
+            raise DocumentFileUnavailableError(
+                "Too large for PestPac's API to send (over its 10 MB limit); open it in PestPac"
+            )
         raise DocumentFileError(f"PestPac download returned {response.status_code}")
     content_type = response.headers.get("Content-Type", "").split(";")[0].strip().lower()
     # An error or metadata object instead of the file; don't store it as the document.
@@ -190,6 +216,7 @@ def store_location_files(
             Document.location_id == location.id,
             Document.removed_at.is_(None),
             Document.storage_key.is_(None),
+            Document.file_unavailable.is_(False),
             # Known to be too large: don't download again until the limit is raised.
             or_(Document.size_bytes.is_(None), Document.size_bytes <= max_bytes),
         )
@@ -201,6 +228,7 @@ def store_location_files(
             data, content_type = download_file(client, document)
         except DocumentFileError as exc:
             document.file_error = str(exc)[:500]
+            document.file_unavailable = isinstance(exc, DocumentFileUnavailableError)
             counts.files_failed += 1
             db.commit()
             continue

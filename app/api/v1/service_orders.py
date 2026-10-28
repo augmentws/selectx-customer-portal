@@ -4,11 +4,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
-from app.models import ServiceOrder
-from app.schemas.tenancy import NoteRead, ServiceOrderRead
+from app.models import BillTo, Location, ServiceOrder
+from app.schemas.tenancy import (
+    NoteRead,
+    ServiceOrderDetail,
+    ServiceOrderRead,
+    ServiceOrderRelated,
+)
 from app.security.access import AccessScope, get_scope
 from app.security.permissions import Perm
-from app.services import notes
+from app.services import notes, order_related, service_reports, trail
 
 router = APIRouter(prefix="/service-orders", tags=["service_orders"])
 
@@ -21,11 +26,39 @@ def _order_or_404(db: Session, order_id: uuid.UUID, scope: AccessScope) -> Servi
     return order
 
 
-@router.get("/{order_id}", response_model=ServiceOrderRead)
+@router.get("/{order_id}", response_model=ServiceOrderDetail)
 def get_service_order(
     order_id: uuid.UUID, db: Session = Depends(get_db), scope: AccessScope = Depends(get_scope)
 ):
-    return _order_or_404(db, order_id, scope)
+    """The order with its breadcrumb trail (down to its location), report, and stored
+    invoice."""
+    order = _order_or_404(db, order_id, scope)
+    bill_to = db.get(BillTo, order.bill_to_id)
+    location = db.get(Location, order.location_id) if order.location_id else None
+    return ServiceOrderDetail(
+        **ServiceOrderRead.model_validate(order).model_dump(),
+        location_name=trail.location_name(location) if location else None,
+        report_id=service_reports.report_ids_for_orders(db, [order.id]).get(order.id),
+        trail=trail.trail(
+            db,
+            operator_id=order.operator_id,
+            company_id=bill_to.company_id,
+            bill_to_id=bill_to.id,
+            location_id=order.location_id,
+        ),
+        invoice_id=order_related.stored_invoice_id(db, order),
+    )
+
+
+@router.get("/{order_id}/related", response_model=ServiceOrderRelated)
+def list_related(
+    order_id: uuid.UUID, db: Session = Depends(get_db), scope: AccessScope = Depends(get_scope)
+):
+    """Documents, conditions (with inspections and photos), and notes logged around the
+    order: those PestPac links to it, then its location's from within a day of the work
+    date (`link` says which)."""
+    order = _order_or_404(db, order_id, scope)
+    return order_related.related(db, order)
 
 
 @router.get("/{order_id}/notes", response_model=list[NoteRead])
