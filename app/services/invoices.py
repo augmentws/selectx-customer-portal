@@ -53,7 +53,9 @@ def fetch_invoices_for_order(
     """The invoice for an order number (the full object, as GET /Invoices/{id}), or [] when
     PestPac answers 404: the order isn't invoiced yet."""
     try:
-        response = client.custom_endpoint("/Invoices").get(params={"orderNumber": order_number})
+        response = client.custom_endpoint("/Invoices").get(
+            params={"orderNumber": order_number}, expected=(404,)
+        )
     except (PestPacAuthError, requests.RequestException) as exc:
         raise PestPacUnavailableError(f"Could not reach PestPac: {type(exc).__name__}") from exc
     if response.status_code == 404:
@@ -224,7 +226,9 @@ def sync_location_invoices(
     db: Session, client: PestPacClient, location: Location, technicians: TechnicianResolver
 ) -> InvoiceSyncCounts:
     """Fetch invoices for the location's worked orders that have none stored yet (billed or
-    not: unbilled ones simply find nothing and are tried again next sync). Does not commit."""
+    not: unbilled ones simply find nothing and are tried again next sync). An invoice we hold
+    for the order's OrderID (from a webhook, before we held the order) is linked instead, with no
+    call. Does not commit."""
     counts = InvoiceSyncCounts()
     orders = db.scalars(
         select(ServiceOrder)
@@ -236,8 +240,21 @@ def sync_location_invoices(
         )
         .order_by(ServiceOrder.work_date, ServiceOrder.id)
     ).all()
+    now = datetime.now(UTC)
     for order in orders:
         counts.orders_checked += 1
+        held = db.scalar(
+            select(Invoice).where(
+                Invoice.operator_id == order.operator_id,
+                Invoice.pestpac_order_id == order.pestpac_order_id,
+                Invoice.removed_at.is_(None),
+            )
+        )
+        if held is not None:
+            held.service_order_id = order.id
+            _complete_order(order, held, now)
+            counts.linked += 1
+            continue
         found = fetch_invoices_for_order(client, order.order_number)
         if not found:
             counts.not_invoiced += 1

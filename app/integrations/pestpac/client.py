@@ -158,12 +158,15 @@ class PestPacAPISection:
         accept: str = "application/json",
         *,
         multipart: bool = False,
+        expected: tuple[int, ...] = (),
         **kwargs: Any,
     ) -> requests.Response:
         kwargs.setdefault("timeout", self._credential_manager.timeout)
         self._log_request(method, url, kwargs, self._debug_bodies)
         response = requests.request(method, url, headers=self._headers(accept, multipart=multipart), **kwargs)
-        self._log_response(method, url, response, debug_bodies=self._debug_bodies)
+        self._log_response(
+            method, url, response, expected=expected, debug_bodies=self._debug_bodies
+        )
         if response.status_code == 401:
             log.info("401 on %s %s — refreshing token and retrying", method, url)
             self._credential_manager.invalidate_token()
@@ -171,7 +174,14 @@ class PestPacAPISection:
             response = requests.request(
                 method, url, headers=self._headers(accept, multipart=multipart), **kwargs
             )
-            self._log_response(method, url, response, retried=True, debug_bodies=self._debug_bodies)
+            self._log_response(
+                method,
+                url,
+                response,
+                retried=True,
+                expected=expected,
+                debug_bodies=self._debug_bodies,
+            )
         return response
 
     @staticmethod
@@ -198,21 +208,35 @@ class PestPacAPISection:
         response: requests.Response,
         retried: bool = False,
         *,
+        expected: tuple[int, ...] = (),
         debug_bodies: bool = False,
     ) -> None:
         tag = " (retry)" if retried else ""
         text = response.text or ""
+        # The URL as sent, query string included (ids and order numbers, no customer details).
+        url = response.url or url
         if response.ok:
             log.info("← %d %s %s%s (%d bytes)", response.status_code, method, url, tag, len(text))
+        elif response.status_code in expected:
+            # An answer the caller handles (e.g. 404: not invoiced yet), not a failure.
+            log.info("← %d %s %s%s", response.status_code, method, url, tag)
         else:
             log.error("← %d %s %s%s FAILED", response.status_code, method, url, tag)
         if debug_bodies:
             log.info("  response body: %s", text[:8000])
 
     def get(
-        self, object_id: Any = None, params: Optional[dict] = None, accept: str = "application/json"
+        self,
+        object_id: Any = None,
+        params: Optional[dict] = None,
+        accept: str = "application/json",
+        *,
+        expected: tuple[int, ...] = (),
     ) -> requests.Response:
-        return self._request_with_retry("GET", self._url(object_id), params=params, accept=accept)
+        """`expected`: error statuses the caller handles, logged as info rather than failures."""
+        return self._request_with_retry(
+            "GET", self._url(object_id), params=params, accept=accept, expected=expected
+        )
 
     def post(self, data: Any, params: Optional[dict] = None) -> requests.Response:
         return self._request_with_retry("POST", self._url(), json=data, params=params)

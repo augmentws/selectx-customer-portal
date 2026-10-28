@@ -230,6 +230,7 @@ class PestPacServiceOrderDetails(BaseModel):
 
 class InvoiceSyncCounts(BaseModel):
     orders_checked: int = 0  # worked orders without a stored invoice
+    linked: int = 0  # already stored (e.g. from a webhook) before we held the order: no call
     stored: int = 0
     not_invoiced: int = 0  # PestPac has no invoice for the order number yet
 

@@ -4,6 +4,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.v1._pestpac_errors import require_sync_active
 from app.api.v1.bill_tos import PostedOrderFilters, posted_order_page
 from app.db.session import get_db
 from app.models import BillTo, Location, SyncJobKind
@@ -161,6 +162,7 @@ def sync_service_orders(
             status_code=status.HTTP_409_CONFLICT,
             detail="PestPac no longer lists this location under its bill-to",
         )
+    require_sync_active()
     job = sync_jobs.enqueue_location(db, location, requested_by=scope.user_id)
     db.commit()
     return job
@@ -183,6 +185,7 @@ def sync_location(
             status_code=status.HTTP_409_CONFLICT,
             detail="PestPac no longer lists this location under its bill-to",
         )
+    require_sync_active()
     job = sync_jobs.enqueue_location(
         db, location, requested_by=scope.user_id, kind=SyncJobKind.location_sync
     )

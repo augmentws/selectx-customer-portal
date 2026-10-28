@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     s3_bucket: str = ""
 
     # Background worker (python -m app.worker).
+    # False pauses everything that syncs with PestPac: webhooks are still captured, but the worker
+    # neither handles them nor runs sync jobs (both wait, and run once this is true again), and
+    # sync requests are refused. One-off calls people make (credentials, onboarding) still work.
+    sync_active: bool = True
     worker_poll_seconds: float = Field(default=5.0, gt=0)
     sync_job_stale_minutes: int = Field(default=10, ge=1)
     sync_job_max_attempts: int = Field(default=3, ge=1)
@@ -62,6 +66,10 @@ class Settings(BaseSettings):
     # PestPac webhooks (POST /v1/webhooks/pestpac).
     webhook_max_body_bytes: int = Field(default=1_000_000, ge=1)
     webhook_raw_retention_days: int = Field(default=30, ge=1)
+    # PestPac sends an invoice's create and updates seconds apart. Its events wait until this
+    # long after the first one, or until this many updates arrive, then share one fetch.
+    invoice_webhook_wait_minutes: int = Field(default=5, ge=0)
+    invoice_webhook_max_updates: int = Field(default=3, ge=1)
 
     # OpenRouter (LLM data clean-up). One platform-wide key; models are chosen per task or call.
     openrouter_api_key: str = ""

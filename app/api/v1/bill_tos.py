@@ -4,7 +4,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.v1._pestpac_errors import pestpac_errors
+from app.api.v1._pestpac_errors import pestpac_errors, require_sync_active
 from app.db.session import get_db
 from app.models import BillTo
 from app.schemas.pestpac import LocationSyncSummary
@@ -218,6 +218,7 @@ def sync_service_orders(
     queued or running for this bill-to."""
     bill_to = _bill_to_or_404(db, bill_to_id)
     scope.require(Perm.bill_tos_write, bill_to.operator_id, read_perm=Perm.bill_tos_read)
+    require_sync_active()
     job = sync_jobs.enqueue_bill_to(db, bill_to, requested_by=scope.user_id)
     db.commit()
     return job
@@ -235,6 +236,7 @@ def sync_locations(
     (manual for now). Returns the already-active job if one is queued or running."""
     bill_to = _bill_to_or_404(db, bill_to_id)
     scope.require(Perm.bill_tos_write, bill_to.operator_id, read_perm=Perm.bill_tos_read)
+    require_sync_active()
     job = sync_jobs.enqueue_bill_to_location_sync(db, bill_to, requested_by=scope.user_id)
     db.commit()
     return job
