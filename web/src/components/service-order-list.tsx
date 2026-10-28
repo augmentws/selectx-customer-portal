@@ -18,7 +18,7 @@ export function formatPestPacDate(value: string | null, withTime = false): strin
     : date.toLocaleDateString(undefined, { dateStyle: "medium" });
 }
 
-function OrderStatusBadge({ order }: { order: ServiceOrderRead }) {
+export function OrderStatusBadge({ order }: { order: ServiceOrderRead }) {
   if (order.closed_at) return <Badge variant="outline">Billed</Badge>;
   if (order.posted) return <Badge variant="success">Worked</Badge>;
   return <Badge variant="pending">Open</Badge>;
@@ -73,7 +73,12 @@ export function OrderRow({
   return (
     <li className="p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-medium">Order {order.order_number ?? order.pestpac_order_id}</span>
+        <Link
+          href={`/service-orders/${order.id}`}
+          className="font-medium text-primary hover:underline"
+        >
+          Order {order.order_number ?? order.pestpac_order_id}
+        </Link>
         <OrderStatusBadge order={order} />
         {compact && showLocation && order.location_id && (
           <Link

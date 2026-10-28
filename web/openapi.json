@@ -3004,6 +3004,7 @@
           "service_orders"
         ],
         "summary": "Get Service Order",
+        "description": "The order with its breadcrumb trail (down to its location), report, and stored\ninvoice.",
         "operationId": "service_orders-get_service_order",
         "security": [
           {
@@ -3028,7 +3029,56 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ServiceOrderRead"
+                  "$ref": "#/components/schemas/ServiceOrderDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/service-orders/{order_id}/related": {
+      "get": {
+        "tags": [
+          "service_orders"
+        ],
+        "summary": "List Related",
+        "description": "Documents, conditions (with inspections and photos), and notes logged around the\norder: those PestPac links to it, then its location's from within a day of the work\ndate (`link` says which).",
+        "operationId": "service_orders-list_related",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Order Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceOrderRelated"
                 }
               }
             }
@@ -8681,6 +8731,609 @@
         "type": "object",
         "title": "OperatorUpdate"
       },
+      "OrderCondition": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "pestpac_issue_id": {
+            "type": "integer",
+            "title": "Pestpac Issue Id"
+          },
+          "location_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Id"
+          },
+          "service_order_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Order Id"
+          },
+          "pestpac_order_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Order Id"
+          },
+          "area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area"
+          },
+          "specific_area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Specific Area"
+          },
+          "area_hierarchy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Hierarchy"
+          },
+          "condition_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition Type"
+          },
+          "condition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition"
+          },
+          "action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          },
+          "responsibility": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responsibility"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "opened_by_user": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opened By User"
+          },
+          "date_opened": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Opened"
+          },
+          "date_closed": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Closed"
+          },
+          "last_inspected_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Inspected Date"
+          },
+          "inspections": {
+            "items": {
+              "$ref": "#/components/schemas/ConditionInspectionRead"
+            },
+            "type": "array",
+            "title": "Inspections"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentRead"
+            },
+            "type": "array",
+            "title": "Documents"
+          },
+          "link": {
+            "type": "string",
+            "enum": [
+              "opened",
+              "inspected",
+              "same_day"
+            ],
+            "title": "Link"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "pestpac_issue_id",
+          "location_id",
+          "service_order_id",
+          "pestpac_order_id",
+          "area",
+          "specific_area",
+          "area_hierarchy",
+          "condition_type",
+          "condition",
+          "action",
+          "detail",
+          "status",
+          "severity",
+          "responsibility",
+          "category",
+          "opened_by_user",
+          "date_opened",
+          "date_closed",
+          "last_inspected_date",
+          "inspections",
+          "documents",
+          "link"
+        ],
+        "title": "OrderCondition"
+      },
+      "OrderDocument": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "document_type": {
+            "type": "string",
+            "title": "Document Type"
+          },
+          "pestpac_document_id": {
+            "type": "integer",
+            "title": "Pestpac Document Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "file_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Name"
+          },
+          "document_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Date"
+          },
+          "starting_effective_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starting Effective Date"
+          },
+          "ending_effective_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ending Effective Date"
+          },
+          "is_tech_photo": {
+            "type": "boolean",
+            "title": "Is Tech Photo"
+          },
+          "include_on": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Include On"
+          },
+          "location_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Id"
+          },
+          "service_order_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Order Id"
+          },
+          "pestpac_order_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Order Id"
+          },
+          "has_file": {
+            "type": "boolean",
+            "title": "Has File"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "file_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Error"
+          },
+          "file_unavailable": {
+            "type": "boolean",
+            "title": "File Unavailable"
+          },
+          "link": {
+            "type": "string",
+            "enum": [
+              "order",
+              "same_day"
+            ],
+            "title": "Link"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "document_type",
+          "pestpac_document_id",
+          "name",
+          "file_name",
+          "document_date",
+          "starting_effective_date",
+          "ending_effective_date",
+          "is_tech_photo",
+          "include_on",
+          "location_id",
+          "service_order_id",
+          "pestpac_order_id",
+          "has_file",
+          "content_type",
+          "size_bytes",
+          "file_error",
+          "file_unavailable",
+          "link"
+        ],
+        "title": "OrderDocument"
+      },
+      "OrderNote": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "pestpac_note_id": {
+            "type": "integer",
+            "title": "Pestpac Note Id"
+          },
+          "note_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Date"
+          },
+          "note_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Code"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "created_by_user": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By User"
+          },
+          "created_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By Name"
+          },
+          "show_on_portal": {
+            "type": "boolean",
+            "title": "Show On Portal"
+          },
+          "location_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Id"
+          },
+          "service_order_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Order Id"
+          },
+          "pestpac_order_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Order Id"
+          },
+          "pestpac_invoice_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Invoice Id"
+          },
+          "link": {
+            "type": "string",
+            "enum": [
+              "order",
+              "same_day"
+            ],
+            "title": "Link"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "pestpac_note_id",
+          "note_date",
+          "note_code",
+          "note",
+          "created_by_user",
+          "created_by_name",
+          "show_on_portal",
+          "location_id",
+          "service_order_id",
+          "pestpac_order_id",
+          "pestpac_invoice_id",
+          "link"
+        ],
+        "title": "OrderNote"
+      },
       "PasswordChange": {
         "properties": {
           "current_password": {
@@ -10477,6 +11130,304 @@
         ],
         "title": "ServiceCodeCount"
       },
+      "ServiceOrderDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "bill_to_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Bill To Id"
+          },
+          "location_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Id"
+          },
+          "pestpac_order_id": {
+            "type": "integer",
+            "title": "Pestpac Order Id"
+          },
+          "pestpac_location_id": {
+            "type": "integer",
+            "title": "Pestpac Location Id"
+          },
+          "order_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Number"
+          },
+          "service_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Code"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "work_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Date"
+          },
+          "tech_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tech Name"
+          },
+          "tech_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tech Id"
+          },
+          "technician_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Technician Id"
+          },
+          "technician_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Technician Name"
+          },
+          "location_instructions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Instructions"
+          },
+          "service_instructions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Instructions"
+          },
+          "order_instructions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Instructions"
+          },
+          "technician_comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Technician Comment"
+          },
+          "pestpac_invoice_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pestpac Invoice Id"
+          },
+          "posted": {
+            "type": "boolean",
+            "title": "Posted"
+          },
+          "posted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Posted At"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "pestpac_fetched_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Pestpac Fetched At"
+          },
+          "last_event_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Event At"
+          },
+          "location_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Name"
+          },
+          "report_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Id"
+          },
+          "trail": {
+            "items": {
+              "$ref": "#/components/schemas/Crumb"
+            },
+            "type": "array",
+            "title": "Trail"
+          },
+          "invoice_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "bill_to_id",
+          "location_id",
+          "pestpac_order_id",
+          "pestpac_location_id",
+          "order_number",
+          "service_code",
+          "description",
+          "work_date",
+          "tech_name",
+          "tech_id",
+          "technician_id",
+          "technician_name",
+          "location_instructions",
+          "service_instructions",
+          "order_instructions",
+          "technician_comment",
+          "pestpac_invoice_id",
+          "posted",
+          "posted_at",
+          "closed_at",
+          "pestpac_fetched_at",
+          "last_event_at",
+          "location_name",
+          "report_id",
+          "trail",
+          "invoice_id"
+        ],
+        "title": "ServiceOrderDetail",
+        "description": "One order for its own page: where it sits, and its stored invoice (if billed)."
+      },
       "ServiceOrderRead": {
         "properties": {
           "id": {
@@ -10727,6 +11678,39 @@
           "last_event_at"
         ],
         "title": "ServiceOrderRead"
+      },
+      "ServiceOrderRelated": {
+        "properties": {
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/OrderDocument"
+            },
+            "type": "array",
+            "title": "Documents"
+          },
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/OrderCondition"
+            },
+            "type": "array",
+            "title": "Conditions"
+          },
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/OrderNote"
+            },
+            "type": "array",
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "documents",
+          "conditions",
+          "notes"
+        ],
+        "title": "ServiceOrderRelated",
+        "description": "What was logged around an order: linked items first, then same-day ones."
       },
       "SignatureStatus": {
         "type": "string",

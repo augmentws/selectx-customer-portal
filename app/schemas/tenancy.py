@@ -364,3 +364,37 @@ class ConditionBase(BaseModel):
 
 class ConditionRead(ConditionBase):
     documents: list[DocumentRead]
+
+
+class ServiceOrderDetail(PostedServiceOrderRead):
+    """One order for its own page: where it sits, and its stored invoice (if billed)."""
+
+    trail: list[Crumb]
+    # Our invoice record for it; reading the invoice still needs billing:read.
+    invoice_id: uuid.UUID | None
+
+
+# How an item relates to an order: PestPac links it to the order ("order"; for conditions,
+# "opened" on it or "inspected" on it), or it's the location's and dated within a day of the
+# order's work date ("same_day"), since PestPac rarely links them.
+OrderLink = Literal["order", "same_day"]
+
+
+class OrderDocument(DocumentRead):
+    link: OrderLink
+
+
+class OrderCondition(ConditionRead):
+    link: Literal["opened", "inspected", "same_day"]
+
+
+class OrderNote(NoteRead):
+    link: OrderLink
+
+
+class ServiceOrderRelated(BaseModel):
+    """What was logged around an order: linked items first, then same-day ones."""
+
+    documents: list[OrderDocument]
+    conditions: list[OrderCondition]
+    notes: list[OrderNote]

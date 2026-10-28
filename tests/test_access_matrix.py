@@ -246,6 +246,12 @@ CASES = [
         _all(404, platform_admin=200, admin_a=200, staff_a=200),
     ),
     Case(
+        "list related items of a service order of A",
+        "GET",
+        lambda w: f"/v1/service-orders/{w.service_order_a}/related",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
         "get a sync job of A",
         "GET",
         lambda w: f"/v1/sync-jobs/{w.sync_job_a}",

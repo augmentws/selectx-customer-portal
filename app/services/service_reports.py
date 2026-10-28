@@ -129,7 +129,9 @@ def _service_number(db: Session, order: ServiceOrder) -> int | None:
     return len(earlier) + 1
 
 
-def _window(work_date: datetime | None) -> tuple[datetime, datetime] | None:
+def same_day_window(work_date: datetime | None) -> tuple[datetime, datetime] | None:
+    """From the start of the day before the work date to the end of the day after
+    (CANDIDATE_DAYS); also used by the service order page."""
     if work_date is None:
         return None
     day = datetime.combine(work_date.date(), time())
@@ -145,7 +147,7 @@ def _is_image(document: Document) -> bool:
 def _candidates(
     db: Session, location: Location, order: ServiceOrder
 ) -> tuple[list[ReportNoteItem], list[ReportPhotoItem]]:
-    window = _window(order.work_date)
+    window = same_day_window(order.work_date)
     work_day = order.work_date.date() if order.work_date else None
 
     note_filter = [Note.service_order_id == order.id]

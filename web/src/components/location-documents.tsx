@@ -36,7 +36,7 @@ function isImageDocument(doc: DocumentRead): boolean {
   return /\.(jpe?g|png|gif|webp|heic|bmp|tiff?)$/i.test(doc.file_name ?? "");
 }
 
-export function DocumentRow({ doc }: { doc: DocumentRead }) {
+export function DocumentRow({ doc, extra }: { doc: DocumentRead; extra?: React.ReactNode }) {
   const [preview, setPreview] = useState(false);
   const isImage = isImageDocument(doc);
   const Icon = isImage ? ImageIcon : FileText;
@@ -60,6 +60,7 @@ export function DocumentRow({ doc }: { doc: DocumentRead }) {
         )}
         <Badge variant="outline">{TYPE_LABELS[doc.document_type] ?? doc.document_type}</Badge>
         {doc.include_on.portal && <Badge variant="outline">On portal</Badge>}
+        {extra}
         {!doc.has_file && doc.file_error && (
           // Why is the text next to it; one PestPac can't send at all isn't tried again.
           <Badge variant="destructive">File failed</Badge>

@@ -47,8 +47,9 @@ function hrefFor(hit: SearchHit): string {
       return `/bill-tos/${hit.id}`;
     case "location":
       return `/locations/${hit.id}`;
-    // Orders and invoices are shown on their location's page.
     case "service_order":
+      return `/service-orders/${hit.id}`;
+    // Invoices are shown on their location's page.
     case "invoice":
       return `/locations/${hit.location_id}`;
   }
