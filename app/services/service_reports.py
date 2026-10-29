@@ -13,7 +13,6 @@
 
 import base64
 import dataclasses
-import hashlib
 import io
 import logging
 import uuid
@@ -49,7 +48,7 @@ from app.schemas.reports import (
     ReportUpdate,
     TemplateField,
 )
-from app.services import llm_tasks, reports
+from app.services import files, llm_tasks, reports
 from app.storage import ObjectStorage, StorageError
 
 log = logging.getLogger(__name__)
@@ -550,12 +549,17 @@ def finalize(db: Session, report: Report, storage: ObjectStorage, user_id: uuid.
     report.finalized_at = datetime.now(UTC)
     html = reports.render_html(template.html, build_report_context(db, report, storage))
     pdf = reports.html_to_pdf(html)
-    key = pdf_storage_key(report)
-    storage.put(key, pdf, "application/pdf")
+    report.pdf_file = files.store_file(
+        db,
+        storage,
+        operator_id=report.operator_id,
+        company_id=report.company_id,
+        source="report_pdf",
+        key=pdf_storage_key(report),
+        data=pdf,
+        content_type="application/pdf",
+    )
     report.template_version = template.version
-    report.pdf_storage_key = key
-    report.pdf_size_bytes = len(pdf)
-    report.pdf_sha256 = hashlib.sha256(pdf).hexdigest()
     report.status = ReportStatus.final
     report.finalized_by = user_id
     report.updated_by = user_id

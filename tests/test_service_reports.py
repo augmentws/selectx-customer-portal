@@ -6,7 +6,7 @@ from PIL import Image
 
 from app.db.session import SessionLocal
 from app.integrations.openrouter import Usage
-from app.models import Document, Note, ServiceOrder
+from app.models import Document, Note, ServiceOrder, StoredFile
 from app.services import llm_tasks
 from tests.conftest import headers_for
 from tests.test_service_orders import _run_worker
@@ -94,8 +94,17 @@ def visit(world, storage):
                 document_date=date,
                 location_id=world.location_a,
                 pestpac_location_id=800001,
-                storage_key=key,
-                content_type="image/jpeg" if stored else None,
+                file=StoredFile(
+                    operator_id=world.op_a,
+                    company_id=world.company_a,
+                    source="pestpac_document",
+                    storage_key=key,
+                    content_type="image/jpeg",
+                    size_bytes=len(_jpeg()),
+                    sha256="0" * 64,
+                )
+                if stored
+                else None,
                 pestpac_fetched_at=now,
             )
 

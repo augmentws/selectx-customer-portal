@@ -724,8 +724,16 @@ def world(storage) -> World:
             file_name="contract.pdf",
             location_id=location_a.id,
             pestpac_location_id=800001,
-            storage_key="test/world/contract",
-            content_type="application/pdf",
+            file=StoredFile(
+                operator_id=op_a.id,
+                company_id=company_a.id,
+                source="pestpac_document",
+                storage_key="test/world/contract",
+                content_type="application/pdf",
+                size_bytes=8,
+                sha256="0" * 64,
+                original_name="contract.pdf",
+            ),
             size_bytes=8,
             pestpac_fetched_at=datetime.now(UTC),
         )
@@ -794,8 +802,15 @@ def world(storage) -> World:
             db, report_template_a, reported_order(700003), admin_id
         )
         report_final_a.status = ReportStatus.final
-        report_final_a.pdf_storage_key = "test/world/report.pdf"
-        report_final_a.pdf_size_bytes = 8
+        report_final_a.pdf_file = StoredFile(
+            operator_id=op_a.id,
+            company_id=company_a.id,
+            source="report_pdf",
+            storage_key="test/world/report.pdf",
+            content_type="application/pdf",
+            size_bytes=8,
+            sha256="0" * 64,
+        )
         report_final_a.finalized_at = datetime.now(UTC)
         storage.put("test/world/report.pdf", b"%PDF-1.7", "application/pdf")
         db.commit()

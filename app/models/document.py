@@ -13,9 +13,10 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.file import StoredFile
 
 
 class Document(Base):
@@ -71,12 +72,13 @@ class Document(Base):
     pestpac_setup_id: Mapped[int | None] = mapped_column(BigInteger)
     pestpac_issue_id: Mapped[int | None] = mapped_column(BigInteger)
 
-    # The stored file.
-    storage_key: Mapped[str | None] = mapped_column(String(500))
-    content_type: Mapped[str | None] = mapped_column(String(200))
+    # The stored file (key, type, hash) is a `stored_files` row.
+    file_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("stored_files.id", ondelete="RESTRICT"), index=True
+    )
+    file: Mapped[StoredFile | None] = relationship(lazy="selectin")
+    # The file's size: also recorded for files too large to store.
     size_bytes: Mapped[int | None] = mapped_column(BigInteger)
-    sha256: Mapped[str | None] = mapped_column(String(64))
-    file_stored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Why the file isn't stored (download failed, too large); cleared once it is.
     file_error: Mapped[str | None] = mapped_column(String(500))
     file_attempts: Mapped[int] = mapped_column(Integer, default=0)
@@ -90,4 +92,12 @@ class Document(Base):
 
     @property
     def has_file(self) -> bool:
-        return self.storage_key is not None
+        return self.file_id is not None
+
+    @property
+    def storage_key(self) -> str | None:
+        return self.file.storage_key if self.file else None
+
+    @property
+    def content_type(self) -> str | None:
+        return self.file.content_type if self.file else None
