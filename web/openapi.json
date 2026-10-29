@@ -2660,6 +2660,112 @@
         }
       }
     },
+    "/v1/locations/{location_id}/contacts": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "List Location Contacts",
+        "description": "The location's contacts: the store's own phone and email first, then its leaders from\nthe top down. Visible to anyone who can see the location.",
+        "operationId": "contacts-list_location_contacts",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "location_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Location Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContactRead"
+                  },
+                  "title": "Response Contacts-List Location Contacts"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bill-tos/{bill_to_id}/contacts": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "List Bill To Contacts",
+        "description": "Contacts linked to the bill-to itself (not its locations'). Visible to anyone who can see\nthe bill-to.",
+        "operationId": "contacts-list_bill_to_contacts",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bill_to_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Bill To Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContactRead"
+                  },
+                  "title": "Response Contacts-List Bill To Contacts"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/documents/{document_id}/file": {
       "get": {
         "tags": [
@@ -6900,6 +7006,83 @@
           "failed"
         ],
         "title": "ConnectionStatus"
+      },
+      "ContactRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "contact_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Contact Id"
+          },
+          "role": {
+            "$ref": "#/components/schemas/ContactRole"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "contact_id",
+          "role",
+          "name",
+          "email",
+          "phone",
+          "source"
+        ],
+        "title": "ContactRead",
+        "description": "A contact in its role at a location or bill-to."
+      },
+      "ContactRole": {
+        "type": "string",
+        "enum": [
+          "executive_team_director",
+          "team_director",
+          "restaurant_leader",
+          "store"
+        ],
+        "title": "ContactRole",
+        "description": "A contact's role at the object it's linked to."
       },
       "Crumb": {
         "properties": {

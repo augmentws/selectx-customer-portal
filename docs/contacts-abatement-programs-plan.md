@@ -1,6 +1,6 @@
 # Plan: contacts, abatement programs, and risk inspection → chargeable inspection
 
-Status: revised Oct 29 with the decisions below. Nothing is built. Branch: `feature/contacts-abatement-programs`.
+Status: revised Oct 29 with the decisions below. Steps 1 (description) and 2 (contacts) are built. Branch: `feature/contacts-abatement-programs`.
 
 ## Decisions (Oct 29)
 

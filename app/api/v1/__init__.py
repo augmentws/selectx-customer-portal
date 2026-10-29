@@ -4,6 +4,7 @@ from app.api.v1 import (
     auth,
     bill_tos,
     companies,
+    contacts,
     dashboard,
     documents,
     files,
@@ -31,6 +32,7 @@ router.include_router(companies.router)
 router.include_router(dashboard.router)
 router.include_router(bill_tos.router)
 router.include_router(locations.router)
+router.include_router(contacts.router)
 router.include_router(documents.router)
 router.include_router(files.router)
 router.include_router(invoices.router)

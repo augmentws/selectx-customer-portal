@@ -6,6 +6,7 @@ import { useCallback } from "react";
 
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { LocationConditions } from "@/components/location-conditions";
+import { LocationContacts } from "@/components/location-contacts";
 import { LocationDocuments } from "@/components/location-documents";
 import { LocationInvoices } from "@/components/location-invoices";
 import { LocationServiceReports } from "@/components/location-service-reports";
@@ -39,6 +40,7 @@ import { LocationRiskInspections } from "@/components/risk-inspections-list";
 
 const TABS = [
   "overview",
+  "contacts",
   "orders",
   "conditions",
   "risk",
@@ -125,6 +127,7 @@ export function LocationDetail() {
       <Tabs value={tab === "invoices" && !canBilling ? "overview" : tab} onValueChange={setTab}>
         <TabsList className="flex-wrap">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="contacts">Contacts</TabsTrigger>
           <TabsTrigger value="orders">
             Service orders{(loc.open_order_count ?? 0) > 0 && ` (${loc.open_order_count} open)`}
           </TabsTrigger>
@@ -198,6 +201,10 @@ export function LocationDetail() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="contacts" className="pt-4">
+          <LocationContacts locationId={loc.id} />
         </TabsContent>
 
         <TabsContent value="orders" className="pt-4">
