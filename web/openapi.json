@@ -8781,6 +8781,17 @@
             "type": "boolean",
             "title": "Pestpac Active"
           },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
           "removed_at": {
             "anyOf": [
               {
@@ -8847,6 +8858,7 @@
           "latitude",
           "longitude",
           "pestpac_active",
+          "description",
           "removed_at",
           "pestpac_fetched_at",
           "trail"
@@ -9016,6 +9028,17 @@
             "type": "boolean",
             "title": "Pestpac Active"
           },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
           "removed_at": {
             "anyOf": [
               {
@@ -9075,6 +9098,7 @@
           "latitude",
           "longitude",
           "pestpac_active",
+          "description",
           "removed_at",
           "pestpac_fetched_at"
         ],

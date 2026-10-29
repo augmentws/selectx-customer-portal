@@ -114,6 +114,7 @@ export function LocationDetail() {
           {removed && <Badge variant="outline">No longer under this bill-to</Badge>}
           {!removed && !loc.pestpac_active && <Badge variant="warning">Inactive in PestPac</Badge>}
         </h1>
+        {loc.description && <p className="text-lg">{loc.description}</p>}
         <p className="text-muted-foreground">
           LocationID {loc.pestpac_location_id}
           {loc.pestpac_location_code && ` · code ${loc.pestpac_location_code}`}
