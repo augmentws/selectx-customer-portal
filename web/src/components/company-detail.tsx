@@ -3,7 +3,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { LayoutDashboard } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { AddDialog } from "@/components/add-dialog";
@@ -11,6 +12,7 @@ import { BillToDetailLines, OnboardBillTo } from "@/components/bill-to-onboardin
 import { LocationSyncResult } from "@/components/location-sync-result";
 import { InvoicedOrders } from "@/components/invoiced-orders";
 import { LocationsTable } from "@/components/locations-table";
+import { MembersPanel } from "@/components/members-panel";
 import { PostedServiceOrders } from "@/components/posted-service-orders";
 import { ReportTemplatesSection } from "@/components/report-templates";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -35,16 +37,23 @@ import { useUrlTab } from "@/lib/use-url-tab";
 export function CompanyDetail() {
   const { companyId } = useParams<{ companyId: string }>();
   const [tab, setTab] = useUrlTab(
-    ["bill-tos", "locations", "posted", "invoiced", "open", "templates"],
+    ["bill-tos", "locations", "posted", "invoiced", "open", "templates", "members"],
     "bill-tos",
   );
   const queryClient = useQueryClient();
-  const { can } = usePermissions();
-  const company = useCompaniesGetCompany(companyId);
-  const billTos = useCompaniesListBillTos(companyId);
+  const router = useRouter();
+  const { can, me } = usePermissions();
+  // A customer's user can open only the company's dashboard, so this page sends them there.
+  const grant = me?.company_memberships.find((g) => g.company_id === companyId);
+  const companyUser = grant !== undefined && !can("companies:read", grant.operator_id);
+  useEffect(() => {
+    if (companyUser) router.replace(`/companies/${companyId}/dashboard`);
+  }, [companyUser, companyId, router]);
+  const company = useCompaniesGetCompany(companyId, { query: { enabled: !companyUser } });
+  const billTos = useCompaniesListBillTos(companyId, { query: { enabled: !companyUser } });
   // Every store across the bill-tos: fetched only once the tab is opened.
   const locations = useCompaniesListLocations(companyId, {
-    query: { enabled: tab === "locations" },
+    query: { enabled: tab === "locations" && !companyUser },
   });
   useDocumentTitle(company.data?.data.name);
   const invalidateList = () =>
@@ -53,7 +62,7 @@ export function CompanyDetail() {
   const refresh = useBillTosRefreshBillTo({ mutation: { onSuccess: invalidateList } });
   const mutationError = update.error ?? refresh.error;
 
-  if (company.isPending) return <p className="text-muted-foreground">Loading…</p>;
+  if (companyUser || company.isPending) return <p className="text-muted-foreground">Loading…</p>;
   if (company.isError) {
     return (
       <Alert variant="destructive">
@@ -67,7 +76,8 @@ export function CompanyDetail() {
   // Tabs the caller can't see fall back to Bill-tos.
   const shownTab =
     (tab === "invoiced" && !can("billing:read", c.operator_id)) ||
-    (tab === "templates" && !can("reports:read", c.operator_id))
+    (tab === "templates" && !can("reports:read", c.operator_id)) ||
+    (tab === "members" && !can("members:read", c.operator_id))
       ? "bill-tos"
       : tab;
 
@@ -123,6 +133,7 @@ export function CompanyDetail() {
           {can("reports:read", c.operator_id) && (
             <TabsTrigger value="templates">Report templates</TabsTrigger>
           )}
+          {can("members:read", c.operator_id) && <TabsTrigger value="members">Members</TabsTrigger>}
         </TabsList>
         <TabsContent value="bill-tos" className="flex flex-col gap-3 pt-4">
           {refresh.isSuccess && (
@@ -236,6 +247,14 @@ export function CompanyDetail() {
         {can("reports:read", c.operator_id) && (
           <TabsContent value="templates" className="pt-4">
             <ReportTemplatesSection companyId={companyId} operatorId={c.operator_id} />
+          </TabsContent>
+        )}
+        {can("members:read", c.operator_id) && (
+          <TabsContent value="members" className="flex flex-col gap-3 pt-4">
+            <p className="text-sm text-muted-foreground">
+              The company&apos;s own users. They see only this company&apos;s dashboard.
+            </p>
+            <MembersPanel target={{ kind: "company", companyId, operatorId: c.operator_id }} />
           </TabsContent>
         )}
       </Tabs>

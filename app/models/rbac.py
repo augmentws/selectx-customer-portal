@@ -73,3 +73,25 @@ class Membership(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     role: Mapped[Role] = relationship()
+
+
+class CompanyMembership(Base):
+    """Grants a company-scoped role (a customer's user) on one company. Kept apart from
+    `memberships` so a company grant can never be read as a grant on its operator."""
+
+    __tablename__ = "company_memberships"
+    __table_args__ = (
+        UniqueConstraint("user_id", "company_id", name="uq_company_memberships_user_company"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), index=True
+    )
+    role_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("roles.id", ondelete="RESTRICT"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    role: Mapped[Role] = relationship()

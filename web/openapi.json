@@ -3422,6 +3422,231 @@
         }
       }
     },
+    "/v1/companies/{company_id}/members": {
+      "get": {
+        "tags": [
+          "members"
+        ],
+        "summary": "List Company Members",
+        "operationId": "members-list_company_members",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Company Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CompanyMemberRead"
+                  },
+                  "title": "Response Members-List Company Members"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "members"
+        ],
+        "summary": "Add Company Member",
+        "operationId": "members-add_company_member",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Company Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyMemberCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/companies/{company_id}/members/{user_id}": {
+      "patch": {
+        "tags": [
+          "members"
+        ],
+        "summary": "Change Company Role",
+        "operationId": "members-change_company_role",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Company Id"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyMemberRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "members"
+        ],
+        "summary": "Remove Company Member",
+        "operationId": "members-remove_company_member",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Company Id"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/operators/{operator_id}/pestpac-connection": {
       "get": {
         "tags": [
@@ -5730,6 +5955,135 @@
           "trail"
         ],
         "title": "CompanyDetail"
+      },
+      "CompanyGrant": {
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "company_name": {
+            "type": "string",
+            "title": "Company Name"
+          },
+          "operator_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Operator Id"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Permissions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "company_id",
+          "company_name",
+          "operator_id",
+          "role",
+          "permissions"
+        ],
+        "title": "CompanyGrant",
+        "description": "A customer user's role on one company; it applies only to that company."
+      },
+      "CompanyMemberCreated": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "must_change_password": {
+            "type": "boolean",
+            "title": "Must Change Password"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "user_created": {
+            "type": "boolean",
+            "title": "User Created"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "email",
+          "company_id",
+          "role",
+          "must_change_password",
+          "created_at",
+          "user_created"
+        ],
+        "title": "CompanyMemberCreated"
+      },
+      "CompanyMemberRead": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "must_change_password": {
+            "type": "boolean",
+            "title": "Must Change Password"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "email",
+          "company_id",
+          "role",
+          "must_change_password",
+          "created_at"
+        ],
+        "title": "CompanyMemberRead",
+        "description": "A customer's user, granted a company-scoped role on one company."
       },
       "CompanyRead": {
         "properties": {
@@ -8284,6 +8638,13 @@
             },
             "type": "array",
             "title": "Memberships"
+          },
+          "company_memberships": {
+            "items": {
+              "$ref": "#/components/schemas/CompanyGrant"
+            },
+            "type": "array",
+            "title": "Company Memberships"
           }
         },
         "type": "object",
@@ -8291,7 +8652,8 @@
           "id",
           "email",
           "must_change_password",
-          "memberships"
+          "memberships",
+          "company_memberships"
         ],
         "title": "MeRead"
       },
@@ -11023,7 +11385,8 @@
         "type": "string",
         "enum": [
           "platform",
-          "operator"
+          "operator",
+          "company"
         ],
         "title": "RoleScope",
         "description": "Which kind of tenant a role may be assigned on."

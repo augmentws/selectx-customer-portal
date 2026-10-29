@@ -152,7 +152,6 @@ def test_escalation_check_blocks_permissions_actor_lacks():
         platform_id=uuid.uuid4(),
         operator_perms={tenant_id: frozenset({"companies:read", "members:write"})},
     )
-    tenant = type("T", (), {"id": tenant_id})()
     role = Role(
         name="custom",
         description="",
@@ -160,7 +159,7 @@ def test_escalation_check_blocks_permissions_actor_lacks():
         permissions=[Permission(code="companies:write", description="")],
     )
     with pytest.raises(EscalationError):
-        _check_no_escalation(scope, tenant, role)
+        _check_no_escalation(scope.permissions_on(tenant_id), role)
 
 
 def test_password_is_not_returned(client, world):
@@ -174,3 +173,121 @@ def test_password_is_not_returned(client, world):
         temporary_password=TEMP,
     )
     assert TEMP not in resp.text and PASSWORD not in resp.text
+
+
+def _add_to_company(client, headers, company_id, **body):
+    return client.post(f"/v1/companies/{company_id}/members", json=body, headers=headers)
+
+
+def test_company_user_sees_only_their_company_dashboard(client, world):
+    admin = headers_for(client, world.emails["admin_a"])
+    created = _add_to_company(
+        client,
+        admin,
+        world.company_a,
+        email="Store.Manager@Acme.example",
+        role="company_manager",
+        temporary_password=TEMP,
+    )
+    assert created.status_code == 201
+    assert created.json()["user_created"] is True
+    assert created.json()["company_id"] == str(world.company_a)
+    assert created.json()["must_change_password"] is True
+
+    token = login(client, "store.manager@acme.example", TEMP).json()["access_token"]
+    h = {"Authorization": f"Bearer {token}"}
+    changed = client.post(
+        "/v1/auth/password",
+        json={"current_password": TEMP, "new_password": "a-brand-new-password"},
+        headers=h,
+    )
+    assert changed.status_code == 204
+    h = headers_for(client, "store.manager@acme.example", "a-brand-new-password")
+
+    me = client.get("/v1/auth/me", headers=h).json()
+    assert me["memberships"] == []
+    assert me["company_memberships"] == [
+        {
+            "company_id": str(world.company_a),
+            "company_name": "Acme Restaurants",
+            "operator_id": str(world.op_a),
+            "role": "company_manager",
+            "permissions": ["companies:read", "dashboards:read"],
+        }
+    ]
+    assert client.get(f"/v1/companies/{world.company_a}/dashboard", headers=h).status_code == 200
+    assert client.get(f"/v1/companies/{world.company_a}", headers=h).status_code == 200
+    # Nothing beneath the company, and no other company.
+    assert client.get(f"/v1/companies/{world.company_a}/bill-tos", headers=h).status_code == 404
+    assert client.get(f"/v1/bill-tos/{world.bill_to_a}", headers=h).status_code == 404
+    assert client.get(f"/v1/locations/{world.location_a}", headers=h).status_code == 404
+    assert client.get(f"/v1/companies/{world.company_b}/dashboard", headers=h).status_code == 404
+    assert client.get(f"/v1/operators/{world.op_a}", headers=h).status_code == 404
+
+
+def test_company_member_list_shows_only_company_users(client, world):
+    admin = headers_for(client, world.emails["admin_a"])
+    members = client.get(f"/v1/companies/{world.company_a}/members", headers=admin).json()
+    assert [(m["email"], m["role"]) for m in members] == [
+        (world.emails["manager_a"], "company_manager")
+    ]
+    assert client.get(f"/v1/companies/{world.company_b}/members", headers=admin).status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("where", "role"),
+    [("company", "operator_staff"), ("company", "platform_admin"), ("tenant", "company_manager")],
+)
+def test_company_roles_and_tenant_roles_do_not_mix(client, world, where, role):
+    pa = headers_for(client, world.emails["platform_admin"])
+    body = {"email": "someone@test.example", "role": role, "temporary_password": TEMP}
+    if where == "company":
+        resp = _add_to_company(client, pa, world.company_a, **body)
+    else:
+        resp = _add(client, pa, world.op_a, **body)
+    assert resp.status_code == 422
+
+
+def test_duplicate_company_membership_conflicts(client, world):
+    admin = headers_for(client, world.emails["admin_a"])
+    resp = _add_to_company(
+        client, admin, world.company_a, email=world.emails["manager_a"], role="company_manager"
+    )
+    assert resp.status_code == 409
+
+
+def test_staff_user_can_also_be_a_company_user(client, world):
+    """An existing user joins without a password; their operator access is unchanged."""
+    admin = headers_for(client, world.emails["admin_a"])
+    resp = _add_to_company(
+        client, admin, world.company_a, email=world.emails["staff_a"], role="company_manager"
+    )
+    assert resp.status_code == 201
+    assert resp.json()["user_created"] is False
+    staff = headers_for(client, world.emails["staff_a"])
+    assert client.get(f"/v1/companies/{world.company_a}/bill-tos", headers=staff).status_code == 200
+
+
+def test_removed_company_user_loses_access_immediately(client, world):
+    manager = headers_for(client, world.emails["manager_a"])
+    admin = headers_for(client, world.emails["admin_a"])
+    path = f"/v1/companies/{world.company_a}/dashboard"
+    assert client.get(path, headers=manager).status_code == 200
+    resp = client.delete(
+        f"/v1/companies/{world.company_a}/members/{world.user_ids['manager_a']}", headers=admin
+    )
+    assert resp.status_code == 204
+    assert client.get(path, headers=manager).status_code == 404
+
+
+def test_deactivated_company_grants_nothing(client, world):
+    manager = headers_for(client, world.emails["manager_a"])
+    admin = headers_for(client, world.emails["admin_a"])
+    resp = client.patch(
+        f"/v1/companies/{world.company_a}", json={"is_active": False}, headers=admin
+    )
+    assert resp.status_code == 200
+    assert (
+        client.get(f"/v1/companies/{world.company_a}/dashboard", headers=manager).status_code == 404
+    )
+    assert client.get("/v1/auth/me", headers=manager).json()["company_memberships"] == []

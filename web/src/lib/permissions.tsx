@@ -38,6 +38,20 @@ export function permissionsOn(me: MeRead | undefined, tenantId: string | undefin
   return perms;
 }
 
+/** Permissions on one company: its operator's, plus the caller's own grant on that company
+ * (a customer's user). Only the routes FastAPI opens to company users honour the grant. */
+export function permissionsOnCompany(
+  me: MeRead | undefined,
+  companyId: string | undefined,
+  operatorId: string | undefined,
+): Set<string> {
+  const perms = permissionsOn(me, operatorId);
+  me?.company_memberships
+    .find((c) => c.company_id === companyId)
+    ?.permissions.forEach((p) => perms.add(p));
+  return perms;
+}
+
 export function hasAnywhere(me: MeRead | undefined, perm: PermissionCode): boolean {
   return !!me?.memberships.some((m) => m.permissions.includes(perm));
 }
@@ -49,6 +63,8 @@ export function usePermissions() {
     me,
     isPending,
     can: (perm: PermissionCode, tenantId?: string) => permissionsOn(me, tenantId).has(perm),
+    canOnCompany: (perm: PermissionCode, companyId?: string, operatorId?: string) =>
+      permissionsOnCompany(me, companyId, operatorId).has(perm),
     canAnywhere: (perm: PermissionCode) => hasAnywhere(me, perm),
     platformTenantId: me?.memberships.find((m) => m.tenant_kind === "platform")?.tenant_id,
   };

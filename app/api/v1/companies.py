@@ -42,7 +42,13 @@ def get_company(
     company_id: uuid.UUID, db: Session = Depends(get_db), scope: AccessScope = Depends(get_scope)
 ):
     company = _company_or_404(db, company_id)
-    scope.require(Perm.companies_read, company.operator_id, read_perm=Perm.companies_read)
+    # Open to the company's own users: the dashboard page shows its name.
+    scope.require(
+        Perm.companies_read,
+        company.operator_id,
+        read_perm=Perm.companies_read,
+        company_id=company.id,
+    )
     return CompanyDetail.model_validate(
         {
             **CompanyRead.model_validate(company).model_dump(),

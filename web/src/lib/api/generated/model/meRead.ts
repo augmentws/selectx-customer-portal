@@ -4,6 +4,7 @@
  * Customer Portal API
  * OpenAPI spec version: 0.1.0
  */
+import type { CompanyGrant } from './companyGrant';
 import type { MembershipGrant } from './membershipGrant';
 
 export interface MeRead {
@@ -11,4 +12,5 @@ export interface MeRead {
   email: string;
   must_change_password: boolean;
   memberships: MembershipGrant[];
+  company_memberships: CompanyGrant[];
 }

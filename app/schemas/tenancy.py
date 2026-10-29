@@ -198,6 +198,21 @@ class MemberCreated(MemberRead):
     user_created: bool
 
 
+class CompanyMemberRead(BaseModel):
+    """A customer's user, granted a company-scoped role on one company."""
+
+    user_id: uuid.UUID
+    email: EmailStr
+    company_id: uuid.UUID
+    role: str
+    must_change_password: bool
+    created_at: datetime
+
+
+class CompanyMemberCreated(CompanyMemberRead):
+    user_created: bool
+
+
 class PermissionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
