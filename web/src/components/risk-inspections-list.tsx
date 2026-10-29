@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { errorMessage } from "@/lib/api/errors";
 import type { RiskInspectionListItem } from "@/lib/api/generated/model";
 import {
+  useRiskInspectionsListBillToRiskInspections,
   useRiskInspectionsListCompanyRiskInspections,
   useRiskInspectionsListLocationRiskInspections,
 } from "@/lib/api/generated/risk-inspections/risk-inspections";
@@ -169,6 +170,28 @@ export function CompanyRiskInspections({
           inspections={query.data?.data ?? []}
           withStore
           exportName={`${companyName} risk inspections`}
+        />
+      )}
+    </ListState>
+  );
+}
+
+/** The bill-to's locations' risk inspections, newest first. */
+export function BillToRiskInspections({
+  billToId,
+  billToName,
+}: {
+  billToId: string;
+  billToName: string;
+}) {
+  const query = useRiskInspectionsListBillToRiskInspections(billToId);
+  return (
+    <ListState query={query}>
+      {() => (
+        <InspectionsTable
+          inspections={query.data?.data ?? []}
+          withStore
+          exportName={`${billToName} risk inspections`}
         />
       )}
     </ListState>
