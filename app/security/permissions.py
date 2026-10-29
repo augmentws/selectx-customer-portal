@@ -54,12 +54,15 @@ class RoleScope(enum.StrEnum):
 
     platform = "platform"
     operator = "operator"
+    # Customer users: granted on one company (company_memberships), never on a tenant.
+    company = "company"
 
 
 class SystemRole(enum.StrEnum):
     platform_admin = "platform_admin"
     operator_admin = "operator_admin"
     operator_staff = "operator_staff"
+    company_manager = "company_manager"
 
 
 SYSTEM_ROLES: dict[SystemRole, tuple[RoleScope, str, frozenset[Perm]]] = {
@@ -103,5 +106,10 @@ SYSTEM_ROLES: dict[SystemRole, tuple[RoleScope, str, frozenset[Perm]]] = {
                 Perm.dashboards_read,
             }
         ),
+    ),
+    SystemRole.company_manager: (
+        RoleScope.company,
+        "A customer's user: sees their company's dashboard",
+        frozenset({Perm.companies_read, Perm.dashboards_read}),
     ),
 }

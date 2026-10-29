@@ -14,4 +14,5 @@ export type RoleScope = typeof RoleScope[keyof typeof RoleScope];
 export const RoleScope = {
   platform: 'platform',
   operator: 'operator',
+  company: 'company',
 } as const;

@@ -3,8 +3,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
-from app.models import AuthSession, Membership, Role, Tenant, User
+from app.models import AuthSession, Company, CompanyMembership, Membership, Role, Tenant, User
 from app.schemas.auth import (
+    CompanyGrant,
     LoginRequest,
     MembershipGrant,
     MeRead,
@@ -88,6 +89,19 @@ def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
         .options(selectinload(Membership.role).selectinload(Role.permissions))
         .order_by(Tenant.kind, Tenant.name)
     ).all()
+    # Same rule as app.security.access.load_scope: inactive companies and operators grant nothing.
+    company_rows = db.execute(
+        select(CompanyMembership, Company)
+        .join(Company, Company.id == CompanyMembership.company_id)
+        .join(Tenant, Tenant.id == Company.operator_id)
+        .where(
+            CompanyMembership.user_id == user.id,
+            Company.is_active.is_(True),
+            Tenant.is_active.is_(True),
+        )
+        .options(selectinload(CompanyMembership.role).selectinload(Role.permissions))
+        .order_by(Company.name)
+    ).all()
     return MeRead(
         id=user.id,
         email=user.email,
@@ -101,5 +115,15 @@ def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
                 permissions=sorted(p.code for p in m.role.permissions),
             )
             for m, tenant in rows
+        ],
+        company_memberships=[
+            CompanyGrant(
+                company_id=company.id,
+                company_name=company.name,
+                operator_id=company.operator_id,
+                role=m.role.name,
+                permissions=sorted(p.code for p in m.role.permissions),
+            )
+            for m, company in company_rows
         ],
     )

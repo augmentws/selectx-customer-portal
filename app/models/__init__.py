@@ -4,7 +4,7 @@ from app.models.document import Document
 from app.models.invoice import Invoice, InvoiceLine
 from app.models.note import Note
 from app.models.pestpac import ConnectionStatus, PestPacConnection
-from app.models.rbac import Membership, Permission, Role, role_permissions
+from app.models.rbac import CompanyMembership, Membership, Permission, Role, role_permissions
 from app.models.report import Report, ReportStatus, ReportTemplate
 from app.models.service_order import (
     ServiceOrder,
@@ -28,6 +28,7 @@ __all__ = [
     "LoginThrottle",
     "BillTo",
     "Company",
+    "CompanyMembership",
     "Condition",
     "ConditionInspection",
     "ConnectionStatus",

@@ -24,6 +24,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CompanyMemberCreated,
+  CompanyMemberRead,
   HTTPValidationError,
   MemberCreate,
   MemberCreated,
@@ -473,4 +475,425 @@ export const useMembersRemoveMember = <TError = HTTPValidationError,
         TContext
       > => {
       return useMutation(getMembersRemoveMemberMutationOptions(options), queryClient);
+    }
+    export type membersListCompanyMembersResponse200 = {
+  data: CompanyMemberRead[]
+  status: 200
+}
+
+export type membersListCompanyMembersResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type membersListCompanyMembersResponseSuccess = (membersListCompanyMembersResponse200) & {
+  headers: Headers;
+};
+export type membersListCompanyMembersResponseError = (membersListCompanyMembersResponse422) & {
+  headers: Headers;
+};
+
+export const getMembersListCompanyMembersUrl = (companyId: string,) => {
+
+
+
+
+  return `/v1/companies/${companyId}/members`
+}
+
+/**
+ * @summary List Company Members
+ */
+export const membersListCompanyMembers = async (companyId: string, options?: Parameters<typeof bffFetch>[1]): Promise<membersListCompanyMembersResponseSuccess> => {
+
+  return bffFetch<membersListCompanyMembersResponseSuccess>(getMembersListCompanyMembersUrl(companyId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getMembersListCompanyMembersQueryKey = (companyId: string,) => {
+    return [
+    `/v1/companies/${companyId}/members`
+    ] as const;
+    }
+
+
+export const getMembersListCompanyMembersQueryOptions = <TData = Awaited<ReturnType<typeof membersListCompanyMembers>>, TError = HTTPValidationError>(companyId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof membersListCompanyMembers>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getMembersListCompanyMembersQueryKey(companyId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof membersListCompanyMembers>>> = ({ signal }) => membersListCompanyMembers(companyId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: companyId !== null && companyId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof membersListCompanyMembers>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type MembersListCompanyMembersQueryResult = NonNullable<Awaited<ReturnType<typeof membersListCompanyMembers>>>
+export type MembersListCompanyMembersQueryError = HTTPValidationError
+
+
+export function useMembersListCompanyMembers<TData = Awaited<ReturnType<typeof membersListCompanyMembers>>, TError = HTTPValidationError>(
+ companyId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof membersListCompanyMembers>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof membersListCompanyMembers>>,
+          TError,
+          Awaited<ReturnType<typeof membersListCompanyMembers>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMembersListCompanyMembers<TData = Awaited<ReturnType<typeof membersListCompanyMembers>>, TError = HTTPValidationError>(
+ companyId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof membersListCompanyMembers>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof membersListCompanyMembers>>,
+          TError,
+          Awaited<ReturnType<typeof membersListCompanyMembers>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMembersListCompanyMembers<TData = Awaited<ReturnType<typeof membersListCompanyMembers>>, TError = HTTPValidationError>(
+ companyId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof membersListCompanyMembers>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Company Members
+ */
+
+export function useMembersListCompanyMembers<TData = Awaited<ReturnType<typeof membersListCompanyMembers>>, TError = HTTPValidationError>(
+ companyId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof membersListCompanyMembers>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getMembersListCompanyMembersQueryOptions(companyId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type membersAddCompanyMemberResponse201 = {
+  data: CompanyMemberCreated
+  status: 201
+}
+
+export type membersAddCompanyMemberResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type membersAddCompanyMemberResponseSuccess = (membersAddCompanyMemberResponse201) & {
+  headers: Headers;
+};
+export type membersAddCompanyMemberResponseError = (membersAddCompanyMemberResponse422) & {
+  headers: Headers;
+};
+
+export const getMembersAddCompanyMemberUrl = (companyId: string,) => {
+
+
+
+
+  return `/v1/companies/${companyId}/members`
+}
+
+/**
+ * @summary Add Company Member
+ */
+export const membersAddCompanyMember = async (companyId: string,
+    memberCreate: MemberCreate, options?: Parameters<typeof bffFetch>[1]): Promise<membersAddCompanyMemberResponseSuccess> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return bffFetch<membersAddCompanyMemberResponseSuccess>(getMembersAddCompanyMemberUrl(companyId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(memberCreate)
+  }
+);}
+
+
+
+
+
+export const getMembersAddCompanyMemberMutationKey = () => ['membersAddCompanyMember'] as const;
+
+export const getMembersAddCompanyMemberMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof membersAddCompanyMember>>, TError,MembersAddCompanyMemberMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof membersAddCompanyMember>>, TError,MembersAddCompanyMemberMutationVariables, TContext> => {
+
+const mutationKey = getMembersAddCompanyMemberMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof membersAddCompanyMember>>, MembersAddCompanyMemberMutationVariables> = (props) => {
+          const {companyId,data} = props ?? {};
+
+          return  membersAddCompanyMember(companyId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MembersAddCompanyMemberMutationResult = NonNullable<Awaited<ReturnType<typeof membersAddCompanyMember>>>
+    export type MembersAddCompanyMemberMutationBody = MemberCreate
+    export type MembersAddCompanyMemberMutationError = HTTPValidationError
+    export type MembersAddCompanyMemberMutationVariables = {companyId: string;data: MemberCreate}
+
+    /**
+ * @summary Add Company Member
+ */
+export const useMembersAddCompanyMember = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof membersAddCompanyMember>>, TError,MembersAddCompanyMemberMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof membersAddCompanyMember>>,
+        TError,
+        MembersAddCompanyMemberMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMembersAddCompanyMemberMutationOptions(options), queryClient);
+    }
+    export type membersChangeCompanyRoleResponse200 = {
+  data: CompanyMemberRead
+  status: 200
+}
+
+export type membersChangeCompanyRoleResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type membersChangeCompanyRoleResponseSuccess = (membersChangeCompanyRoleResponse200) & {
+  headers: Headers;
+};
+export type membersChangeCompanyRoleResponseError = (membersChangeCompanyRoleResponse422) & {
+  headers: Headers;
+};
+
+export const getMembersChangeCompanyRoleUrl = (companyId: string,
+    userId: string,) => {
+
+
+
+
+  return `/v1/companies/${companyId}/members/${userId}`
+}
+
+/**
+ * @summary Change Company Role
+ */
+export const membersChangeCompanyRole = async (companyId: string,
+    userId: string,
+    memberUpdate: MemberUpdate, options?: Parameters<typeof bffFetch>[1]): Promise<membersChangeCompanyRoleResponseSuccess> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return bffFetch<membersChangeCompanyRoleResponseSuccess>(getMembersChangeCompanyRoleUrl(companyId,userId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(memberUpdate)
+  }
+);}
+
+
+
+
+
+export const getMembersChangeCompanyRoleMutationKey = () => ['membersChangeCompanyRole'] as const;
+
+export const getMembersChangeCompanyRoleMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof membersChangeCompanyRole>>, TError,MembersChangeCompanyRoleMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof membersChangeCompanyRole>>, TError,MembersChangeCompanyRoleMutationVariables, TContext> => {
+
+const mutationKey = getMembersChangeCompanyRoleMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof membersChangeCompanyRole>>, MembersChangeCompanyRoleMutationVariables> = (props) => {
+          const {companyId,userId,data} = props ?? {};
+
+          return  membersChangeCompanyRole(companyId,userId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MembersChangeCompanyRoleMutationResult = NonNullable<Awaited<ReturnType<typeof membersChangeCompanyRole>>>
+    export type MembersChangeCompanyRoleMutationBody = MemberUpdate
+    export type MembersChangeCompanyRoleMutationError = HTTPValidationError
+    export type MembersChangeCompanyRoleMutationVariables = {companyId: string;userId: string;data: MemberUpdate}
+
+    /**
+ * @summary Change Company Role
+ */
+export const useMembersChangeCompanyRole = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof membersChangeCompanyRole>>, TError,MembersChangeCompanyRoleMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof membersChangeCompanyRole>>,
+        TError,
+        MembersChangeCompanyRoleMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMembersChangeCompanyRoleMutationOptions(options), queryClient);
+    }
+    export type membersRemoveCompanyMemberResponse204 = {
+  data: void
+  status: 204
+}
+
+export type membersRemoveCompanyMemberResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type membersRemoveCompanyMemberResponseSuccess = (membersRemoveCompanyMemberResponse204) & {
+  headers: Headers;
+};
+export type membersRemoveCompanyMemberResponseError = (membersRemoveCompanyMemberResponse422) & {
+  headers: Headers;
+};
+
+export const getMembersRemoveCompanyMemberUrl = (companyId: string,
+    userId: string,) => {
+
+
+
+
+  return `/v1/companies/${companyId}/members/${userId}`
+}
+
+/**
+ * @summary Remove Company Member
+ */
+export const membersRemoveCompanyMember = async (companyId: string,
+    userId: string, options?: Parameters<typeof bffFetch>[1]): Promise<membersRemoveCompanyMemberResponseSuccess> => {
+
+  return bffFetch<membersRemoveCompanyMemberResponseSuccess>(getMembersRemoveCompanyMemberUrl(companyId,userId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getMembersRemoveCompanyMemberMutationKey = () => ['membersRemoveCompanyMember'] as const;
+
+export const getMembersRemoveCompanyMemberMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof membersRemoveCompanyMember>>, TError,MembersRemoveCompanyMemberMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof membersRemoveCompanyMember>>, TError,MembersRemoveCompanyMemberMutationVariables, TContext> => {
+
+const mutationKey = getMembersRemoveCompanyMemberMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof membersRemoveCompanyMember>>, MembersRemoveCompanyMemberMutationVariables> = (props) => {
+          const {companyId,userId} = props ?? {};
+
+          return  membersRemoveCompanyMember(companyId,userId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MembersRemoveCompanyMemberMutationResult = NonNullable<Awaited<ReturnType<typeof membersRemoveCompanyMember>>>
+
+    export type MembersRemoveCompanyMemberMutationError = HTTPValidationError
+    export type MembersRemoveCompanyMemberMutationVariables = {companyId: string;userId: string}
+
+    /**
+ * @summary Remove Company Member
+ */
+export const useMembersRemoveCompanyMember = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof membersRemoveCompanyMember>>, TError,MembersRemoveCompanyMemberMutationVariables, TContext>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof membersRemoveCompanyMember>>,
+        TError,
+        MembersRemoveCompanyMemberMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMembersRemoveCompanyMemberMutationOptions(options), queryClient);
     }

@@ -41,6 +41,7 @@ from app.main import app  # noqa: E402
 from app.models import (  # noqa: E402
     BillTo,
     Company,
+    CompanyMembership,
     ConnectionStatus,
     Document,
     GoCanvasRequest,
@@ -91,7 +92,8 @@ def _clean_tables():
                 "conditions, report_templates, "
                 "webhook_events, notes, sync_jobs, "
                 "service_orders, "
-                "technicians, locations, pestpac_connections, bill_tos, companies, memberships, "
+                "technicians, locations, pestpac_connections, bill_tos, company_memberships, "
+                "companies, memberships, "
                 "auth_sessions, credentials, users, login_throttles"
             )
         )
@@ -543,7 +545,8 @@ class World:
 # The world's stored webhook event (for access checks); webhook capture tests leave it out.
 WORLD_WEBHOOK_SHA = "0" * 64
 
-ACTORS = ("platform_admin", "admin_a", "staff_a", "admin_b", "no_role")
+# manager_a is a customer user: company_manager on company A only.
+ACTORS = ("platform_admin", "admin_a", "staff_a", "admin_b", "no_role", "manager_a")
 
 
 @pytest.fixture
@@ -603,6 +606,12 @@ def world(storage) -> World:
         company_b = Company(operator_id=op_b.id, name="Beta Hotels")
         db.add_all([company_a, company_b])
         db.flush()
+        manager = get_system_role(db, SystemRole.company_manager)
+        db.add(
+            CompanyMembership(
+                user_id=user_ids["manager_a"], company_id=company_a.id, role_id=manager.id
+            )
+        )
         bill_to_a = BillTo(
             operator_id=op_a.id,
             company_id=company_a.id,

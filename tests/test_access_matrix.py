@@ -10,7 +10,7 @@ import pytest
 
 from tests.conftest import ACTORS, World, headers_for
 
-PA, AA, SA, AB, NR = ACTORS  # platform_admin, admin_a, staff_a, admin_b, no_role
+PA, AA, SA, AB, NR, MA = ACTORS  # platform_admin, admin_a, staff_a, admin_b, no_role, manager_a
 
 
 @dataclass(frozen=True)
@@ -27,9 +27,11 @@ def _all(status: int, **overrides: int) -> dict[str, int]:
 
 
 CASES = [
-    Case("list operators", "GET", lambda w: "/v1/operators", _all(200, no_role=403)),
+    # A company user (manager_a) sees only company A and its dashboard: 404 everywhere else, and
+    # 403 on routes open to anyone who can see an operator.
+    Case("list operators", "GET", lambda w: "/v1/operators", _all(200, no_role=403, manager_a=403)),
     # Search is open to anyone who can see an operator; results are scoped (tests/test_search.py).
-    Case("search", "GET", lambda w: "/v1/search?q=acme", _all(200, no_role=403)),
+    Case("search", "GET", lambda w: "/v1/search?q=acme", _all(200, no_role=403, manager_a=403)),
     Case(
         "create operator",
         "POST",
@@ -67,7 +69,7 @@ CASES = [
         "get company A",
         "GET",
         lambda w: f"/v1/companies/{w.company_a}",
-        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+        _all(404, platform_admin=200, admin_a=200, staff_a=200, manager_a=200),
     ),
     Case(
         "update company A",
@@ -301,6 +303,36 @@ CASES = [
         _all(404, platform_admin=204, admin_a=204, staff_a=403),
     ),
     Case(
+        "list members of company A",
+        "GET",
+        lambda w: f"/v1/companies/{w.company_a}/members",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403, manager_a=403),
+    ),
+    Case(
+        "add member to company A",
+        "POST",
+        lambda w: f"/v1/companies/{w.company_a}/members",
+        _all(404, platform_admin=201, admin_a=201, staff_a=403, manager_a=403),
+        lambda w: {
+            "email": "new.customer@test.example",
+            "role": "company_manager",
+            "temporary_password": "temporary-password-1",
+        },
+    ),
+    Case(
+        "change manager_a's role in company A",
+        "PATCH",
+        lambda w: f"/v1/companies/{w.company_a}/members/{w.user_ids['manager_a']}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403, manager_a=403),
+        lambda w: {"role": "company_manager"},
+    ),
+    Case(
+        "remove manager_a from company A",
+        "DELETE",
+        lambda w: f"/v1/companies/{w.company_a}/members/{w.user_ids['manager_a']}",
+        _all(404, platform_admin=204, admin_a=204, staff_a=403, manager_a=403),
+    ),
+    Case(
         "list platform members",
         "GET",
         lambda w: f"/v1/tenants/{w.platform_id}/members",
@@ -441,7 +473,7 @@ CASES = [
         "dashboard of company A",
         "GET",
         lambda w: f"/v1/companies/{w.company_a}/dashboard",
-        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+        _all(404, platform_admin=200, admin_a=200, staff_a=200, manager_a=200),
     ),
     Case(
         "list report templates of company A",
@@ -482,9 +514,17 @@ CASES = [
         _all(404, platform_admin=200, admin_a=403, staff_a=403),
         lambda w: {"html": "<p>{{ location.name }}</p>"},
     ),
-    Case("list roles", "GET", lambda w: "/v1/roles", _all(200, staff_a=403, no_role=403)),
     Case(
-        "list permissions", "GET", lambda w: "/v1/permissions", _all(200, staff_a=403, no_role=403)
+        "list roles",
+        "GET",
+        lambda w: "/v1/roles",
+        _all(200, staff_a=403, no_role=403, manager_a=403),
+    ),
+    Case(
+        "list permissions",
+        "GET",
+        lambda w: "/v1/permissions",
+        _all(200, staff_a=403, no_role=403, manager_a=403),
     ),
 ]
 

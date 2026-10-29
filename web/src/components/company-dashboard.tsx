@@ -288,7 +288,8 @@ function sortValue(row: StoreRow, key: SortKey): string | number {
   }
 }
 
-function Stores({ d }: { d: CompanyDashboard }) {
+/** `linked`: store names open their location pages (not for a customer's users, who can't). */
+function Stores({ d, linked }: { d: CompanyDashboard; linked: boolean }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({
     key: "services",
@@ -367,12 +368,16 @@ function Stores({ d }: { d: CompanyDashboard }) {
                 <tr key={s.location_id} className="border-b border-border last:border-0">
                   <td className="p-3 tabular-nums">{s.store_number ?? "—"}</td>
                   <td className="p-3">
-                    <Link
-                      href={`/locations/${s.location_id}`}
-                      className="text-primary hover:underline"
-                    >
-                      {s.name ?? `LocationID ${s.pestpac_location_id}`}
-                    </Link>
+                    {linked ? (
+                      <Link
+                        href={`/locations/${s.location_id}`}
+                        className="text-primary hover:underline"
+                      >
+                        {s.name ?? `LocationID ${s.pestpac_location_id}`}
+                      </Link>
+                    ) : (
+                      (s.name ?? `LocationID ${s.pestpac_location_id}`)
+                    )}
                     <span className="block text-xs text-muted-foreground">
                       {[s.city, s.state].filter(Boolean).join(", ")}
                     </span>
@@ -459,10 +464,16 @@ export function CompanyDashboardView() {
     ["overview", "stores", ...PLACEHOLDERS.map((p) => p.value), "reports"],
     "overview",
   );
-  const { can } = usePermissions();
+  const { can, me } = usePermissions();
   const [billToId, setBillToId] = useState("");
   const company = useCompaniesGetCompany(companyId);
-  const billTos = useCompaniesListBillTos(companyId);
+  // A customer's user (company grant only) sees the dashboard alone: no bill-tos, store pages,
+  // or the pages above the company. Staff see the company through their operator.
+  const operatorId =
+    company.data?.data.operator_id ??
+    me?.company_memberships.find((g) => g.company_id === companyId)?.operator_id;
+  const staff = operatorId !== undefined && can("bill_tos:read", operatorId);
+  const billTos = useCompaniesListBillTos(companyId, { query: { enabled: staff } });
   useDocumentTitle("Dashboard", company.data?.data.name);
   const dashboard = useDashboardGetCompanyDashboard(
     companyId,
@@ -481,7 +492,9 @@ export function CompanyDashboardView() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        {c && <Breadcrumbs trail={[...c.trail, { kind: "company", id: c.id, name: c.name }]} />}
+        {c && staff && (
+          <Breadcrumbs trail={[...c.trail, { kind: "company", id: c.id, name: c.name }]} />
+        )}
         <h1 className="mt-2 text-3xl">{c ? `${c.name} dashboard` : "Dashboard"}</h1>
         <p className="text-muted-foreground">
           Service activity from PestPac
@@ -489,22 +502,24 @@ export function CompanyDashboardView() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-2 sm:max-w-sm">
-        <Label htmlFor="dashboard-bill-to">Bill-to</Label>
-        <NativeSelect
-          id="dashboard-bill-to"
-          className="w-full"
-          value={billToId}
-          onChange={(e) => setBillToId(e.target.value)}
-        >
-          <NativeSelectOption value="">All bill-tos</NativeSelectOption>
-          {billTos.data?.data.map((b) => (
-            <NativeSelectOption key={b.id} value={b.id}>
-              {b.name}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-      </div>
+      {staff && (
+        <div className="flex flex-col gap-2 sm:max-w-sm">
+          <Label htmlFor="dashboard-bill-to">Bill-to</Label>
+          <NativeSelect
+            id="dashboard-bill-to"
+            className="w-full"
+            value={billToId}
+            onChange={(e) => setBillToId(e.target.value)}
+          >
+            <NativeSelectOption value="">All bill-tos</NativeSelectOption>
+            {billTos.data?.data.map((b) => (
+              <NativeSelectOption key={b.id} value={b.id}>
+                {b.name}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </div>
+      )}
 
       {dashboard.isPending && <p className="text-muted-foreground">Loading…</p>}
       {dashboard.isError && (
@@ -534,7 +549,7 @@ export function CompanyDashboardView() {
             <Overview d={dashboard.data.data} />
           </TabsContent>
           <TabsContent value="stores" className="pt-4">
-            <Stores d={dashboard.data.data} />
+            <Stores d={dashboard.data.data} linked={staff} />
           </TabsContent>
           {PLACEHOLDERS.map((p) => (
             <TabsContent key={p.value} value={p.value} className="pt-4">

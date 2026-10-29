@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -14,13 +14,21 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { errorMessage } from "@/lib/api/errors";
 import {
-  getMembersListMembersQueryKey,
-  useMembersAddMember,
-  useMembersChangeRole,
-  useMembersListMembers,
-  useMembersRemoveMember,
+  getMembersListCompanyMembersQueryOptions,
+  getMembersListMembersQueryOptions,
+  membersAddCompanyMember,
+  membersAddMember,
+  membersChangeCompanyRole,
+  membersChangeRole,
+  membersRemoveCompanyMember,
+  membersRemoveMember,
 } from "@/lib/api/generated/members/members";
-import type { RoleScope } from "@/lib/api/generated/model";
+import type {
+  CompanyMemberRead,
+  MemberCreate,
+  MemberRead,
+  RoleScope,
+} from "@/lib/api/generated/model";
 import { useRolesListRoles } from "@/lib/api/generated/roles/roles";
 import { usePermissions } from "@/lib/permissions";
 
@@ -36,15 +44,58 @@ function useRoleOptions(scope: RoleScope) {
   return (roles.data?.data ?? []).filter((r) => r.scope === scope);
 }
 
-function AddMemberForm({ tenantId, roleScope }: { tenantId: string; roleScope: RoleScope }) {
+/** Whose members: a tenant's staff (the platform or an operator), or a company's own users. */
+export type MembersTarget =
+  | { kind: "tenant"; tenantId: string; roleScope: RoleScope }
+  | { kind: "company"; companyId: string; operatorId: string };
+
+type MemberList = { data: (MemberRead | CompanyMemberRead)[] };
+
+/** The same list and changes for either kind of target, over their own endpoints. */
+function useMembers(target: MembersTarget) {
   const queryClient = useQueryClient();
-  const roles = useRoleOptions(roleScope);
-  const add = useMembersAddMember({
-    mutation: {
-      onSuccess: () =>
-        queryClient.invalidateQueries({ queryKey: getMembersListMembersQueryKey(tenantId) }),
-    },
+  const { can } = usePermissions();
+  const tenant = target.kind === "tenant";
+  const id = tenant ? target.tenantId : target.companyId;
+  const listOptions = (
+    tenant ? getMembersListMembersQueryOptions(id) : getMembersListCompanyMembersQueryOptions(id)
+  ) as UseQueryOptions<MemberList>;
+  const list = useQuery(listOptions);
+  const onSuccess = () => queryClient.invalidateQueries({ queryKey: listOptions.queryKey });
+  const add = useMutation({
+    mutationFn: async (data: MemberCreate) =>
+      (tenant ? await membersAddMember(id, data) : await membersAddCompanyMember(id, data)).data,
+    onSuccess,
   });
+  const changeRole = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      await (tenant
+        ? membersChangeRole(id, userId, { role })
+        : membersChangeCompanyRole(id, userId, { role }));
+    },
+    onSuccess,
+  });
+  const remove = useMutation({
+    mutationFn: async (userId: string) => {
+      await (tenant ? membersRemoveMember(id, userId) : membersRemoveCompanyMember(id, userId));
+    },
+    onSuccess,
+  });
+  return {
+    roleScope: tenant ? target.roleScope : ("company" as const),
+    // Company members are managed by whoever manages the operator's members.
+    canWrite: can("members:write", tenant ? id : target.operatorId),
+    list,
+    add,
+    changeRole,
+    remove,
+  };
+}
+
+type Members = ReturnType<typeof useMembers>;
+
+function AddMemberForm({ add, roleScope }: { add: Members["add"]; roleScope: RoleScope }) {
+  const roles = useRoleOptions(roleScope);
   const {
     register,
     handleSubmit,
@@ -56,10 +107,7 @@ function AddMemberForm({ tenantId, roleScope }: { tenantId: string; roleScope: R
   });
 
   const onSubmit = async ({ temporary_password, ...rest }: AddValues) => {
-    await add.mutateAsync({
-      tenantId,
-      data: { ...rest, temporary_password: temporary_password || null },
-    });
+    await add.mutateAsync({ ...rest, temporary_password: temporary_password || null });
     reset();
   };
 
@@ -118,9 +166,9 @@ function AddMemberForm({ tenantId, roleScope }: { tenantId: string; roleScope: R
         {add.isSuccess && (
           <Alert>
             <AlertDescription>
-              {add.data.data.user_created
-                ? `Created ${add.data.data.email}. Share the temporary password with them securely.`
-                : `Added existing user ${add.data.data.email}.`}
+              {add.data.user_created
+                ? `Created ${add.data.email}. Share the temporary password with them securely.`
+                : `Added existing user ${add.data.email}.`}
             </AlertDescription>
           </Alert>
         )}
@@ -129,21 +177,15 @@ function AddMemberForm({ tenantId, roleScope }: { tenantId: string; roleScope: R
   );
 }
 
-export function MembersPanel({ tenantId, roleScope }: { tenantId: string; roleScope: RoleScope }) {
-  const queryClient = useQueryClient();
-  const { can, me } = usePermissions();
-  const canWrite = can("members:write", tenantId);
+export function MembersPanel({ target }: { target: MembersTarget }) {
+  const { me } = usePermissions();
+  const { roleScope, canWrite, list: members, add, changeRole, remove } = useMembers(target);
   const roles = useRoleOptions(roleScope);
-  const members = useMembersListMembers(tenantId);
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: getMembersListMembersQueryKey(tenantId) });
-  const changeRole = useMembersChangeRole({ mutation: { onSuccess: invalidate } });
-  const remove = useMembersRemoveMember({ mutation: { onSuccess: invalidate } });
   const mutationError = changeRole.error ?? remove.error;
 
   return (
     <div className="flex flex-col gap-6">
-      {canWrite && <AddMemberForm tenantId={tenantId} roleScope={roleScope} />}
+      {canWrite && <AddMemberForm add={add} roleScope={roleScope} />}
       {mutationError && (
         <Alert variant="destructive">
           <AlertDescription>{errorMessage(mutationError)}</AlertDescription>
@@ -176,13 +218,7 @@ export function MembersPanel({ tenantId, roleScope }: { tenantId: string; roleSc
                     aria-label={`Role for ${m.email}`}
                     value={m.role}
                     disabled={changeRole.isPending}
-                    onChange={(e) =>
-                      changeRole.mutate({
-                        tenantId,
-                        userId: m.user_id,
-                        data: { role: e.target.value },
-                      })
-                    }
+                    onChange={(e) => changeRole.mutate({ userId: m.user_id, role: e.target.value })}
                   >
                     {roles.map((r) => (
                       <NativeSelectOption key={r.name} value={r.name}>
@@ -194,7 +230,7 @@ export function MembersPanel({ tenantId, roleScope }: { tenantId: string; roleSc
                     variant="ghost"
                     size="sm"
                     disabled={remove.isPending}
-                    onClick={() => remove.mutate({ tenantId, userId: m.user_id })}
+                    onClick={() => remove.mutate(m.user_id)}
                   >
                     Remove
                   </Button>

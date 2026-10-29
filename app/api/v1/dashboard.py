@@ -23,7 +23,13 @@ def get_company_dashboard(
     company = db.get(Company, company_id)
     if company is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    scope.require(Perm.dashboards_read, company.operator_id, read_perm=Perm.companies_read)
+    # Open to the company's own users (company_manager).
+    scope.require(
+        Perm.dashboards_read,
+        company.operator_id,
+        read_perm=Perm.companies_read,
+        company_id=company.id,
+    )
     if bill_to_id is not None:
         bill_to = db.get(BillTo, bill_to_id)
         if bill_to is None or bill_to.company_id != company.id:

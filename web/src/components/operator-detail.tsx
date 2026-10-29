@@ -169,7 +169,9 @@ export function OperatorDetail() {
         )}
         {can("members:read", operatorId) && (
           <TabsContent value="members" className="pt-4">
-            <MembersPanel tenantId={operatorId} roleScope="operator" />
+            <MembersPanel
+              target={{ kind: "tenant", tenantId: operatorId, roleScope: "operator" }}
+            />
           </TabsContent>
         )}
         {can("pestpac_connection:read", operatorId) && (
