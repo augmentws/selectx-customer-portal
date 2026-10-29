@@ -231,6 +231,7 @@ export function CompanyDetail() {
                 : undefined
             }
             emptyText="PestPac lists no locations under this company's bill-tos."
+            exportName={`${c.name} locations`}
           />
         </TabsContent>
         <TabsContent value="posted" className="pt-4">

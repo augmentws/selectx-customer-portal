@@ -143,7 +143,7 @@ export function BillToDetail() {
           <TabsTrigger value="open">Open orders</TabsTrigger>
         </TabsList>
         <TabsContent value="locations" className="pt-4">
-          <LocationsTable locations={locations} />
+          <LocationsTable locations={locations} exportName={`${b.name} locations`} />
         </TabsContent>
         <TabsContent value="posted" className="pt-4">
           <PostedServiceOrders
