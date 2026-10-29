@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models import Company, Location
+from app.models import BillTo, Company, Location
 from app.schemas.inspections import RiskInspectionDetail, RiskInspectionListItem
 from app.security.access import AccessScope, get_scope
 from app.security.permissions import Perm
@@ -28,6 +28,20 @@ def list_company_risk_inspections(
     scope.require(Perm.bill_tos_read, company.operator_id, read_perm=Perm.companies_read)
     return [
         risk_inspections.list_item(s) for s in risk_inspections.list_for_company(db, company.id)
+    ]
+
+
+@router.get("/bill-tos/{bill_to_id}/risk-inspections", response_model=list[RiskInspectionListItem])
+def list_bill_to_risk_inspections(
+    bill_to_id: uuid.UUID, db: Session = Depends(get_db), scope: AccessScope = Depends(get_scope)
+):
+    """Risk inspections of the bill-to's locations, newest first."""
+    bill_to = db.get(BillTo, bill_to_id)
+    if bill_to is None:
+        raise _not_found()
+    scope.require(Perm.bill_tos_read, bill_to.operator_id, read_perm=Perm.bill_tos_read)
+    return [
+        risk_inspections.list_item(s) for s in risk_inspections.list_for_bill_to(db, bill_to.id)
     ]
 
 

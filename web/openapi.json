@@ -4831,6 +4831,59 @@
         }
       }
     },
+    "/v1/bill-tos/{bill_to_id}/risk-inspections": {
+      "get": {
+        "tags": [
+          "risk-inspections"
+        ],
+        "summary": "List Bill To Risk Inspections",
+        "description": "Risk inspections of the bill-to's locations, newest first.",
+        "operationId": "risk-inspections-list_bill_to_risk_inspections",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bill_to_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Bill To Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RiskInspectionListItem"
+                  },
+                  "title": "Response Risk-Inspections-List Bill To Risk Inspections"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/locations/{location_id}/risk-inspections": {
       "get": {
         "tags": [

@@ -165,6 +165,124 @@ export function useRiskInspectionsListCompanyRiskInspections<TData = Awaited<Ret
 
 
 
+export type riskInspectionsListBillToRiskInspectionsResponse200 = {
+  data: RiskInspectionListItem[]
+  status: 200
+}
+
+export type riskInspectionsListBillToRiskInspectionsResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type riskInspectionsListBillToRiskInspectionsResponseSuccess = (riskInspectionsListBillToRiskInspectionsResponse200) & {
+  headers: Headers;
+};
+export type riskInspectionsListBillToRiskInspectionsResponseError = (riskInspectionsListBillToRiskInspectionsResponse422) & {
+  headers: Headers;
+};
+
+export const getRiskInspectionsListBillToRiskInspectionsUrl = (billToId: string,) => {
+
+
+
+
+  return `/v1/bill-tos/${billToId}/risk-inspections`
+}
+
+/**
+ * Risk inspections of the bill-to's locations, newest first.
+ * @summary List Bill To Risk Inspections
+ */
+export const riskInspectionsListBillToRiskInspections = async (billToId: string, options?: Parameters<typeof bffFetch>[1]): Promise<riskInspectionsListBillToRiskInspectionsResponseSuccess> => {
+
+  return bffFetch<riskInspectionsListBillToRiskInspectionsResponseSuccess>(getRiskInspectionsListBillToRiskInspectionsUrl(billToId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getRiskInspectionsListBillToRiskInspectionsQueryKey = (billToId: string,) => {
+    return [
+    `/v1/bill-tos/${billToId}/risk-inspections`
+    ] as const;
+    }
+
+
+export const getRiskInspectionsListBillToRiskInspectionsQueryOptions = <TData = Awaited<ReturnType<typeof riskInspectionsListBillToRiskInspections>>, TError = HTTPValidationError>(billToId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof riskInspectionsListBillToRiskInspections>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getRiskInspectionsListBillToRiskInspectionsQueryKey(billToId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof riskInspectionsListBillToRiskInspections>>> = ({ signal }) => riskInspectionsListBillToRiskInspections(billToId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: billToId !== null && billToId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof riskInspectionsListBillToRiskInspections>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type RiskInspectionsListBillToRiskInspectionsQueryResult = NonNullable<Awaited<ReturnType<typeof riskInspectionsListBillToRiskInspections>>>
+export type RiskInspectionsListBillToRiskInspectionsQueryError = HTTPValidationError
+
+
+export function useRiskInspectionsListBillToRiskInspections<TData = Awaited<ReturnType<typeof riskInspectionsListBillToRiskInspections>>, TError = HTTPValidationError>(
+ billToId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof riskInspectionsListBillToRiskInspections>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof riskInspectionsListBillToRiskInspections>>,
+          TError,
+          Awaited<ReturnType<typeof riskInspectionsListBillToRiskInspections>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useRiskInspectionsListBillToRiskInspections<TData = Awaited<ReturnType<typeof riskInspectionsListBillToRiskInspections>>, TError = HTTPValidationError>(
+ billToId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof riskInspectionsListBillToRiskInspections>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof riskInspectionsListBillToRiskInspections>>,
+          TError,
+          Awaited<ReturnType<typeof riskInspectionsListBillToRiskInspections>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useRiskInspectionsListBillToRiskInspections<TData = Awaited<ReturnType<typeof riskInspectionsListBillToRiskInspections>>, TError = HTTPValidationError>(
+ billToId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof riskInspectionsListBillToRiskInspections>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Bill To Risk Inspections
+ */
+
+export function useRiskInspectionsListBillToRiskInspections<TData = Awaited<ReturnType<typeof riskInspectionsListBillToRiskInspections>>, TError = HTTPValidationError>(
+ billToId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof riskInspectionsListBillToRiskInspections>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getRiskInspectionsListBillToRiskInspectionsQueryOptions(billToId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 export type riskInspectionsListLocationRiskInspectionsResponse200 = {
   data: RiskInspectionListItem[]
   status: 200

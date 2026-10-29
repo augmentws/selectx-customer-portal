@@ -59,6 +59,17 @@ def list_for_company(db: Session, company_id: uuid.UUID) -> list[InspectionSubmi
     )
 
 
+def list_for_bill_to(db: Session, bill_to_id: uuid.UUID) -> list[InspectionSubmission]:
+    """Risk inspections of the bill-to's locations, newest first."""
+    return list(
+        db.scalars(
+            _risk_submissions()
+            .join(Location, Location.id == InspectionSubmission.location_id)
+            .where(Location.bill_to_id == bill_to_id)
+        )
+    )
+
+
 def list_for_location(db: Session, location_id: uuid.UUID) -> list[InspectionSubmission]:
     return list(
         db.scalars(_risk_submissions().where(InspectionSubmission.location_id == location_id))

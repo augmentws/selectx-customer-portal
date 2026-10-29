@@ -35,12 +35,14 @@ def linked(world, gocanvas, storage):  # noqa: F811
         return sub.id
 
 
-def test_company_and_location_lists(client, world, linked):
+def test_company_bill_to_and_location_lists(client, world, linked):
     staff = headers_for(client, world.emails["staff_a"])
     by_company = client.get(f"/v1/companies/{world.company_a}/risk-inspections", headers=staff)
     by_location = client.get(f"/v1/locations/{world.location_a}/risk-inspections", headers=staff)
-    assert by_company.status_code == by_location.status_code == 200
-    assert by_company.json() == by_location.json()
+    by_bill_to = client.get(f"/v1/bill-tos/{world.bill_to_a}/risk-inspections", headers=staff)
+    assert by_company.status_code == by_location.status_code == by_bill_to.status_code == 200
+    # The company has one bill-to with one location, so all three lists agree.
+    assert by_company.json() == by_location.json() == by_bill_to.json()
     newest, older, undated = by_company.json()
     assert newest["inspected_at"] > older["inspected_at"]
     # The world's own inspection has no date (or zones): listed last.

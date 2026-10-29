@@ -6,6 +6,7 @@ import { useCallback } from "react";
 
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { LocationsTable } from "@/components/locations-table";
+import { BillToRiskInspections } from "@/components/risk-inspections-list";
 import { BillToDetailLines } from "@/components/bill-to-onboarding";
 import { LocationSyncResult } from "@/components/location-sync-result";
 import { InvoicedOrders } from "@/components/invoiced-orders";
@@ -29,7 +30,7 @@ import { useUrlTab } from "@/lib/use-url-tab";
 
 export function BillToDetail() {
   const { billToId } = useParams<{ billToId: string }>();
-  const [tab, setTab] = useUrlTab(["locations", "posted", "invoiced", "open"], "locations");
+  const [tab, setTab] = useUrlTab(["locations", "posted", "invoiced", "open", "risk"], "locations");
   const queryClient = useQueryClient();
   const { can } = usePermissions();
   const billTo = useBillTosGetBillTo(billToId);
@@ -141,6 +142,7 @@ export function BillToDetail() {
             <TabsTrigger value="invoiced">Invoiced orders</TabsTrigger>
           )}
           <TabsTrigger value="open">Open orders</TabsTrigger>
+          <TabsTrigger value="risk">Risk inspections</TabsTrigger>
         </TabsList>
         <TabsContent value="locations" className="pt-4">
           <LocationsTable locations={locations} exportName={`${b.name} locations`} />
@@ -164,6 +166,9 @@ export function BillToDetail() {
             companyId={b.company_id}
             operatorId={b.operator_id}
           />
+        </TabsContent>
+        <TabsContent value="risk" className="pt-4">
+          <BillToRiskInspections billToId={billToId} billToName={b.name} />
         </TabsContent>
       </Tabs>
     </div>
