@@ -27,3 +27,6 @@ playwright-report/
 .DS_Store
 .idea/
 .vscode/
+
+# Downloaded GoCanvas submissions (customer data)
+scripts/chiptole/

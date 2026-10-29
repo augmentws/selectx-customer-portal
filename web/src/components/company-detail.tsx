@@ -12,6 +12,7 @@ import { BillToDetailLines, OnboardBillTo } from "@/components/bill-to-onboardin
 import { LocationSyncResult } from "@/components/location-sync-result";
 import { InvoicedOrders } from "@/components/invoiced-orders";
 import { LocationsTable } from "@/components/locations-table";
+import { CompanyRiskInspections } from "@/components/risk-inspections-list";
 import { MembersPanel } from "@/components/members-panel";
 import { PostedServiceOrders } from "@/components/posted-service-orders";
 import { ReportTemplatesSection } from "@/components/report-templates";
@@ -37,7 +38,7 @@ import { useUrlTab } from "@/lib/use-url-tab";
 export function CompanyDetail() {
   const { companyId } = useParams<{ companyId: string }>();
   const [tab, setTab] = useUrlTab(
-    ["bill-tos", "locations", "posted", "invoiced", "open", "templates", "members"],
+    ["bill-tos", "locations", "posted", "invoiced", "open", "risk", "templates", "members"],
     "bill-tos",
   );
   const queryClient = useQueryClient();
@@ -130,6 +131,7 @@ export function CompanyDetail() {
             <TabsTrigger value="invoiced">Invoiced orders</TabsTrigger>
           )}
           <TabsTrigger value="open">Open orders</TabsTrigger>
+          <TabsTrigger value="risk">Risk inspections</TabsTrigger>
           {can("reports:read", c.operator_id) && (
             <TabsTrigger value="templates">Report templates</TabsTrigger>
           )}
@@ -231,6 +233,7 @@ export function CompanyDetail() {
                 : undefined
             }
             emptyText="PestPac lists no locations under this company's bill-tos."
+            exportName={`${c.name} locations`}
           />
         </TabsContent>
         <TabsContent value="posted" className="pt-4">
@@ -243,6 +246,9 @@ export function CompanyDetail() {
         )}
         <TabsContent value="open" className="pt-4">
           <PostedServiceOrders kind="open" companyId={companyId} operatorId={c.operator_id} />
+        </TabsContent>
+        <TabsContent value="risk" className="pt-4">
+          <CompanyRiskInspections companyId={companyId} companyName={c.name} />
         </TabsContent>
         {can("reports:read", c.operator_id) && (
           <TabsContent value="templates" className="pt-4">

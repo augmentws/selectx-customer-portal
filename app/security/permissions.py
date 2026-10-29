@@ -20,12 +20,15 @@ class Perm(enum.StrEnum):
     roles_read = "roles:read"
     pestpac_connection_read = "pestpac_connection:read"
     pestpac_connection_write = "pestpac_connection:write"
+    gocanvas_connection_read = "gocanvas_connection:read"
+    gocanvas_connection_write = "gocanvas_connection:write"
     reports_read = "reports:read"
     reports_write = "reports:write"
     report_templates_write = "report_templates:write"
     dashboards_read = "dashboards:read"
     webhooks_read = "webhooks:read"
     billing_read = "billing:read"
+    files_read = "files:read"
 
 
 PERMISSION_DESCRIPTIONS: dict[Perm, str] = {
@@ -40,12 +43,15 @@ PERMISSION_DESCRIPTIONS: dict[Perm, str] = {
     Perm.roles_read: "View roles and permissions",
     Perm.pestpac_connection_read: "View PestPac API connection status",
     Perm.pestpac_connection_write: "Set up and test PestPac API credentials",
+    Perm.gocanvas_connection_read: "View GoCanvas API connection status",
+    Perm.gocanvas_connection_write: "Set up and test GoCanvas API credentials",
     Perm.reports_read: "View report templates and generate reports",
     Perm.reports_write: "Create, edit, and finalize service reports",
     Perm.report_templates_write: "Create and edit report templates",
     Perm.dashboards_read: "View program dashboards",
     Perm.webhooks_read: "View received PestPac webhook events",
     Perm.billing_read: "View invoices and billed amounts",
+    Perm.files_read: "Open stored files (photos, documents) for a company",
 }
 
 
@@ -86,11 +92,14 @@ SYSTEM_ROLES: dict[SystemRole, tuple[RoleScope, str, frozenset[Perm]]] = {
                 Perm.roles_read,
                 Perm.pestpac_connection_read,
                 Perm.pestpac_connection_write,
+                Perm.gocanvas_connection_read,
+                Perm.gocanvas_connection_write,
                 Perm.reports_read,
                 Perm.reports_write,
                 Perm.dashboards_read,
                 Perm.webhooks_read,
                 Perm.billing_read,
+                Perm.files_read,
             }
         ),
     ),
@@ -104,6 +113,7 @@ SYSTEM_ROLES: dict[SystemRole, tuple[RoleScope, str, frozenset[Perm]]] = {
                 Perm.bill_tos_read,
                 Perm.reports_read,
                 Perm.dashboards_read,
+                Perm.files_read,
             }
         ),
     ),

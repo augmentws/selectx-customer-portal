@@ -70,7 +70,7 @@ def _photo_and_contract(pestpac):
     pestpac.document_files[2272640] = (200, "application/pdf", PDF)
 
 
-def test_documents_and_files_are_stored(client, onboarded, pestpac, storage):
+def test_documents_and_files_are_stored(client, world, onboarded, pestpac, storage):
     _photo_and_contract(pestpac)
     _sync_locations(client, onboarded)
 
@@ -99,7 +99,13 @@ def test_documents_and_files_are_stored(client, onboarded, pestpac, storage):
     assert storage.objects[key] == (PHOTO, "image/jpeg")
     with SessionLocal() as db:
         stored = db.scalar(select(Document).where(Document.pestpac_document_id == 2314160))
-        assert (stored.storage_key, stored.sha256) == (key, hashlib.sha256(PHOTO).hexdigest())
+        assert (stored.storage_key, stored.file.sha256, stored.file.source) == (
+            key,
+            hashlib.sha256(PHOTO).hexdigest(),
+            "pestpac_document",
+        )
+        # The file belongs to the location's company, so GET /v1/files/{id} checks it there.
+        assert str(stored.file.company_id) == str(world.company_a)
 
     resp = client.get(f"/v1/documents/{photo['id']}/file", headers=onboarded["headers"])
     assert resp.status_code == 200

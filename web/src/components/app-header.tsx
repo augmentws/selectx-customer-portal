@@ -31,7 +31,7 @@ export function AppHeader() {
 
   return (
     <header className="border-b-4 border-highlight bg-background">
-      <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
+      <div className="mx-auto flex h-16 w-full max-w-screen-2xl items-center justify-between gap-4 px-4 sm:px-6">
         <nav className="flex shrink-0 items-center gap-6">
           <BrandLogo href={home} />
           {home === OPERATORS_HREF &&

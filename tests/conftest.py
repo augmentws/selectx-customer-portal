@@ -44,13 +44,18 @@ from app.models import (  # noqa: E402
     CompanyMembership,
     ConnectionStatus,
     Document,
+    GoCanvasConnection,
     GoCanvasRequest,
+    InspectionForm,
+    InspectionKind,
+    InspectionSubmission,
     Invoice,
     Location,
     Membership,
     PestPacConnection,
     ReportTemplate,
     ServiceOrder,
+    StoredFile,
     SyncJob,
     SyncJobKind,
     SyncJobStatus,
@@ -62,7 +67,7 @@ from app.models import (  # noqa: E402
 )
 from app.security.permissions import SystemRole  # noqa: E402
 from app.security.secrets import encrypt  # noqa: E402
-from app.services import pestpac_connection  # noqa: E402
+from app.services import gocanvas_connection, pestpac_connection  # noqa: E402
 from app.services.auth import create_user  # noqa: E402
 from app.services.rbac import get_platform_tenant, get_system_role  # noqa: E402
 
@@ -88,11 +93,16 @@ def _clean_tables():
     with engine.begin() as conn:
         conn.execute(
             text(
-                "TRUNCATE invoice_lines, invoices, reports, documents, condition_inspections, "
+                "TRUNCATE inspection_photos, inspection_photo_values, stored_files, "
+                "risk_inspection_zones, risk_inspection_materials, "
+                "risk_inspection_summaries, inspection_responses, inspection_submissions, "
+                "inspection_form_fields, inspection_form_zones, inspection_forms, "
+                "invoice_lines, invoices, reports, documents, condition_inspections, "
                 "conditions, report_templates, "
                 "webhook_events, notes, sync_jobs, "
                 "service_orders, "
-                "technicians, locations, pestpac_connections, bill_tos, company_memberships, "
+                "technicians, locations, pestpac_connections, gocanvas_connections, bill_tos, "
+                "company_memberships, "
                 "companies, memberships, "
                 "auth_sessions, credentials, users, login_throttles"
             )
@@ -100,10 +110,13 @@ def _clean_tables():
         conn.execute(text("DELETE FROM roles WHERE tenant_id IS NOT NULL"))
         conn.execute(text("DELETE FROM tenants WHERE kind <> 'platform'"))
     pestpac_connection._clients.clear()
+    gocanvas_connection._clients.clear()
 
 
 PESTPAC_BASE = get_settings().pestpac_default_base_url
 PESTPAC_TOKEN_URL = get_settings().pestpac_token_url
+GOCANVAS_TOKEN_URL = get_settings().gocanvas_token_url
+GOCANVAS_BASE = get_settings().gocanvas_base_url
 KNOWN_BILL_TO_IDS = {175101, 180020}
 # Sample GET /BillTos/{id} response with personal details replaced.
 BILL_TO_FIXTURE = json.loads(
@@ -314,8 +327,10 @@ class InMemoryStorage:
 def storage(monkeypatch) -> InMemoryStorage:
     store = InMemoryStorage()
     monkeypatch.setattr("app.services.sync_jobs.get_storage", lambda: store)
-    monkeypatch.setattr("app.api.v1.documents.get_storage", lambda: store)
+    monkeypatch.setattr("app.api.v1._file_response.get_storage", lambda: store)
     monkeypatch.setattr("app.api.v1.service_reports.get_storage", lambda: store)
+    monkeypatch.setattr("app.load_inspections.get_storage", lambda: store)
+    monkeypatch.setattr("app.fetch_inspection_photos.get_storage", lambda: store)
     return store
 
 
@@ -348,9 +363,10 @@ COMPANY_SETUP = {"CompanyID": 1, "Company": "Select Exterminating", "Settings": 
 @pytest.fixture
 def pestpac():
     """Mocked PestPac: token, /CompanySetup, and /BillTos/{id} (known ids 200, others 404).
-    Any other outbound HTTP fails the test."""
+    Also GoCanvas's token endpoint. Any other outbound HTTP fails the test."""
     with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
         rsps.post(PESTPAC_TOKEN_URL, json={"access_token": "test-token"})
+        rsps.post(GOCANVAS_TOKEN_URL, json={"access_token": "gocanvas-token", "expires_in": 7200})
         rsps.get(f"{PESTPAC_BASE}/CompanySetup", json=COMPANY_SETUP)
 
         def bill_to(request):
@@ -537,6 +553,8 @@ class World:
     invoice_a: uuid.UUID
     gocanvas_request_a: uuid.UUID
     document_a: uuid.UUID
+    file_a: uuid.UUID
+    risk_inspection_a: uuid.UUID
     # A draft with one selected note (so it can be drafted), and a final one with a stored PDF.
     report_a: uuid.UUID
     report_final_a: uuid.UUID
@@ -600,6 +618,14 @@ def world(storage) -> World:
                 status=ConnectionStatus.verified,
                 pestpac_company_id=1,
                 pestpac_company_name="Select Exterminating",
+            )
+        )
+        db.add(
+            GoCanvasConnection(
+                operator_id=op_a.id,
+                client_id="gocanvas-client-a",
+                client_secret_enc=encrypt("gocanvas-secret-a"),
+                status=ConnectionStatus.verified,
             )
         )
         company_a = Company(operator_id=op_a.id, name="Acme Restaurants")
@@ -702,13 +728,57 @@ def world(storage) -> World:
             file_name="contract.pdf",
             location_id=location_a.id,
             pestpac_location_id=800001,
-            storage_key="test/world/contract",
-            content_type="application/pdf",
+            file=StoredFile(
+                operator_id=op_a.id,
+                company_id=company_a.id,
+                source="pestpac_document",
+                storage_key="test/world/contract",
+                content_type="application/pdf",
+                size_bytes=8,
+                sha256="0" * 64,
+                original_name="contract.pdf",
+            ),
             size_bytes=8,
             pestpac_fetched_at=datetime.now(UTC),
         )
         db.add(document_a)
         storage.put("test/world/contract", b"%PDF-1.7", "application/pdf")
+        file_a = StoredFile(
+            operator_id=op_a.id,
+            company_id=company_a.id,
+            source="gocanvas_photo",
+            storage_key="test/world/photo",
+            content_type="image/jpeg",
+            size_bytes=4,
+            sha256="0" * 64,
+            original_name="Images_of_Pest_Activity_1_1.jpeg",
+        )
+        db.add(file_a)
+        storage.put("test/world/photo", b"\xff\xd8\xff\xe0", "image/jpeg")
+        # Ids no fixture uses, so tests loading the real form and submissions don't collide.
+        risk_form_a = InspectionForm(
+            operator_id=op_a.id,
+            gocanvas_form_id=1,
+            kind=InspectionKind.risk,
+            name="Chipotle Riskgate Inspection Form",
+            definition={},
+            imported_at=datetime.now(UTC),
+        )
+        db.add(risk_form_a)
+        db.flush()
+        risk_inspection_a = InspectionSubmission(
+            operator_id=op_a.id,
+            form_id=risk_form_a.id,
+            location_id=location_a.id,
+            gocanvas_submission_id=1,
+            gocanvas_form_id=1,
+            raw_payload={},
+            payload_sha256="0" * 64,
+            parse_warnings=[],
+            unmapped_entry_ids=[],
+            parsed_at=datetime.now(UTC),
+        )
+        db.add(risk_inspection_a)
         db.commit()
 
         from app.models import ReportStatus
@@ -760,8 +830,15 @@ def world(storage) -> World:
             db, report_template_a, reported_order(700003), admin_id
         )
         report_final_a.status = ReportStatus.final
-        report_final_a.pdf_storage_key = "test/world/report.pdf"
-        report_final_a.pdf_size_bytes = 8
+        report_final_a.pdf_file = StoredFile(
+            operator_id=op_a.id,
+            company_id=company_a.id,
+            source="report_pdf",
+            storage_key="test/world/report.pdf",
+            content_type="application/pdf",
+            size_bytes=8,
+            sha256="0" * 64,
+        )
         report_final_a.finalized_at = datetime.now(UTC)
         storage.put("test/world/report.pdf", b"%PDF-1.7", "application/pdf")
         db.commit()
@@ -780,6 +857,8 @@ def world(storage) -> World:
             report_template_a=report_template_a.id,
             webhook_event_a=webhook_event_a.id,
             document_a=document_a.id,
+            file_a=file_a.id,
+            risk_inspection_a=risk_inspection_a.id,
             report_a=report_a.id,
             invoice_a=invoice_a.id,
             gocanvas_request_a=gocanvas_request_a.id,

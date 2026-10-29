@@ -6,12 +6,15 @@ from app.api.v1 import (
     companies,
     dashboard,
     documents,
+    files,
+    gocanvas_connection,
     invoices,
     locations,
     members,
     operators,
     pestpac_connection,
     reports,
+    risk_inspections,
     roles,
     search,
     service_orders,
@@ -29,14 +32,17 @@ router.include_router(dashboard.router)
 router.include_router(bill_tos.router)
 router.include_router(locations.router)
 router.include_router(documents.router)
+router.include_router(files.router)
 router.include_router(invoices.router)
 router.include_router(service_orders.router)
 router.include_router(sync_jobs.router)
 router.include_router(members.router)
 router.include_router(members.company_router)
 router.include_router(pestpac_connection.router)
+router.include_router(gocanvas_connection.router)
 router.include_router(reports.router)
 router.include_router(service_reports.router)
+router.include_router(risk_inspections.router)
 router.include_router(roles.router)
 router.include_router(search.router)
 router.include_router(webhooks.router)

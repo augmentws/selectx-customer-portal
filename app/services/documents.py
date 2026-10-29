@@ -6,7 +6,6 @@
    and never re-fetched: a stored document's file doesn't change.
 """
 
-import hashlib
 import mimetypes
 import uuid
 from datetime import UTC, datetime, time
@@ -19,6 +18,7 @@ from app.core.config import get_settings
 from app.integrations.pestpac import PestPacAuthError, PestPacClient
 from app.models import Document, Location, ServiceOrder
 from app.schemas.pestpac import DocumentSyncCounts, PestPacDocument
+from app.services import files
 from app.services.pestpac_connection import PestPacUnavailableError
 from app.storage import ObjectStorage
 
@@ -104,6 +104,9 @@ def download_file(client: PestPacClient, document: Document) -> tuple[bytes, str
         guessed, _ = mimetypes.guess_type(document.file_name or "")
         content_type = guessed or "application/octet-stream"
     return response.content, content_type
+
+
+FILE_SOURCE = "pestpac_document"
 
 
 def storage_key(document: Document) -> str:
@@ -215,7 +218,7 @@ def store_location_files(
         .where(
             Document.location_id == location.id,
             Document.removed_at.is_(None),
-            Document.storage_key.is_(None),
+            Document.file_id.is_(None),
             Document.file_unavailable.is_(False),
             # Known to be too large: don't download again until the limit is raised.
             or_(Document.size_bytes.is_(None), Document.size_bytes <= max_bytes),
@@ -238,13 +241,18 @@ def store_location_files(
             counts.files_too_large += 1
             db.commit()
             continue
-        key = storage_key(document)
-        storage.put(key, data, content_type)
-        document.storage_key = key
-        document.content_type = content_type[:200]
+        document.file = files.store_file(
+            db,
+            storage,
+            operator_id=document.operator_id,
+            company_id=files.company_for_location(db, document.location_id),
+            source=FILE_SOURCE,
+            key=storage_key(document),
+            data=data,
+            content_type=content_type,
+            original_name=document.file_name,
+        )
         document.size_bytes = len(data)
-        document.sha256 = hashlib.sha256(data).hexdigest()
-        document.file_stored_at = datetime.now(UTC)
         document.file_error = None
         counts.files_stored += 1
         db.commit()

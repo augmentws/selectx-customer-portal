@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, Search } from "lucide-react";
 import Link from "next/link";
 import { useDeferredValue, useState } from "react";
 
+import { ExportButton } from "@/components/export-button";
 import { formatPestPacDate } from "@/components/service-order-list";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { errorMessage } from "@/lib/api/errors";
 import type { LocationRead } from "@/lib/api/generated/model";
+import type { CsvColumn } from "@/lib/export-csv";
 
 const PAGE_SIZE = 50;
 
@@ -29,6 +31,9 @@ const worked = (l: LocationRead) => l.worked_order_count ?? 0;
 const scheduled = (l: LocationRead) => (l.open_order_count ?? 0) - worked(l);
 
 const place = (l: LocationRead) => [l.city, l.state].filter(Boolean).join(", ");
+const street = (l: LocationRead) => [l.address, l.address2].filter(Boolean).join(", ");
+/** City, state, and zip: "Brooklyn, NY 11215". */
+const placeWithZip = (l: LocationRead) => [place(l), l.zip].filter(Boolean).join(" ");
 
 const SORT_VALUE: Record<SortKey, (l: LocationRead) => string | number> = {
   name: (l) => (l.pestpac_company ?? "").toLowerCase(),
@@ -55,6 +60,31 @@ function searchText(location: LocationRead, billTo: string | undefined): string 
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
+}
+
+/** The export's columns: the table's, with the address split out and PestPac's ids. */
+function exportColumns(billTos: Map<string, string> | undefined): CsvColumn<LocationRead>[] {
+  return [
+    { header: "Location", value: (l) => l.pestpac_company },
+    ...(billTos
+      ? [{ header: "Bill-to", value: (l: LocationRead) => billTos.get(l.bill_to_id) }]
+      : []),
+    { header: "Location code", value: (l) => l.pestpac_location_code },
+    { header: "LocationID", value: (l) => l.pestpac_location_id },
+    { header: "Address", value: (l) => l.address },
+    { header: "Address 2", value: (l) => l.address2 },
+    { header: "City", value: (l) => l.city },
+    { header: "State", value: (l) => l.state },
+    { header: "Zip", value: (l) => l.zip },
+    { header: "Open orders", value: scheduled },
+    { header: "Worked orders", value: worked },
+    {
+      header: "Last service",
+      value: (l) => l.last_service_at && formatPestPacDate(l.last_service_at),
+    },
+    { header: "Active in PestPac", value: (l) => l.pestpac_active },
+    { header: "No longer under bill-to", value: (l) => l.removed_at !== null },
+  ];
 }
 
 function sorted(list: LocationRead[], sort: Sort): LocationRead[] {
@@ -122,12 +152,14 @@ function LocationRow({ location: l, billTo }: { location: LocationRead; billTo?:
           </Badge>
         )}
         <div className="text-xs text-muted-foreground">
-          <span className="sm:hidden">{place(l) && `${place(l)} · `}</span>
+          <span className="md:hidden">{street(l) && `${street(l)} · `}</span>
+          <span className="sm:hidden">{placeWithZip(l) && `${placeWithZip(l)} · `}</span>
           LocationID {l.pestpac_location_id}
           {billTo && ` · Bill-to: ${billTo}`}
         </div>
       </td>
-      <td className="hidden py-2 pr-3 sm:table-cell">{place(l)}</td>
+      <td className="hidden py-2 pr-3 md:table-cell">{street(l) || "—"}</td>
+      <td className="hidden py-2 pr-3 sm:table-cell">{placeWithZip(l)}</td>
       <td className="py-2 pr-3 text-right tabular-nums">{open || "—"}</td>
       <td className="py-2 pr-3 text-right tabular-nums">{worked(l) || "—"}</td>
       <td className="hidden py-2 text-right whitespace-nowrap sm:table-cell">
@@ -145,11 +177,14 @@ export function LocationsTable({
   locations,
   billTos,
   emptyText = "PestPac lists no locations under this bill-to.",
+  exportName = "locations",
 }: {
   locations: QueryState<LocationRead>;
   /** Bill-to names by id: each row then names its bill-to (for lists spanning several). */
   billTos?: Map<string, string>;
   emptyText?: string;
+  /** Names the exported file, e.g. "acme-locations". */
+  exportName?: string;
 }) {
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
@@ -213,6 +248,9 @@ export function LocationsTable({
             ? `${matching.length} of ${all.length} locations`
             : `${all.length} locations`}
         </p>
+        <div className="ml-auto">
+          <ExportButton name={exportName} rows={rows} columns={exportColumns(billTos)} />
+        </div>
       </div>
 
       {all.length === 0 ? (
@@ -233,6 +271,9 @@ export function LocationsTable({
                   onSort={onSort}
                   className="py-2 pr-3"
                 />
+                <th scope="col" className="hidden py-2 pr-3 font-medium md:table-cell">
+                  Address
+                </th>
                 <SortHeader
                   label="City"
                   column="place"

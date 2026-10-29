@@ -3,7 +3,6 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
-    BigInteger,
     Boolean,
     DateTime,
     Enum,
@@ -15,9 +14,10 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.file import StoredFile
 
 
 class ReportTemplate(Base):
@@ -130,10 +130,11 @@ class Report(Base):
     # Model and token/cost usage of the last draft.
     draft_usage: Mapped[dict | None] = mapped_column(JSONB)
 
-    # The generated PDF.
-    pdf_storage_key: Mapped[str | None] = mapped_column(String(500))
-    pdf_size_bytes: Mapped[int | None] = mapped_column(BigInteger)
-    pdf_sha256: Mapped[str | None] = mapped_column(String(64))
+    # The generated PDF, a `stored_files` row.
+    pdf_file_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("stored_files.id", ondelete="RESTRICT"), index=True
+    )
+    pdf_file: Mapped[StoredFile | None] = relationship(lazy="selectin")
     finalized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finalized_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL")
@@ -149,3 +150,11 @@ class Report(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+    @property
+    def pdf_storage_key(self) -> str | None:
+        return self.pdf_file.storage_key if self.pdf_file else None
+
+    @property
+    def pdf_size_bytes(self) -> int | None:
+        return self.pdf_file.size_bytes if self.pdf_file else None

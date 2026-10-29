@@ -32,6 +32,7 @@ def test_me_lists_memberships_and_permissions(client, world):
                 "bill_tos:read",
                 "companies:read",
                 "dashboards:read",
+                "files:read",
                 "operators:read",
                 "reports:read",
             ],

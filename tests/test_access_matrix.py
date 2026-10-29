@@ -369,6 +369,50 @@ CASES = [
         _all(404, platform_admin=200, admin_a=200, staff_a=403),
     ),
     Case(
+        "get GoCanvas connection of A",
+        "GET",
+        lambda w: f"/v1/operators/{w.op_a}/gocanvas-connection",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+    ),
+    Case(
+        "save GoCanvas connection of A",
+        "PUT",
+        lambda w: f"/v1/operators/{w.op_a}/gocanvas-connection",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+        lambda w: {"client_id": "client-a", "client_secret": "secret-a"},
+    ),
+    Case(
+        "verify GoCanvas connection of A",
+        "POST",
+        lambda w: f"/v1/operators/{w.op_a}/gocanvas-connection/verify",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+    ),
+    Case(
+        "list risk inspections of company A",
+        "GET",
+        lambda w: f"/v1/companies/{w.company_a}/risk-inspections",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "list risk inspections of location A",
+        "GET",
+        lambda w: f"/v1/locations/{w.location_a}/risk-inspections",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "get risk inspection A",
+        "GET",
+        lambda w: f"/v1/risk-inspections/{w.risk_inspection_a}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "get stored file of company A",
+        "GET",
+        lambda w: f"/v1/files/{w.file_a}",
+        # Company users hold no files:read yet, so company A's manager can't open it.
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
         "list documents of location A",
         "GET",
         lambda w: f"/v1/locations/{w.location_a}/documents",
@@ -583,6 +627,8 @@ _PLACEHOLDER_WORLD = World(
     invoice_a="{invoice_id}",  # type: ignore[arg-type]
     gocanvas_request_a="{request_id}",  # type: ignore[arg-type]
     document_a="{document_id}",  # type: ignore[arg-type]
+    file_a="{file_id}",  # type: ignore[arg-type]
+    risk_inspection_a="{inspection_id}",  # type: ignore[arg-type]
     report_a="{report_id}",  # type: ignore[arg-type]
     report_final_a="{report_id}",  # type: ignore[arg-type]
 )
