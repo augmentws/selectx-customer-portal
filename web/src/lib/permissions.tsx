@@ -19,12 +19,15 @@ export type PermissionCode =
   | "roles:read"
   | "pestpac_connection:read"
   | "pestpac_connection:write"
+  | "gocanvas_connection:read"
+  | "gocanvas_connection:write"
   | "reports:read"
   | "reports:write"
   | "report_templates:write"
   | "dashboards:read"
   | "webhooks:read"
-  | "billing:read";
+  | "billing:read"
+  | "files:read";
 
 export function permissionsOn(me: MeRead | undefined, tenantId: string | undefined): Set<string> {
   const perms = new Set<string>();

@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     pestpac_page_size: int = Field(default=50, ge=1, le=500)
     pestpac_max_pages: int = Field(default=200, ge=1)
 
+    # GoCanvas API (client credentials per operator, stored in the app). URLs come from settings
+    # so credentials can't be sent to an arbitrary host.
+    gocanvas_token_url: str = "https://api.gocanvas.com/api/v3/oauth/token"
+    gocanvas_base_url: str = "https://api.gocanvas.com/api/v3"
+
     # Location documents synced from PestPac: those dated on or after this day.
     pestpac_documents_start_date: date = date(2025, 9, 25)
     # Files larger than this are listed but not stored.

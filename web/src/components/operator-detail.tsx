@@ -11,6 +11,7 @@ import { AddDialog } from "@/components/add-dialog";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { MembersPanel } from "@/components/members-panel";
 import { PestPacConnectionPanel } from "@/components/pestpac-connection-panel";
+import { GoCanvasConnectionPanel } from "@/components/gocanvas-connection-panel";
 import { GoCanvasRequestsPanel } from "@/components/gocanvas-requests-panel";
 import { WebhookEventsPanel } from "@/components/webhook-events-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -122,7 +123,7 @@ function CompaniesTab({ operatorId }: { operatorId: string }) {
 export function OperatorDetail() {
   const { operatorId } = useParams<{ operatorId: string }>();
   const [tab, setTab] = useUrlTab(
-    ["companies", "members", "pestpac", "webhooks", "gocanvas"],
+    ["companies", "members", "pestpac", "gocanvas-api", "webhooks", "gocanvas"],
     "companies",
   );
   const { can } = usePermissions();
@@ -159,6 +160,9 @@ export function OperatorDetail() {
           {can("pestpac_connection:read", operatorId) && (
             <TabsTrigger value="pestpac">PestPac API</TabsTrigger>
           )}
+          {can("gocanvas_connection:read", operatorId) && (
+            <TabsTrigger value="gocanvas-api">GoCanvas API</TabsTrigger>
+          )}
           {can("webhooks:read", operatorId) && <TabsTrigger value="webhooks">Webhooks</TabsTrigger>}
           {can("webhooks:read", operatorId) && <TabsTrigger value="gocanvas">GoCanvas</TabsTrigger>}
         </TabsList>
@@ -177,6 +181,11 @@ export function OperatorDetail() {
         {can("pestpac_connection:read", operatorId) && (
           <TabsContent value="pestpac" className="pt-4">
             <PestPacConnectionPanel operatorId={operatorId} />
+          </TabsContent>
+        )}
+        {can("gocanvas_connection:read", operatorId) && (
+          <TabsContent value="gocanvas-api" className="pt-4">
+            <GoCanvasConnectionPanel operatorId={operatorId} />
           </TabsContent>
         )}
         {can("webhooks:read", operatorId) && (

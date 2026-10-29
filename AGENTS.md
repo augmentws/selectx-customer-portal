@@ -36,6 +36,7 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - `GET /v1/locations/{id}`, `GET /v1/locations/{id}/notes`, `GET /v1/locations/{id}/service-orders`, `GET /v1/locations/{id}/posted-service-orders`, `GET /v1/locations/{id}/invoiced-service-orders` (`billing:read`), `GET /v1/locations/{id}/open-service-orders`, `POST /v1/locations/{id}/service-orders/sync`
 - Invoices (`billing:read`): `GET /v1/locations/{id}/invoices` (`limit`/`offset`), `GET /v1/invoices/{id}`, `GET /v1/bill-tos/{id}/invoiced-orders`, `GET /v1/companies/{id}/invoiced-orders` (each invoice with its service order)
 - Documents and conditions: `GET /v1/locations/{id}/documents`, `GET /v1/locations/{id}/conditions`, `GET /v1/documents/{id}/file`
+- Stored files: `GET /v1/files/{id}` (`files:read` for the file's company)
 - "Sync location": `POST /v1/locations/{id}/sync`, `POST /v1/bill-tos/{id}/locations/sync`
 - `GET /v1/service-orders/{id}` (with its trail, location name, report, and stored invoice id), `GET /v1/service-orders/{id}/notes`, `GET /v1/service-orders/{id}/related`, `GET /v1/sync-jobs/{id}`
 - `POST /v1/webhooks/pestpac` (public; PestPac webhook deliveries)
@@ -44,6 +45,7 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - `GET /v1/companies/{id}/bill-tos/lookup`
 - `GET /v1/search?q=` (header search; see Authorization)
 - `GET/PUT /v1/operators/{id}/pestpac-connection`, `POST /v1/operators/{id}/pestpac-connection/verify`
+- `GET/PUT /v1/operators/{id}/gocanvas-connection`, `POST /v1/operators/{id}/gocanvas-connection/verify`
 - `GET/POST /v1/tenants/{id}/members`, `PATCH/DELETE /v1/tenants/{id}/members/{user_id}`
 - Company users: `GET/POST /v1/companies/{id}/members`, `PATCH/DELETE /v1/companies/{id}/members/{user_id}`
 - `GET /v1/roles`, `GET /v1/permissions`
@@ -109,6 +111,13 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - Downloads return the raw file with its content type (confirmed against PestPac: PDF, JPEG, PNG, MP4); a JSON body is treated as a failure, not stored.
 - Tests use the in-memory store from the autouse `storage` fixture; `S3_BUCKET` is cleared so they never reach a real store.
 
+## Stored Files
+
+- `stored_files` is the one record of objects in object storage: operator, company (null until known), `source`, `storage_key` (unique), content type, size, SHA-256, original name. Records that own a file keep their own details and a `file_id` (`inspection_photos` so far). Store through `app.services.files.store_file`, which writes the object and its row together; storing to an existing key replaces the object and updates the row.
+- `GET /v1/files/{id}` serves a file to callers holding `files:read` for its company (`scope.require(..., company_id=...)`): operator and platform grants cover every company beneath them, a company grant only its own company, and a file with no company needs the operator-level grant. 404 otherwise. Served like documents (`app/api/v1/_file_response.py`): images and PDFs inline, everything else as an attachment, `nosniff`, and `Content-Security-Policy: sandbox` on everything but PDFs.
+- `files:read` is held by platform admins, operator admins, and operator staff. No company role has it yet: customer users can't open files until customer file access is designed (PestPac's portal-visibility flag, which inspection photos to show).
+- Not moved yet: PestPac document files (`documents.storage_key`) and service report PDFs (`reports`) still keep their own storage columns and routes; moving them onto `stored_files` is a separate change (one migration creating a row per existing key; nothing in storage moves).
+
 ## Conditions (issues)
 
 - `conditions` (one per IssueID per operator; FKs to location and service order, raw ids kept) and `condition_inspections`. PestPac gives inspections no id, so a condition's inspections are replaced whenever its details are fetched. Fields are whitelisted in `PestPacConditionSummary` / `PestPacConditionDetails` (StationID isn't kept); dates are PestPac wall-clock time.
@@ -133,6 +142,25 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - Each operator has its own public URL, `POST /v1/webhooks/gocanvas/{operator_id}` (GET and PUT are accepted too). Every request is stored in `gocanvas_requests` as received, since GoCanvas's format isn't known yet: method, query string, content type, headers minus credentials (Authorization, Cookie, API-key headers), body (UTF-8, undecodable bytes replaced; capped by `WEBHOOK_MAX_BODY_BYTES`, 413 above it), size and SHA-256, sender IP and user agent. Nothing is processed.
 - Answers 200 always; requests for an unknown or inactive operator aren't stored, so the URL can't probe operators. Raw bodies are cleared by the worker after `WEBHOOK_RAW_RETENTION_DAYS`; rows stay.
 - Viewable with `webhooks:read` on the operator page's GoCanvas tab.
+
+## GoCanvas API Access
+
+- Per operator, like PestPac: `gocanvas_connections` holds the OAuth client ID and the Fernet-encrypted, write-only client secret (the API returns only whether it's set). Operator admins (and platform admins) set it on the operator page's "GoCanvas API" tab (`gocanvas_connection:read`/`:write`).
+- Auth is OAuth client credentials: a multipart `POST {GOCANVAS_TOKEN_URL}` with `grant_type=client_credentials`, `client_id`, `client_secret`, `scope=api`; requests then carry the bearer token. The token and base URLs come from settings (`GOCANVAS_TOKEN_URL`, `GOCANVAS_BASE_URL`), never from operators. The client (`app/integrations/gocanvas/`) caches the token until shortly before `expires_in` and refetches once on a 401.
+- Saving credentials immediately verifies them: verified means GoCanvas issued a token (the client credentials are its whole authentication; no other call is made). Status `unverified`/`verified`/`failed`; error messages never include GoCanvas response bodies, and bodies are never logged.
+- Build clients with `app.services.gocanvas_connection.get_gocanvas_client` (verified connections only; cached per operator, dropped when credentials are saved or verified). Nothing calls GoCanvas automatically yet; webhook notices will be fetched through it.
+
+## GoCanvas Inspections
+
+- Two kinds of inspection: `standard` and `risk`. Only risk inspections are parsed so far (the Chipotle RiskGate form, GoCanvas form 5777327); samples, the form definition, and the PDF it produces are in `docs/risk-submissions/`.
+- Shared by every kind: `inspection_forms` (a GoCanvas form definition per operator, with `inspection_form_zones` and `inspection_form_fields` derived from it), `inspection_submissions` (header, links, `raw_payload`, `parse_warnings`), and `inspection_responses` (every response exactly as sent). Risk-only: `risk_inspection_zones`, `risk_inspection_summaries` (RAMP, manager summary), `risk_inspection_materials`. The zone summary (inspected, with/without activity) is derived, not stored.
+- Submissions are a flat list of responses with no zones: a GoCanvas section that asks "Has this zone been inspected?" is a zone, and entries map to fields by label (`app/services/inspections.py`; labels repeat per zone, `export_label` doesn't tell rodent and pest apart). GoCanvas keeps the form id across versions, so older submissions hold options the current form lacks (quantities in Material Use, "3" for "RAMP 3", retired pest types) and multi-selects joined by `\r\n`, `\n`, or `,` (commas split only outside known options; one option contains commas). Values that can't be typed are null in the typed tables and listed in `parse_warnings`; nothing is dropped.
+- A revision keeps its submission id: it replaces the parsed rows; an older revision arriving late is ignored, and an unchanged payload is skipped (`reparse` after the parsing rules change).
+- Linking: the Work Order ID, when it's a number, is matched to `service_orders.order_number` (setting the order and its location); else the store number is matched to the location whose name ends `#<number>`, only when exactly one does. Always within the operator.
+- Photos: a Multi Photo response with images says "Binary data is not displayed" (one without holds `[]`). Each becomes an `inspection_photo_values` row (keyed by the response id, kept across revisions; a value a revision drops gets `removed_at`). `GET /submissions/{id}/values/{value_id}` returns a zip of the field's images, named `<Field>_<value_id>_<n>.jpeg` (confirmed); each image is an `inspection_photos` row (position from the name) pointing at a stored file (`operators/{op}/inspections/{submission}/{value_id}/{n}`, source `gocanvas_photo`). Fetched once; a changed payload (a revision) refetches. A value's own problem (non-200, not a zip, over `DOCUMENT_MAX_BYTES`, over 100 entries) goes in `file_error` and is retried next run; GoCanvas refusing (401/403/429/5xx) or storage failing stops the run. Each value commits on its own (`app/services/inspection_photos.py`).
+- Photo files take the company of the submission's location (none until it's linked); relinking a submission moves its files to the new company.
+- Submissions aren't read from webhooks yet; load downloaded submissions with `python -m app.load_inspections --operator-id ... --form ... --kind risk <files or dirs>` (`scripts/download_gocanvas_submissions.py` downloads them). The loader fetches each submission's photos (verified GoCanvas access and `S3_BUCKET` required; `--no-photos` skips them). `python -m app.fetch_inspection_photos --operator-id ... [--submission-id ...]` backfills photo values for earlier loads and fetches whatever is missing or failed. Downloaded submissions are customer data: keep them out of git (`scripts/chiptole/` is ignored).
+- Tests use anonymized real submissions in `tests/fixtures/gocanvas/`. `tests/test_inspections_corpus.py` loads a full download and checks it (counts, lossless responses, no unmapped entries, idempotent reload); it's skipped unless `GOCANVAS_CORPUS_DIR` and `GOCANVAS_CORPUS_FORM` are set, so it never runs in CI.
 
 ## Webhook senders
 

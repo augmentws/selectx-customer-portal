@@ -1,6 +1,21 @@
 from app.models.condition import Condition, ConditionInspection
 from app.models.customer import BillTo, Company, Location
 from app.models.document import Document
+from app.models.file import StoredFile
+from app.models.gocanvas import GoCanvasConnection
+from app.models.inspection import (
+    InspectionForm,
+    InspectionFormField,
+    InspectionFormZone,
+    InspectionKind,
+    InspectionPhoto,
+    InspectionPhotoValue,
+    InspectionResponse,
+    InspectionSubmission,
+    RiskInspectionMaterial,
+    RiskInspectionSummary,
+    RiskInspectionZone,
+)
 from app.models.invoice import Invoice, InvoiceLine
 from app.models.note import Note
 from app.models.pestpac import ConnectionStatus, PestPacConnection
@@ -35,7 +50,16 @@ __all__ = [
     "Location",
     "Credential",
     "Document",
+    "GoCanvasConnection",
     "GoCanvasRequest",
+    "InspectionForm",
+    "InspectionFormField",
+    "InspectionFormZone",
+    "InspectionKind",
+    "InspectionPhoto",
+    "InspectionPhotoValue",
+    "InspectionResponse",
+    "InspectionSubmission",
     "Invoice",
     "InvoiceLine",
     "Membership",
@@ -45,8 +69,12 @@ __all__ = [
     "Report",
     "ReportStatus",
     "ReportTemplate",
+    "RiskInspectionMaterial",
+    "RiskInspectionSummary",
+    "RiskInspectionZone",
     "Role",
     "SignatureStatus",
+    "StoredFile",
     "ServiceOrder",
     "SyncJob",
     "SyncJobKind",

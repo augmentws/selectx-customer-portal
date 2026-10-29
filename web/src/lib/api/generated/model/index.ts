@@ -40,6 +40,8 @@ export * from './dashboardGetCompanyDashboardParams';
 export * from './dashboardHeadline';
 export * from './documentRead';
 export * from './documentReadIncludeOn';
+export * from './goCanvasConnectionRead';
+export * from './goCanvasConnectionWrite';
 export * from './goCanvasRequestDetail';
 export * from './goCanvasRequestDetailHeaders';
 export * from './goCanvasRequestPage';

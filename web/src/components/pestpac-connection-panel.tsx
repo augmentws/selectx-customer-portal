@@ -39,7 +39,12 @@ function makeSchema(configured: boolean) {
 }
 type FormValues = z.infer<ReturnType<typeof makeSchema>>;
 
-export function ConnectionStatusBadge({ conn }: { conn: PestPacConnectionRead }) {
+/** Shared by the PestPac and GoCanvas connection panels. */
+export function ConnectionStatusBadge({
+  conn,
+}: {
+  conn: Pick<PestPacConnectionRead, "configured" | "status">;
+}) {
   if (!conn.configured) return <Badge variant="outline">Not set up</Badge>;
   if (conn.status === "verified") return <Badge variant="success">Verified</Badge>;
   if (conn.status === "failed") return <Badge variant="destructive">Failed</Badge>;

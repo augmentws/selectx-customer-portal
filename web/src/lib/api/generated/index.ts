@@ -3,6 +3,8 @@ export * from './bill-tos/bill-tos';
 export * from './companies/companies';
 export * from './dashboard/dashboard';
 export * from './documents/documents';
+export * from './files/files';
+export * from './gocanvas/gocanvas';
 export * from './health/health';
 export * from './invoices/invoices';
 export * from './locations/locations';
