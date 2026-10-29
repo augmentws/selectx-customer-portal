@@ -35,8 +35,17 @@ import {
 } from "@/lib/api/generated/locations/locations";
 import { usePermissions } from "@/lib/permissions";
 import { useUrlTab } from "@/lib/use-url-tab";
+import { LocationRiskInspections } from "@/components/risk-inspections-list";
 
-const TABS = ["overview", "orders", "conditions", "documents", "invoices", "notes"] as const;
+const TABS = [
+  "overview",
+  "orders",
+  "conditions",
+  "risk",
+  "documents",
+  "invoices",
+  "notes",
+] as const;
 const ORDER_TABS = ["posted", "invoiced", "open"] as const;
 
 export function LocationDetail() {
@@ -119,6 +128,7 @@ export function LocationDetail() {
             Service orders{(loc.open_order_count ?? 0) > 0 && ` (${loc.open_order_count} open)`}
           </TabsTrigger>
           <TabsTrigger value="conditions">Conditions</TabsTrigger>
+          <TabsTrigger value="risk">Risk inspections</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           {canBilling && <TabsTrigger value="invoices">Invoices</TabsTrigger>}
           <TabsTrigger value="notes">
@@ -217,6 +227,14 @@ export function LocationDetail() {
 
         <TabsContent value="conditions" className="pt-4">
           <LocationConditions locationId={loc.id} />
+        </TabsContent>
+
+        <TabsContent value="risk" className="pt-4">
+          <LocationRiskInspections
+            locationId={locationId}
+
+            locationName={loc.pestpac_company ?? `LocationID ${loc.pestpac_location_id}`}
+          />
         </TabsContent>
 
         <TabsContent value="documents" className="pt-4">

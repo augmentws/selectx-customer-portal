@@ -388,6 +388,24 @@ CASES = [
         _all(404, platform_admin=200, admin_a=200, staff_a=403),
     ),
     Case(
+        "list risk inspections of company A",
+        "GET",
+        lambda w: f"/v1/companies/{w.company_a}/risk-inspections",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "list risk inspections of location A",
+        "GET",
+        lambda w: f"/v1/locations/{w.location_a}/risk-inspections",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "get risk inspection A",
+        "GET",
+        lambda w: f"/v1/risk-inspections/{w.risk_inspection_a}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
         "get stored file of company A",
         "GET",
         lambda w: f"/v1/files/{w.file_a}",
@@ -610,6 +628,7 @@ _PLACEHOLDER_WORLD = World(
     gocanvas_request_a="{request_id}",  # type: ignore[arg-type]
     document_a="{document_id}",  # type: ignore[arg-type]
     file_a="{file_id}",  # type: ignore[arg-type]
+    risk_inspection_a="{inspection_id}",  # type: ignore[arg-type]
     report_a="{report_id}",  # type: ignore[arg-type]
     report_final_a="{report_id}",  # type: ignore[arg-type]
 )

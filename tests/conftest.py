@@ -46,6 +46,9 @@ from app.models import (  # noqa: E402
     Document,
     GoCanvasConnection,
     GoCanvasRequest,
+    InspectionForm,
+    InspectionKind,
+    InspectionSubmission,
     Invoice,
     Location,
     Membership,
@@ -551,6 +554,7 @@ class World:
     gocanvas_request_a: uuid.UUID
     document_a: uuid.UUID
     file_a: uuid.UUID
+    risk_inspection_a: uuid.UUID
     # A draft with one selected note (so it can be drafted), and a final one with a stored PDF.
     report_a: uuid.UUID
     report_final_a: uuid.UUID
@@ -751,6 +755,30 @@ def world(storage) -> World:
         )
         db.add(file_a)
         storage.put("test/world/photo", b"\xff\xd8\xff\xe0", "image/jpeg")
+        # Ids no fixture uses, so tests loading the real form and submissions don't collide.
+        risk_form_a = InspectionForm(
+            operator_id=op_a.id,
+            gocanvas_form_id=1,
+            kind=InspectionKind.risk,
+            name="Chipotle Riskgate Inspection Form",
+            definition={},
+            imported_at=datetime.now(UTC),
+        )
+        db.add(risk_form_a)
+        db.flush()
+        risk_inspection_a = InspectionSubmission(
+            operator_id=op_a.id,
+            form_id=risk_form_a.id,
+            location_id=location_a.id,
+            gocanvas_submission_id=1,
+            gocanvas_form_id=1,
+            raw_payload={},
+            payload_sha256="0" * 64,
+            parse_warnings=[],
+            unmapped_entry_ids=[],
+            parsed_at=datetime.now(UTC),
+        )
+        db.add(risk_inspection_a)
         db.commit()
 
         from app.models import ReportStatus
@@ -830,6 +858,7 @@ def world(storage) -> World:
             webhook_event_a=webhook_event_a.id,
             document_a=document_a.id,
             file_a=file_a.id,
+            risk_inspection_a=risk_inspection_a.id,
             report_a=report_a.id,
             invoice_a=invoice_a.id,
             gocanvas_request_a=gocanvas_request_a.id,

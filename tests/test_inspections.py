@@ -278,7 +278,8 @@ def test_revisions_replace_the_parsed_rows_and_stale_ones_are_ignored(world):
         db.commit()
         db.refresh(stored)
         assert zones_by_key(stored)["front_of_house"].sanitation_risk == 5
-        assert db.scalars(select(InspectionSubmission)).all() == [stored]
+        same_id = InspectionSubmission.gocanvas_submission_id == original["id"]
+        assert db.scalars(select(InspectionSubmission).where(same_id)).all() == [stored]
 
 
 def test_links_the_order_by_work_order_number_else_the_store(world):

@@ -4778,6 +4778,161 @@
         }
       }
     },
+    "/v1/companies/{company_id}/risk-inspections": {
+      "get": {
+        "tags": [
+          "risk-inspections"
+        ],
+        "summary": "List Company Risk Inspections",
+        "description": "Risk inspections of every location under the company's bill-tos, newest first.",
+        "operationId": "risk-inspections-list_company_risk_inspections",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "company_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Company Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RiskInspectionListItem"
+                  },
+                  "title": "Response Risk-Inspections-List Company Risk Inspections"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/locations/{location_id}/risk-inspections": {
+      "get": {
+        "tags": [
+          "risk-inspections"
+        ],
+        "summary": "List Location Risk Inspections",
+        "description": "The location's risk inspections, newest first.",
+        "operationId": "risk-inspections-list_location_risk_inspections",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "location_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Location Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RiskInspectionListItem"
+                  },
+                  "title": "Response Risk-Inspections-List Location Risk Inspections"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/risk-inspections/{inspection_id}": {
+      "get": {
+        "tags": [
+          "risk-inspections"
+        ],
+        "summary": "Get Risk Inspection",
+        "description": "One risk inspection with its zones, notes, photos (as stored file ids), and materials:\nwhat the RiskGate PDF report shows.",
+        "operationId": "risk-inspections-get_risk_inspection",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "inspection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Inspection Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiskInspectionDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/roles": {
       "get": {
         "tags": [
@@ -11654,6 +11809,743 @@
         "type": "object",
         "title": "ReportUpdate",
         "description": "Edits to a draft. `photos` lists every candidate photo in the order wanted."
+      },
+      "RiskInspectionDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "gocanvas_submission_id": {
+            "type": "integer",
+            "title": "Gocanvas Submission Id"
+          },
+          "submission_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submission Number"
+          },
+          "inspected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inspected At"
+          },
+          "inspector_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inspector Name"
+          },
+          "store_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Store Label"
+          },
+          "location_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Id"
+          },
+          "location_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Name"
+          },
+          "work_order_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Order Ref"
+          },
+          "service_order_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Order Id"
+          },
+          "ramp_recommendation": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ramp Recommendation"
+          },
+          "highest_risk": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Highest Risk"
+          },
+          "zones_inspected": {
+            "type": "integer",
+            "title": "Zones Inspected"
+          },
+          "zones_with_activity": {
+            "type": "integer",
+            "title": "Zones With Activity"
+          },
+          "is_revision": {
+            "type": "boolean",
+            "title": "Is Revision"
+          },
+          "revised_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revised At"
+          },
+          "trail": {
+            "items": {
+              "$ref": "#/components/schemas/Crumb"
+            },
+            "type": "array",
+            "title": "Trail"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "manager_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manager Summary"
+          },
+          "material_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Material Notes"
+          },
+          "zones": {
+            "items": {
+              "$ref": "#/components/schemas/RiskInspectionZoneRead"
+            },
+            "type": "array",
+            "title": "Zones"
+          },
+          "materials": {
+            "items": {
+              "$ref": "#/components/schemas/RiskInspectionMaterialRead"
+            },
+            "type": "array",
+            "title": "Materials"
+          },
+          "photos_pending": {
+            "type": "integer",
+            "title": "Photos Pending"
+          },
+          "parse_warning_count": {
+            "type": "integer",
+            "title": "Parse Warning Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "gocanvas_submission_id",
+          "submission_number",
+          "inspected_at",
+          "inspector_name",
+          "store_label",
+          "location_id",
+          "location_name",
+          "work_order_ref",
+          "service_order_id",
+          "ramp_recommendation",
+          "highest_risk",
+          "zones_inspected",
+          "zones_with_activity",
+          "is_revision",
+          "revised_at",
+          "trail",
+          "address",
+          "city",
+          "manager_summary",
+          "material_notes",
+          "zones",
+          "materials",
+          "photos_pending",
+          "parse_warning_count"
+        ],
+        "title": "RiskInspectionDetail",
+        "description": "A risk inspection with everything its report shows."
+      },
+      "RiskInspectionListItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "gocanvas_submission_id": {
+            "type": "integer",
+            "title": "Gocanvas Submission Id"
+          },
+          "submission_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submission Number"
+          },
+          "inspected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inspected At"
+          },
+          "inspector_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inspector Name"
+          },
+          "store_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Store Label"
+          },
+          "location_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Id"
+          },
+          "location_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Name"
+          },
+          "work_order_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Order Ref"
+          },
+          "service_order_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Order Id"
+          },
+          "ramp_recommendation": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ramp Recommendation"
+          },
+          "highest_risk": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Highest Risk"
+          },
+          "zones_inspected": {
+            "type": "integer",
+            "title": "Zones Inspected"
+          },
+          "zones_with_activity": {
+            "type": "integer",
+            "title": "Zones With Activity"
+          },
+          "is_revision": {
+            "type": "boolean",
+            "title": "Is Revision"
+          },
+          "revised_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revised At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "gocanvas_submission_id",
+          "submission_number",
+          "inspected_at",
+          "inspector_name",
+          "store_label",
+          "location_id",
+          "location_name",
+          "work_order_ref",
+          "service_order_id",
+          "ramp_recommendation",
+          "highest_risk",
+          "zones_inspected",
+          "zones_with_activity",
+          "is_revision",
+          "revised_at"
+        ],
+        "title": "RiskInspectionListItem",
+        "description": "One risk inspection in a company's or location's list."
+      },
+      "RiskInspectionMaterialRead": {
+        "properties": {
+          "material_key": {
+            "type": "string",
+            "title": "Material Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "used": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "material_key",
+          "name",
+          "used",
+          "quantity"
+        ],
+        "title": "RiskInspectionMaterialRead"
+      },
+      "RiskInspectionPhoto": {
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "File Id"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "file_name": {
+            "type": "string",
+            "title": "File Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file_id",
+          "category",
+          "position",
+          "file_name"
+        ],
+        "title": "RiskInspectionPhoto",
+        "description": "A photo, opened through GET /v1/files/{file_id}."
+      },
+      "RiskInspectionZoneRead": {
+        "properties": {
+          "zone_key": {
+            "type": "string",
+            "title": "Zone Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "inspected": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inspected"
+          },
+          "has_activity": {
+            "type": "boolean",
+            "title": "Has Activity"
+          },
+          "all_areas_inspected": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "All Areas Inspected"
+          },
+          "areas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Areas"
+          },
+          "doors_are": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Doors Are"
+          },
+          "door_sweeps_ok": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Door Sweeps Ok"
+          },
+          "doors_aligned": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doors Aligned"
+          },
+          "rodent_activity": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rodent Activity"
+          },
+          "pest_activity": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pest Activity"
+          },
+          "pest_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Pest Types"
+          },
+          "additional_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Additional Notes"
+          },
+          "pest_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pest Notes"
+          },
+          "sanitation_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sanitation Notes"
+          },
+          "structural_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Structural Notes"
+          },
+          "sanitation_risk": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sanitation Risk"
+          },
+          "structural_risk": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Structural Risk"
+          },
+          "overall_risk": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overall Risk"
+          },
+          "attributes": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Attributes"
+          },
+          "photos": {
+            "items": {
+              "$ref": "#/components/schemas/RiskInspectionPhoto"
+            },
+            "type": "array",
+            "title": "Photos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "zone_key",
+          "name",
+          "position",
+          "inspected",
+          "has_activity",
+          "all_areas_inspected",
+          "areas",
+          "doors_are",
+          "door_sweeps_ok",
+          "doors_aligned",
+          "rodent_activity",
+          "pest_activity",
+          "pest_types",
+          "additional_notes",
+          "pest_notes",
+          "sanitation_notes",
+          "structural_notes",
+          "sanitation_risk",
+          "structural_risk",
+          "overall_risk",
+          "attributes",
+          "photos"
+        ],
+        "title": "RiskInspectionZoneRead"
       },
       "RoleRead": {
         "properties": {

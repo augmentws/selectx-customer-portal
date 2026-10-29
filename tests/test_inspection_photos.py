@@ -216,7 +216,7 @@ def test_loader_fetches_photos_and_backfill_fills_in_older_loads(
         assert pending == []
         total = db.scalar(
             select(InspectionSubmission).where(
-                InspectionSubmission.gocanvas_submission_id != SUBMISSION_ID
+                InspectionSubmission.gocanvas_submission_id == submission("ramp_digit")["id"]
             )
         )
         assert len(value_calls(gocanvas)) - before == len(total.photo_values)

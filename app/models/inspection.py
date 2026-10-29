@@ -30,6 +30,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.customer import Location
 from app.models.file import StoredFile
 
 
@@ -186,6 +187,7 @@ class InspectionSubmission(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     form: Mapped[InspectionForm] = relationship()
+    location: Mapped[Location | None] = relationship()
     responses: Mapped[list[InspectionResponse]] = relationship(
         back_populates="submission",
         cascade="all, delete-orphan",

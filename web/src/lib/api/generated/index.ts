@@ -12,6 +12,7 @@ export * from './members/members';
 export * from './operators/operators';
 export * from './pestpac/pestpac';
 export * from './reports/reports';
+export * from './risk-inspections/risk-inspections';
 export * from './roles/roles';
 export * from './search/search';
 export * from './service-orders/service-orders';
