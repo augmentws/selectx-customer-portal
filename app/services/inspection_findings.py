@@ -75,6 +75,7 @@ Pest = Literal[
     "fruit fly",
     "drain fly",
     "house fly",
+    "gnats",
     "ants",
     "stored product pest",
     "other",
@@ -151,7 +152,8 @@ in the narrative.
 - structural_findings: one per opening or vulnerability (location, issue, category, status). Status
   is repaired only when the notes confirm the repair, in_progress when partly done, otherwise open.
 - sanitation_findings: one per condition (location, issue, category, severity).
-- other_pests: one per non-rodent pest reported (pest, severity, location).
+- other_pests: one per non-rodent pest reported (pest, severity, location). Use the pest the notes
+  name (gnats for gnats); when it isn't one of the choices, use other. Never guess a species.
 - summary: one or two plain sentences on what was found and done."""
 
 

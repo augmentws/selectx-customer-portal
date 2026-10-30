@@ -55,7 +55,7 @@ DRAFT = {
         ],
         "sanitation_findings": [],
         "other_pests": [
-            {"pest": "drain fly", "severity": "low", "location": "mop sink"},
+            {"pest": "gnats", "severity": "low", "location": "mop sink"},
         ],
         "summary": "No rodent activity; an opening was found in the trash room.",
     },
@@ -261,7 +261,7 @@ def test_drafting_stores_the_visits_findings(client, world, admin, template, vis
             "test/model",
             [
                 ("structural", "wall/floor gap", "open", None),
-                ("pest", "drain fly", None, "low"),
+                ("pest", "gnats", None, "low"),
             ],
         )
     ]
