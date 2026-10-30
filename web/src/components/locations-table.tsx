@@ -43,11 +43,12 @@ const SORT_VALUE: Record<SortKey, (l: LocationRead) => string | number> = {
   last: (l) => l.last_service_at ?? "",
 };
 
-/** Name, store number, street, city, state, zip, and bill-to (when shown), lower-cased for
+/** Name, description, store number, street, city, state, zip, and bill-to (when shown), lower-cased for
  * type-ahead matching. */
 function searchText(location: LocationRead, billTo: string | undefined): string {
   return [
     location.pestpac_company,
+    location.description,
     billTo,
     location.pestpac_location_code,
     String(location.pestpac_location_id),
@@ -66,6 +67,7 @@ function searchText(location: LocationRead, billTo: string | undefined): string 
 function exportColumns(billTos: Map<string, string> | undefined): CsvColumn<LocationRead>[] {
   return [
     { header: "Location", value: (l) => l.pestpac_company },
+    { header: "Description", value: (l) => l.description },
     ...(billTos
       ? [{ header: "Bill-to", value: (l: LocationRead) => billTos.get(l.bill_to_id) }]
       : []),
@@ -151,6 +153,7 @@ function LocationRow({ location: l, billTo }: { location: LocationRead; billTo?:
             Inactive in PestPac
           </Badge>
         )}
+        {l.description && <div className="text-sm">{l.description}</div>}
         <div className="text-xs text-muted-foreground">
           <span className="md:hidden">{street(l) && `${street(l)} · `}</span>
           <span className="sm:hidden">{placeWithZip(l) && `${placeWithZip(l)} · `}</span>

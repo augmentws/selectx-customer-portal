@@ -87,7 +87,8 @@ class BillTo(Base):
 class Location(Base):
     """A PestPac service location under an onboarded bill-to, synced from
     GET /BillTos/{id}/locations/pageable. `pestpac_company` (e.g. "CHIPOTLE - STORE #2301") is
-    the location's name. Contact names and user-defined fields are deliberately not stored."""
+    the location's name. Contact names and user-defined fields are deliberately not stored.
+    `description` is ours (e.g. the customer's store name), never written by PestPac syncs."""
 
     __tablename__ = "locations"
     __table_args__ = (
@@ -124,6 +125,8 @@ class Location(Base):
     latitude: Mapped[float | None] = mapped_column(Float)
     longitude: Mapped[float | None] = mapped_column(Float)
     pestpac_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Not from PestPac: filled by our own imports (the Restaurant Leader Report's store name).
+    description: Mapped[str | None] = mapped_column(String(300))
     # Set when PestPac stops listing this location under its bill-to. Kept, not deleted,
     # because service orders will reference locations.
     removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

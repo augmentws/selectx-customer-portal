@@ -1,6 +1,7 @@
 export * from './auth/auth';
 export * from './bill-tos/bill-tos';
 export * from './companies/companies';
+export * from './contacts/contacts';
 export * from './dashboard/dashboard';
 export * from './documents/documents';
 export * from './files/files';

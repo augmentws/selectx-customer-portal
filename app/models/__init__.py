@@ -1,4 +1,5 @@
 from app.models.condition import Condition, ConditionInspection
+from app.models.contact import Contact, ContactLink, ContactRole
 from app.models.customer import BillTo, Company, Location
 from app.models.document import Document
 from app.models.file import StoredFile
@@ -47,6 +48,9 @@ __all__ = [
     "Condition",
     "ConditionInspection",
     "ConnectionStatus",
+    "Contact",
+    "ContactLink",
+    "ContactRole",
     "Location",
     "Credential",
     "Document",

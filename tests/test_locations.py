@@ -198,6 +198,25 @@ def test_failed_refresh_keeps_existing_locations(client, world, pestpac):
     assert len(rows) == 3 and all(r["removed_at"] is None for r in rows)
 
 
+def test_refresh_keeps_our_description(client, world, pestpac):
+    admin = headers_for(client, world.emails["admin_a"])
+    bill_to_id = _onboard(client, admin, world.company_a).json()["id"]
+    with SessionLocal() as db:
+        location = db.scalar(select(Location).where(Location.pestpac_location_id == 900001))
+        location.description = "Grand Central - 436"
+        location_id = location.id
+        db.commit()
+    with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
+        _mock(rsps, 180020)
+        resp = client.post(f"/v1/bill-tos/{bill_to_id}/refresh", headers=admin)
+    assert resp.status_code == 200
+    assert resp.json()["locations_sync"]["updated"] == 3
+    detail = client.get(f"/v1/locations/{location_id}", headers=admin).json()
+    assert detail["description"] == "Grand Central - 436"
+    rows = client.get(f"/v1/bill-tos/{bill_to_id}/locations", headers=admin).json()
+    assert {r["description"] for r in rows} == {"Grand Central - 436", None}
+
+
 def test_paging_that_does_not_advance_is_detected(client, world, page_size):
     page_size(2)
     admin = headers_for(client, world.emails["admin_a"])

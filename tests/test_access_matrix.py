@@ -406,6 +406,18 @@ CASES = [
         _all(404, platform_admin=200, admin_a=200, staff_a=200),
     ),
     Case(
+        "list contacts of location A",
+        "GET",
+        lambda w: f"/v1/locations/{w.location_a}/contacts",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "list contacts of bill-to A",
+        "GET",
+        lambda w: f"/v1/bill-tos/{w.bill_to_a}/contacts",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
         "get risk inspection A",
         "GET",
         lambda w: f"/v1/risk-inspections/{w.risk_inspection_a}",

@@ -34,6 +34,8 @@ export * from './companyUpdate';
 export * from './conditionInspectionRead';
 export * from './conditionRead';
 export * from './connectionStatus';
+export * from './contactRead';
+export * from './contactRole';
 export * from './crumb';
 export * from './crumbKind';
 export * from './dashboardGetCompanyDashboardParams';

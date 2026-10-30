@@ -23,6 +23,7 @@ export interface LocationRead {
   latitude: number | null;
   longitude: number | null;
   pestpac_active: boolean;
+  description: string | null;
   removed_at: string | null;
   pestpac_fetched_at: string;
   open_order_count?: number;

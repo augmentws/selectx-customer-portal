@@ -93,7 +93,8 @@ def _clean_tables():
     with engine.begin() as conn:
         conn.execute(
             text(
-                "TRUNCATE inspection_photos, inspection_photo_values, stored_files, "
+                "TRUNCATE contact_links, contacts, "
+                "inspection_photos, inspection_photo_values, stored_files, "
                 "risk_inspection_zones, risk_inspection_materials, "
                 "risk_inspection_summaries, inspection_responses, inspection_submissions, "
                 "inspection_form_fields, inspection_form_zones, inspection_forms, "

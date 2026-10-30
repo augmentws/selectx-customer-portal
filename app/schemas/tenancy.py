@@ -158,6 +158,8 @@ class LocationRead(BaseModel):
     latitude: float | None
     longitude: float | None
     pestpac_active: bool
+    # Ours, not PestPac's (e.g. the customer's store name).
+    description: str | None
     removed_at: datetime | None
     pestpac_fetched_at: datetime
     # Orders PestPac still lists as open (not yet billed) for this location.
