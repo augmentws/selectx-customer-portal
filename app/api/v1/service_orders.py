@@ -1,11 +1,13 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
-from app.models import BillTo, Location, ServiceOrder
+from app.models import BillTo, InspectionFinding, Location, ServiceOrder
 from app.schemas.tenancy import (
+    InspectionFindingRead,
     NoteRead,
     ServiceOrderDetail,
     ServiceOrderRead,
@@ -30,11 +32,14 @@ def _order_or_404(db: Session, order_id: uuid.UUID, scope: AccessScope) -> Servi
 def get_service_order(
     order_id: uuid.UUID, db: Session = Depends(get_db), scope: AccessScope = Depends(get_scope)
 ):
-    """The order with its breadcrumb trail (down to its location), report, and stored
-    invoice."""
+    """The order with its breadcrumb trail (down to its location), report, stored invoice,
+    and findings."""
     order = _order_or_404(db, order_id, scope)
     bill_to = db.get(BillTo, order.bill_to_id)
     location = db.get(Location, order.location_id) if order.location_id else None
+    finding = db.scalar(
+        select(InspectionFinding).where(InspectionFinding.service_order_id == order.id)
+    )
     return ServiceOrderDetail(
         **ServiceOrderRead.model_validate(order).model_dump(),
         location_name=trail.location_name(location) if location else None,
@@ -47,6 +52,7 @@ def get_service_order(
             location_id=order.location_id,
         ),
         invoice_id=order_related.stored_invoice_id(db, order),
+        findings=InspectionFindingRead.model_validate(finding) if finding else None,
     )
 
 

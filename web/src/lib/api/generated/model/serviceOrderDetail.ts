@@ -5,9 +5,11 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Crumb } from './crumb';
+import type { InspectionFindingRead } from './inspectionFindingRead';
 
 /**
- * One order for its own page: where it sits, and its stored invoice (if billed).
+ * One order for its own page: where it sits, its stored invoice (if billed), and its
+ * findings (once read).
  */
 export interface ServiceOrderDetail {
   id: string;
@@ -37,4 +39,5 @@ export interface ServiceOrderDetail {
   report_id: string | null;
   trail: Crumb[];
   invoice_id: string | null;
+  findings: InspectionFindingRead | null;
 }

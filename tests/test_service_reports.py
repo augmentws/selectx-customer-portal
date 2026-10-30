@@ -266,6 +266,15 @@ def test_drafting_stores_the_visits_findings(client, world, admin, template, vis
         )
     ]
 
+    # The order's page shows them.
+    order = client.get(f"/v1/service-orders/{world.service_order_a}", headers=admin).json()
+    assert order["findings"]["source"] == "report_draft"
+    assert order["findings"]["visit_type"] == "qc_inspection"
+    assert [(i["kind"], i["category"]) for i in order["findings"]["items"]] == [
+        ("structural", "wall/floor gap"),
+        ("pest", "gnats"),
+    ]
+
     # Editing the narrative leaves them alone.
     url = f"/v1/service-reports/{report['id']}"
     resp = client.patch(url, json={"fields": {"summary": ["Rewritten."]}}, headers=admin)

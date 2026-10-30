@@ -74,8 +74,8 @@ export const getServiceOrdersGetServiceOrderUrl = (orderId: string,) => {
 }
 
 /**
- * The order with its breadcrumb trail (down to its location), report, and stored
- * invoice.
+ * The order with its breadcrumb trail (down to its location), report, stored invoice,
+ * and findings.
  * @summary Get Service Order
  */
 export const serviceOrdersGetServiceOrder = async (orderId: string, options?: Parameters<typeof bffFetch>[1]): Promise<serviceOrdersGetServiceOrderResponseSuccess> => {

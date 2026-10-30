@@ -14,8 +14,8 @@ remove it when it's paid off.
   to the LLM as JSON-schema enums. Adding a value (e.g. `gnats`) needs a code change and deploy.
   Extract them from code (a table or per-operator config) so they can be maintained without one;
   stored values are plain strings, so existing rows don't need migrating.
-- **Findings aren't exposed.** `inspection_findings` is written but no API route or page reads it
-  yet; the dashboard and per-store baseline will be its first readers.
+- **Findings are only on the service order page.** No list, location, or dashboard view reads
+  `inspection_findings` yet; the dashboard and per-store baseline will be the next readers.
 
 ## Integrations
 

@@ -39,7 +39,7 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - Stored files: `GET /v1/files/{id}` (`files:read` for the file's company)
 - Risk inspections (`bill_tos:read`): `GET /v1/companies/{id}/risk-inspections`, `GET /v1/bill-tos/{id}/risk-inspections`, `GET /v1/locations/{id}/risk-inspections`, `GET /v1/risk-inspections/{id}` (the report, with its trail)
 - "Sync location": `POST /v1/locations/{id}/sync`, `POST /v1/bill-tos/{id}/locations/sync`
-- `GET /v1/service-orders/{id}` (with its trail, location name, report, and stored invoice id), `GET /v1/service-orders/{id}/notes`, `GET /v1/service-orders/{id}/related`, `GET /v1/sync-jobs/{id}`
+- `GET /v1/service-orders/{id}` (with its trail, location name, report, stored invoice id, and findings), `GET /v1/service-orders/{id}/notes`, `GET /v1/service-orders/{id}/related`, `GET /v1/sync-jobs/{id}`
 - `POST /v1/webhooks/pestpac` (public; PestPac webhook deliveries)
 - `POST /v1/webhooks/gocanvas/{operator_id}` (public; also GET/PUT, not in the schema), `GET /v1/operators/{id}/gocanvas-requests`, `GET /v1/gocanvas-requests/{id}`
 - `GET /v1/operators/{id}/webhook-events` (filters incl. `entity_id`, `limit`/`offset`), `GET /v1/webhook-events/{id}` (with raw body)
@@ -205,7 +205,7 @@ Current API surface (keep the versioned shape unless a contract change is reques
 
 - A service visit's findings as data, for the dashboard and the per-store baseline: `inspection_findings`, one current row per service order (visit type, rodent activity none/low/moderate/heavy, species, evidence, captures, activity locations, devices serviced, exclusion status, sanitation rating, summary), with `inspection_finding_items` for its structural (category, open/in progress/repaired), sanitation (category, severity), and other-pest findings. Each row records its `source` (`report_draft`; `extraction` is planned), the serving model, the rules' `method_version`, and usage.
 - Read by the LLM from the same notes and technician comment as the narrative, in the same call: `run_draft` adds `app/services/inspection_findings.py`'s `INSTRUCTIONS` and `FindingsOut` to the template's prompt and fields, so the rules are the same whatever the template (and will be shared by extraction without a report). Bump `METHOD_VERSION` when they change what's extracted. A new draft replaces the order's findings; editing the narrative never changes them; an LLM failure writes none.
-- They're internal: levels and severities never appear in the narrative. Not exposed by the API yet.
+- They're internal: levels and severities never appear in the narrative. Staff see them (`bill_tos:read`) as `findings` on `GET /v1/service-orders/{id}` (null until read), shown in the service order page's Findings card after Instructions; company users can't reach that route.
 
 ## Program Dashboard
 

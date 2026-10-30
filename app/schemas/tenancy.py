@@ -383,12 +383,49 @@ class ConditionRead(ConditionBase):
     documents: list[DocumentRead]
 
 
+class InspectionFindingItemRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    kind: Literal["structural", "sanitation", "pest"]
+    # Structural and sanitation: the category; pest: the pest.
+    category: str
+    location: str | None
+    issue: str | None
+    status: str | None  # structural only
+    severity: str | None  # sanitation and pest only
+
+
+class InspectionFindingRead(BaseModel):
+    """The visit's findings as read by the LLM (internal: levels and severities never appear
+    in the report's narrative)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    source: Literal["report_draft", "extraction"]
+    visit_type: str
+    rodent_activity: str | None
+    rodent_species: list[str]
+    rodent_evidence: list[str]
+    rodents_captured: int | None
+    activity_locations: list[str]
+    devices_serviced: int | None
+    exclusion_status: str | None
+    sanitation_rating: str | None
+    summary: str | None
+    model: str
+    method_version: int
+    extracted_at: datetime
+    items: list[InspectionFindingItemRead]
+
+
 class ServiceOrderDetail(PostedServiceOrderRead):
-    """One order for its own page: where it sits, and its stored invoice (if billed)."""
+    """One order for its own page: where it sits, its stored invoice (if billed), and its
+    findings (once read)."""
 
     trail: list[Crumb]
     # Our invoice record for it; reading the invoice still needs billing:read.
     invoice_id: uuid.UUID | None
+    findings: InspectionFindingRead | None
 
 
 # How an item relates to an order: PestPac links it to the order ("order"; for conditions,

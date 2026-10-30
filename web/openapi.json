@@ -3152,7 +3152,7 @@
           "service_orders"
         ],
         "summary": "Get Service Order",
-        "description": "The order with its breadcrumb trail (down to its location), report, and stored\ninvoice.",
+        "description": "The order with its breadcrumb trail (down to its location), report, stored invoice,\nand findings.",
         "operationId": "service_orders-get_service_order",
         "security": [
           {
@@ -7756,6 +7756,220 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "InspectionFindingItemRead": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "structural",
+              "sanitation",
+              "pest"
+            ],
+            "title": "Kind"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "issue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issue"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "category",
+          "location",
+          "issue",
+          "status",
+          "severity"
+        ],
+        "title": "InspectionFindingItemRead"
+      },
+      "InspectionFindingRead": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "report_draft",
+              "extraction"
+            ],
+            "title": "Source"
+          },
+          "visit_type": {
+            "type": "string",
+            "title": "Visit Type"
+          },
+          "rodent_activity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rodent Activity"
+          },
+          "rodent_species": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Rodent Species"
+          },
+          "rodent_evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Rodent Evidence"
+          },
+          "rodents_captured": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rodents Captured"
+          },
+          "activity_locations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Activity Locations"
+          },
+          "devices_serviced": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Devices Serviced"
+          },
+          "exclusion_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exclusion Status"
+          },
+          "sanitation_rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sanitation Rating"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "method_version": {
+            "type": "integer",
+            "title": "Method Version"
+          },
+          "extracted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Extracted At"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/InspectionFindingItemRead"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "visit_type",
+          "rodent_activity",
+          "rodent_species",
+          "rodent_evidence",
+          "rodents_captured",
+          "activity_locations",
+          "devices_serviced",
+          "exclusion_status",
+          "sanitation_rating",
+          "summary",
+          "model",
+          "method_version",
+          "extracted_at",
+          "items"
+        ],
+        "title": "InspectionFindingRead",
+        "description": "The visit's findings as read by the LLM (internal: levels and severities never appear\nin the report's narrative)."
       },
       "InvoiceLineRead": {
         "properties": {
@@ -13212,6 +13426,16 @@
               }
             ],
             "title": "Invoice Id"
+          },
+          "findings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InspectionFindingRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -13242,10 +13466,11 @@
           "location_name",
           "report_id",
           "trail",
-          "invoice_id"
+          "invoice_id",
+          "findings"
         ],
         "title": "ServiceOrderDetail",
-        "description": "One order for its own page: where it sits, and its stored invoice (if billed)."
+        "description": "One order for its own page: where it sits, its stored invoice (if billed), and its\nfindings (once read)."
       },
       "ServiceOrderRead": {
         "properties": {
