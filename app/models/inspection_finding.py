@@ -110,3 +110,23 @@ class InspectionFindingItem(Base):
     severity: Mapped[str | None] = mapped_column(String(20))
 
     finding: Mapped[InspectionFinding] = relationship(back_populates="items")
+
+
+class InspectionFindingRequest(Base):
+    """A service order waiting for its findings to be extracted without a report (the worker's
+    queue; `app/services/findings_extraction.py`). Deleted once handled; a failure stays, with
+    `requested_at` cleared and the error, until it's requeued."""
+
+    __tablename__ = "inspection_finding_requests"
+
+    service_order_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("service_orders.id", ondelete="RESTRICT"), primary_key=True
+    )
+    operator_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="RESTRICT"), index=True
+    )
+    # Null once it failed: not queued.
+    requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    attempts: Mapped[int] = mapped_column(SmallInteger, default=0)
+    error: Mapped[str | None] = mapped_column(String(1000))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

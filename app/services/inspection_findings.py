@@ -1,10 +1,11 @@
 """Findings from a service visit: what the technician's notes say was found and done, as data.
 
 The LLM reads them in the same call that drafts a service report (`service_reports.run_draft`
-adds `INSTRUCTIONS` and `FindingsOut` to the template's own prompt and fields), so the rules
-here are the same whichever template is used. They're stored in `inspection_findings`, one
-current row per service order, replaced when they're read again. They're internal: the
-narrative never shows their levels or severities.
+adds `INSTRUCTIONS` and `FindingsOut` to the template's own prompt and fields), or on their own
+for orders without a report (`findings_extraction`), so the rules here are the same whichever
+template is used, or none. They're stored in `inspection_findings`, one current row per service
+order, replaced when they're read again. They're internal: the narrative never shows their levels
+or severities.
 """
 
 import dataclasses
@@ -20,7 +21,7 @@ from app.integrations.openrouter import Usage
 from app.models import InspectionFinding, InspectionFindingItem
 
 # Bump when INSTRUCTIONS or FindingsOut change in a way that changes what's extracted.
-METHOD_VERSION = 1
+METHOD_VERSION = 2
 
 VisitType = Literal[
     "risk_assessment",
@@ -128,17 +129,16 @@ class FindingsOut(BaseModel):
     summary: str = Field(max_length=1000)
 
 
-INSTRUCTIONS = """FINDINGS
-Besides the report, fill `findings`: the same visit as data, for Select's internal tracking. Take it
-from the notes, never from your own narrative, and follow the same evidence rules: when the notes
-don't say, use null or an empty list. The levels and severities here are internal and never appear
-in the narrative.
+# The fields' rules, shared by drafting (INSTRUCTIONS) and extraction without a report
+# (findings_extraction).
+RULES = """\
 - visit_type: risk_assessment, initial_service, exclusion, mass_trapping, monitoring, qc_inspection,
   follow_up, entomology_walk, cleanout, or other; use the service order's code and description as
   well as the notes.
 - rodent_activity: none when the notes say no activity was found; heavy for heavy, significant,
   widespread, or infestation; moderate for active, several, or multiple; low for minor, isolated, or
-  single. Null when the notes don't assess it.
+  single. Reported evidence (captures, droppings, sightings, gnaw marks) means activity: at least
+  low for one, moderate for several. Null when the notes don't assess it.
 - rodent_species: rat and/or mouse, only when named.
 - rodent_evidence: the kinds of evidence the notes report (droppings, capture, live sighting, gnaw
   marks, rub marks, burrows, nesting, dead rodent, tracks).
@@ -146,15 +146,24 @@ in the narrative.
 - activity_locations: where activity was found, short phrases (e.g. "serving line motor
   compartment").
 - devices_serviced: only a number the notes state; else null.
-- exclusion_status: intact or compromised, only when the notes assess it.
+- exclusion_status: intact or compromised, only when the notes assess it. Doors left open or
+  unlocked are a store practice, not a breach: they don't make it compromised.
 - sanitation_rating: satisfactory, needs_improvement, or poor, only when the notes rate it or
   clearly describe it.
-- structural_findings: one per opening or vulnerability (location, issue, category, status). Status
-  is repaired only when the notes confirm the repair, in_progress when partly done, otherwise open.
+- structural_findings: one per physical opening or damage (location, issue, category, status), not
+  practices such as doors left open (put those in the summary). Status is repaired only when the
+  notes confirm the repair, in_progress when partly done, otherwise open.
 - sanitation_findings: one per condition (location, issue, category, severity).
 - other_pests: one per non-rodent pest reported (pest, severity, location). Use the pest the notes
   name (gnats for gnats); when it isn't one of the choices, use other. Never guess a species.
 - summary: one or two plain sentences on what was found and done."""
+
+INSTRUCTIONS = f"""FINDINGS
+Besides the report, fill `findings`: the same visit as data, for Select's internal tracking. Take it
+from the notes, never from your own narrative, and follow the same evidence rules: when the notes
+don't say, use null or an empty list. The levels and severities here are internal and never appear
+in the narrative.
+{RULES}"""
 
 
 def describe() -> str:

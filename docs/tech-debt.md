@@ -14,6 +14,9 @@ remove it when it's paid off.
   to the LLM as JSON-schema enums. Adding a value (e.g. `gnats`) needs a code change and deploy.
   Extract them from code (a table or per-operator config) so they can be maintained without one;
   stored values are plain strings, so existing rows don't need migrating.
+- **Which notes extraction reads is hard-coded.** `SERVICE_NOTE_CODES` in
+  `app/services/findings_extraction.py` is PestPac's note code for visit notes in Select's setup;
+  another operator's codes may differ. Make it per operator when a second one extracts findings.
 - **Findings aren't exposed.** `inspection_findings` is written but no API route or page reads it
   yet; the dashboard and per-store baseline will be its first readers.
 

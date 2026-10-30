@@ -10,6 +10,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     String,
     UniqueConstraint,
+    false,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -32,6 +33,9 @@ class Company(Base):
     )
     name: Mapped[str] = mapped_column(String(200))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Extract each worked order's findings from its notes (LLM) when it's posted. Off by
+    # default: it sends the company's notes to OpenRouter.
+    extract_findings: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

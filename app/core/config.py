@@ -81,6 +81,8 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     # OpenRouter model id used when a call doesn't name one; empty means every call must.
     openrouter_default_model: str = ""
+    # Model for extracting findings without a report; empty uses the default model.
+    findings_llm_model: str = ""
     openrouter_timeout_seconds: float = Field(default=60.0, gt=0)
     openrouter_max_retries: int = Field(default=2, ge=0)
     openrouter_app_title: str = "SELECTX Customer Portal"
