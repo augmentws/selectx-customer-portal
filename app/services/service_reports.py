@@ -5,7 +5,8 @@
    most notes or photos to an order, so the date is the link). Those on the work date, or
    linked to the order, start selected.
 2. The selected notes are drafted into the template's LLM fields by the worker, with the
-   template's prompt (they're written together: the prompt names the fields).
+   template's prompt (they're written together: the prompt names the fields). The same call
+   reads the visit's findings into `inspection_findings` (app/services/inspection_findings.py).
 3. Edited, previewed as HTML, then finalized: the PDF is rendered from the stored data and
    kept in object storage; the data stays in `reports.data`. A final report is locked;
    revising starts a new draft from a copy.
@@ -48,7 +49,7 @@ from app.schemas.reports import (
     ReportUpdate,
     TemplateField,
 )
-from app.services import files, llm_tasks, reports
+from app.services import files, inspection_findings, llm_tasks, reports
 from app.storage import ObjectStorage, StorageError
 
 log = logging.getLogger(__name__)
@@ -407,7 +408,9 @@ def draft_instructions(template: ReportTemplate, fields: list[TemplateField]) ->
         "OUTPUT\n"
         "Reply with a JSON object with exactly these keys. 'paragraphs' and 'list' are arrays "
         "of strings; 'sections' is an array of {heading, paragraphs}. Use **double asterisks** "
-        "for bold; no other markup.\n" + "\n".join(lines)
+        "for bold; no other markup.\n"
+        + "\n".join([*lines, inspection_findings.describe()])
+        + f"\n\n{inspection_findings.INSTRUCTIONS}"
     )
 
 
@@ -450,7 +453,11 @@ def run_draft(db: Session, report: Report) -> Report:
         task = llm_tasks.LLMTask(
             name="service_report",
             instructions=draft_instructions(template, fields),
-            output=_value_model(fields, name="ServiceReportDraft", only_llm=True),
+            output=create_model(
+                "ServiceReportDraft",
+                __base__=_value_model(fields, name="ServiceReportFields", only_llm=True),
+                findings=(inspection_findings.FindingsOut, ...),
+            ),
             model=template.llm_model,
         )
         result = llm_tasks.run_task(task, draft_input(data))
@@ -465,8 +472,20 @@ def run_draft(db: Session, report: Report) -> Report:
         report.draft_error = str(exc)[:1000]
         db.commit()
         return report
-    data.fields = {**data.fields, **result.output.model_dump(mode="json")}
+    drafted = result.output.model_dump(mode="json", exclude={"findings"})
+    data.fields = {**data.fields, **drafted}
     report.data = data.model_dump(mode="json")
+    inspection_findings.save(
+        db,
+        operator_id=report.operator_id,
+        service_order_id=report.service_order_id,
+        location_id=report.location_id,
+        report_id=report.id,
+        source="report_draft",
+        findings=result.output.findings,
+        model=result.model,
+        usage=result.usage,
+    )
     report.status = ReportStatus.draft
     report.drafted_at = datetime.now(UTC)
     report.draft_error = None

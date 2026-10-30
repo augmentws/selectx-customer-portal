@@ -54,7 +54,7 @@
     "label": "Findings and assessments",
     "type": "sections",
     "llm": true,
-    "help": "In this order, each only when the notes support it: 'Rodent Activity Assessment'; 'Monitoring Device Assessment'; one section per area with a structural or other finding, headed '<Area> – <Finding>' (e.g. 'Serving Line – Exclusion Required', 'Trash Room – Structural Opening'); 'Sanitation Assessment'; 'Moisture Assessment'; 'Service Location Verification'. One to three short paragraphs each."
+    "help": "Detailed findings and observations, each only when the notes support it, e.g. 'Rodent Activity and Monitoring', 'Cockroach Activity', 'Fly and Drain Activity', 'Structural Exclusion Assessment', 'Sanitation and Moisture Assessment', 'Equipment and Concealed Space Inspection', 'Exterior Rodent Pressure', 'Mass Trapping and Recovery', 'Corrective Actions Performed'; a finding in one area may have its own section headed '<Area> – <Finding>' (e.g. 'Serving Line – Exclusion Required'). One to three short paragraphs each."
   },
   {
     "key": "recommendations",

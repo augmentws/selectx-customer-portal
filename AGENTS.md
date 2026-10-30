@@ -39,7 +39,7 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - Stored files: `GET /v1/files/{id}` (`files:read` for the file's company)
 - Risk inspections (`bill_tos:read`): `GET /v1/companies/{id}/risk-inspections`, `GET /v1/bill-tos/{id}/risk-inspections`, `GET /v1/locations/{id}/risk-inspections`, `GET /v1/risk-inspections/{id}` (the report, with its trail)
 - "Sync location": `POST /v1/locations/{id}/sync`, `POST /v1/bill-tos/{id}/locations/sync`
-- `GET /v1/service-orders/{id}` (with its trail, location name, report, and stored invoice id), `GET /v1/service-orders/{id}/notes`, `GET /v1/service-orders/{id}/related`, `GET /v1/sync-jobs/{id}`
+- `GET /v1/service-orders/{id}` (with its trail, location name, report, stored invoice id, and findings), `GET /v1/service-orders/{id}/notes`, `GET /v1/service-orders/{id}/related`, `GET /v1/sync-jobs/{id}`
 - `POST /v1/webhooks/pestpac` (public; PestPac webhook deliveries)
 - `POST /v1/webhooks/gocanvas/{operator_id}` (public; also GET/PUT, not in the schema), `GET /v1/operators/{id}/gocanvas-requests`, `GET /v1/gocanvas-requests/{id}`
 - `GET /v1/operators/{id}/webhook-events` (filters incl. `entity_id`, `limit`/`offset`), `GET /v1/webhook-events/{id}` (with raw body)
@@ -190,7 +190,7 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - Templates see only `ReportContext` in `app/schemas/reports.py` (operator, company, bill-to, location, `generated_at` in UTC), passed as plain dicts. To expose more data, add fields there and in `build_context`; never pass ORM objects to templates.
 - WeasyPrint renders the PDF with a URL fetcher limited to `data:` URIs: images, fonts, and stylesheets must be embedded, and nothing is fetched over the network or from disk. It needs Pango installed on the host.
 - A location only renders its own company's active templates (404 otherwise).
-- Templates can declare `fields` (`TemplateField`: key, label, type `text`/`paragraphs`/`list`/`sections`, `llm`, `help`, `default`), a drafting `prompt`, and an optional `llm_model`. The HTML reads `fields.<key>`; text is rendered with the `rich` filter, which escapes it and allows only `**bold**`. Saving test-renders with sample values for every field, so the HTML and fields must agree. A template, its fields, and its prompt work together; keep them in one place (the rodent-control one is in `docs/report-templates/`).
+- Templates can declare `fields` (`TemplateField`: key, label, type `text`/`paragraphs`/`list`/`sections`, `llm`, `help`, `default`), a drafting `prompt`, and an optional `llm_model`. The HTML reads `fields.<key>`; text is rendered with the `rich` filter, which escapes it and allows only `**bold**`. Saving test-renders with sample values for every field, so the HTML and fields must agree. A template, its fields, and its prompt work together; keep them in one place (the rodent-control one is in `docs/report-templates/`; its prompt follows the Enterprise Division's beginning–middle–end reporting standard). `findings` is a reserved field key (drafting's reply carries the visit's findings under it).
 
 ## Service Reports
 
@@ -200,6 +200,12 @@ Current API surface (keep the versioned shape unless a contract change is reques
 - The order's TechnicianComment is snapshotted into `data.technician_comment` when the report is started (selected by default) and offered as its own checkbox; drafting needs a selected note or the comment.
 - "Draft narrative" queues the worker, which sends the selected notes and technician comment (plus location and order) to the LLM via `run_task` with the template's prompt plus a generated description of its `llm` fields; the structured reply fills those fields. LLM failures are recorded on the report (`draft_error`), never raised. No model is configured yet: set `OPENROUTER_API_KEY` and a model (template or `OPENROUTER_DEFAULT_MODEL`).
 - Editing and previewing (HTML from the saved data, shown in a sandboxed iframe) are allowed while `draft`. Finalizing renders the PDF from the saved data, stores it, and locks the report; changes after that are a new revision copying the data. Photos are downscaled with Pillow (a WeasyPrint dependency) and embedded as `data:` URIs at render time; they're referenced, not copied, in `data`. The BFF forwards `content-disposition`; the web app fetches PDFs with `web/src/lib/api/pdf.ts`, since the generated client reads bodies as text.
+
+## Inspection Findings
+
+- A service visit's findings as data, for the dashboard and the per-store baseline: `inspection_findings`, one current row per service order (visit type, rodent activity none/low/moderate/heavy, species, evidence, captures, activity locations, devices serviced, exclusion status, sanitation rating, summary), with `inspection_finding_items` for its structural (category, open/in progress/repaired), sanitation (category, severity), and other-pest findings. Each row records its `source` (`report_draft`; `extraction` is planned), the serving model, the rules' `method_version`, and usage.
+- Read by the LLM from the same notes and technician comment as the narrative, in the same call: `run_draft` adds `app/services/inspection_findings.py`'s `INSTRUCTIONS` and `FindingsOut` to the template's prompt and fields, so the rules are the same whatever the template (and will be shared by extraction without a report). Bump `METHOD_VERSION` when they change what's extracted. A new draft replaces the order's findings; editing the narrative never changes them; an LLM failure writes none.
+- They're internal: levels and severities never appear in the narrative. Staff see them (`bill_tos:read`) as `findings` on `GET /v1/service-orders/{id}` (null until read), shown in the service order page's Findings card after Instructions; company users can't reach that route.
 
 ## Program Dashboard
 

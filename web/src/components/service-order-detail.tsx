@@ -14,7 +14,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { errorMessage } from "@/lib/api/errors";
 import { useInvoicesGetInvoice } from "@/lib/api/generated/invoices/invoices";
-import type { OrderCondition, ServiceOrderDetail } from "@/lib/api/generated/model";
+import type {
+  InspectionFindingRead,
+  OrderCondition,
+  ServiceOrderDetail,
+} from "@/lib/api/generated/model";
 import {
   useServiceOrdersGetServiceOrder,
   useServiceOrdersListRelated,
@@ -58,6 +62,98 @@ function Instructions({ order }: { order: ServiceOrderDetail }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+/** "needs_improvement" → "Needs improvement". */
+function label(value: string): string {
+  const text = value.replaceAll("_", " ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+const LEVEL_BADGE: Record<string, "success" | "warning" | "destructive" | "outline"> = {
+  none: "success",
+  low: "outline",
+  moderate: "warning",
+  heavy: "destructive",
+  satisfactory: "success",
+  needs_improvement: "warning",
+  poor: "destructive",
+  intact: "success",
+  compromised: "warning",
+  open: "warning",
+  in_progress: "outline",
+  repaired: "success",
+};
+
+function Level({ value }: { value: string | null | undefined }) {
+  if (!value) return <span className="text-muted-foreground">Not assessed</span>;
+  return <Badge variant={LEVEL_BADGE[value] ?? "outline"}>{label(value)}</Badge>;
+}
+
+const ITEM_GROUPS = [
+  ["structural", "Structural"],
+  ["sanitation", "Sanitation"],
+  ["pest", "Other pests"],
+] as const;
+
+/**
+ * The visit's findings as read from its notes by the LLM: internal to Select (the report's
+ * narrative never shows these levels).
+ */
+function Findings({ findings: f }: { findings: InspectionFindingRead }) {
+  const facts: [string, React.ReactNode][] = [
+    ["Visit type", label(f.visit_type)],
+    ["Rodent activity", <Level key="a" value={f.rodent_activity} />],
+    ["Exclusion", <Level key="e" value={f.exclusion_status} />],
+    ["Sanitation", <Level key="s" value={f.sanitation_rating} />],
+    ["Species", f.rodent_species.map(label).join(", ") || "—"],
+    ["Evidence", f.rodent_evidence.map(label).join(", ") || "—"],
+    ["Rodents captured", f.rodents_captured ?? "—"],
+    ["Devices serviced", f.devices_serviced ?? "—"],
+    ["Activity locations", f.activity_locations.join("; ") || "—"],
+  ];
+  return (
+    <div className="flex flex-col gap-4">
+      {f.summary && <p className="text-sm">{f.summary}</p>}
+      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {facts.map(([name, value]) => (
+          <div key={name}>
+            <dt className="text-xs font-medium text-muted-foreground">{name}</dt>
+            <dd className="text-sm">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {ITEM_GROUPS.map(([kind, title]) => {
+        const items = f.items.filter((i) => i.kind === kind);
+        if (items.length === 0) return null;
+        return (
+          <div key={kind} className="flex flex-col gap-2">
+            <h3 className="text-sm font-medium">
+              {title} ({items.length})
+            </h3>
+            <ul className="divide-y divide-border border border-border">
+              {items.map((i, n) => (
+                <li key={n} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+                  <span className="font-medium">{label(i.category)}</span>
+                  {i.location && <span className="text-muted-foreground">{i.location}</span>}
+                  {i.issue && <span className="basis-full">{i.issue}</span>}
+                  <span className="ml-auto">
+                    <Level value={i.status ?? i.severity} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+      <p className="text-xs text-muted-foreground">
+        Read from the notes{" "}
+        {f.source === "report_draft" ? "when the report was drafted" : "by extraction"} ·{" "}
+        {new Date(f.extracted_at).toLocaleString()} · {f.model}. Internal: not shown to the
+        customer.
+      </p>
+    </div>
   );
 }
 
@@ -145,6 +241,21 @@ export function ServiceOrderDetailPage() {
         </CardHeader>
         <CardContent>
           <Instructions order={o} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Findings</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {o.findings ? (
+            <Findings findings={o.findings} />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Not read yet: findings come from drafting the order&apos;s report.
+            </p>
+          )}
         </CardContent>
       </Card>
 
