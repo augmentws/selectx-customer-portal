@@ -21,6 +21,7 @@ from app.schemas.pestpac import (
     PestPacInvoiceDetails,
     ServiceOrderSyncCounts,
 )
+from app.services import findings_extraction
 from app.services.pestpac_connection import PestPacUnavailableError
 from app.services.technicians import TechnicianResolver
 
@@ -191,6 +192,7 @@ def upsert_invoice(
         if details.pestpac_order_id is not None
         else None
     )
+    was_posted = order is not None and order.posted
     if (
         order is None
         and create_order
@@ -218,6 +220,8 @@ def upsert_invoice(
     invoice.pestpac_fetched_at = now
     if order is not None:
         _complete_order(order, invoice, now)
+        if not was_posted:  # worked and billed between our syncs, or new to us
+            findings_extraction.request_if_enabled(db, order, bill_to.company_id)
     db.flush()
     return invoice
 

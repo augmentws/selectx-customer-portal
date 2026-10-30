@@ -22,6 +22,7 @@ from app.integrations.pestpac import PestPacAuthError, PestPacClient
 from app.models import BillTo, Invoice, Location, ServiceOrder, Technician
 from app.schemas.pestpac import PestPacServiceOrderDetails, ServiceOrderSyncCounts
 from app.schemas.tenancy import LocationRead
+from app.services import findings_extraction
 from app.services.pestpac_connection import PestPacUnavailableError
 from app.services.technicians import TechnicianResolver
 
@@ -130,7 +131,8 @@ def upsert_order(
             order.closed_at = None
             counts.reopened += 1
 
-    if details.posted and not order.posted:
+    newly_posted = details.posted and not order.posted
+    if newly_posted:
         order.posted_at = now
         counts.newly_posted += 1
     elif not details.posted:
@@ -150,6 +152,8 @@ def upsert_order(
     order.pestpac_fetched_at = now
     if event_at is not None:
         order.last_event_at = event_at
+    if newly_posted:
+        findings_extraction.request_if_enabled(db, order, bill_to.company_id)
     return order
 
 

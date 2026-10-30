@@ -1,4 +1,5 @@
-"""Background worker: handles webhooks, runs sync jobs and report drafts, clears webhook bodies.
+"""Background worker: handles webhooks, runs sync jobs, report drafts, and findings extraction,
+clears webhook bodies.
 
     python -m app.worker            # run until stopped (Ctrl-C / SIGTERM)
     python -m app.worker --once     # run queued jobs, then exit
@@ -15,7 +16,14 @@ import time
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.security.secrets import validate_keys
-from app.services import gocanvas, service_reports, sync_jobs, webhook_handlers, webhooks
+from app.services import (
+    findings_extraction,
+    gocanvas,
+    service_reports,
+    sync_jobs,
+    webhook_handlers,
+    webhooks,
+)
 
 log = logging.getLogger("app.worker")
 
@@ -25,11 +33,14 @@ class _Stop:
 
 
 def run_pending() -> int:
-    """Handle webhook events, then run every claimable job and draft; returns how many ran.
-    With SYNC_ACTIVE off, only drafts: events and jobs wait, since both call PestPac."""
+    """Handle webhook events, then run every claimable job, draft, and findings extraction;
+    returns how many ran. With SYNC_ACTIVE off, only the LLM work: events and jobs wait, since
+    both call PestPac."""
     if not get_settings().sync_active:
-        return run_pending_drafts()
-    return run_pending_webhooks() + run_pending_jobs() + run_pending_drafts()
+        return run_pending_drafts() + run_pending_findings()
+    return (
+        run_pending_webhooks() + run_pending_jobs() + run_pending_drafts() + run_pending_findings()
+    )
 
 
 def run_pending_webhooks() -> int:
@@ -99,6 +110,30 @@ def run_pending_drafts() -> int:
                 ran += 1
                 continue
             log.info("Report %s drafted: %s", report.id, report.draft_error or "ok")
+            ran += 1
+    return ran
+
+
+def run_pending_findings() -> int:
+    """Extract findings for every ready request (LLM); returns how many ran."""
+    ran = 0
+    while not _Stop.requested:
+        with SessionLocal() as db:
+            req = findings_extraction.claim_next(db)
+            if req is None:
+                return ran
+            order_id = req.service_order_id
+            try:
+                outcome = findings_extraction.run(db, req)
+            except Exception:
+                # A bug, not an LLM failure (those are recorded by run). Take the request out of
+                # the queue with a note, so it isn't retried in a loop.
+                log.exception("Findings for order %s crashed", order_id)
+                db.rollback()
+                findings_extraction.mark_crashed(db, order_id)
+                ran += 1
+                continue
+            log.info("Findings for order %s: %s", order_id, outcome)
             ran += 1
     return ran
 
