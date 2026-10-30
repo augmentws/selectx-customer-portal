@@ -6,7 +6,7 @@ from PIL import Image
 
 from app.db.session import SessionLocal
 from app.integrations.openrouter import Usage
-from app.models import Document, Note, ServiceOrder, StoredFile
+from app.models import Document, InspectionFinding, Note, ServiceOrder, StoredFile
 from app.services import llm_tasks
 from tests.conftest import headers_for
 from tests.test_service_orders import _run_worker
@@ -35,6 +35,30 @@ DRAFT = {
     "summary": ["A **quality control** inspection was completed."],
     "sections": [{"heading": "Trash Room", "paragraphs": ["An opening was found."]}],
     "recommendations": ["Seal the **trash room** opening."],
+    "findings": {
+        "visit_type": "qc_inspection",
+        "rodent_activity": "none",
+        "rodent_species": [],
+        "rodent_evidence": [],
+        "rodents_captured": None,
+        "activity_locations": [],
+        "devices_serviced": 6,
+        "exclusion_status": "compromised",
+        "sanitation_rating": "satisfactory",
+        "structural_findings": [
+            {
+                "location": "trash room",
+                "issue": "opening at the wall base",
+                "category": "wall/floor gap",
+                "status": "open",
+            }
+        ],
+        "sanitation_findings": [],
+        "other_pests": [
+            {"pest": "drain fly", "severity": "low", "location": "mop sink"},
+        ],
+        "summary": "No rodent activity; an opening was found in the trash room.",
+    },
 }
 
 
@@ -185,7 +209,13 @@ def test_drafting_sends_the_selected_notes_with_the_template_prompt(
     assert PROMPT in task.instructions
     assert "- sections (sections): Findings. One per area" in task.instructions
     assert "distribution" not in task.instructions  # not an LLM field
-    assert set(task.output.model_fields) == {"summary", "sections", "recommendations"}
+    assert set(task.output.model_fields) == {
+        "summary",
+        "sections",
+        "recommendations",
+        "findings",
+    }
+    assert "FINDINGS" in task.instructions and "- findings (object)" in task.instructions
     assert [n["text"] for n in data["notes"]] == [
         "Weeks earlier, linked.",
         "Inspected; **no droppings**.",
@@ -196,7 +226,69 @@ def test_drafting_sends_the_selected_notes_with_the_template_prompt(
     assert report["status"] == "draft" and report["draft_error"] is None
     assert report["data"]["fields"]["summary"] == DRAFT["summary"]
     assert report["data"]["fields"]["distribution"] == "Leadership"  # kept
+    assert "findings" not in report["data"]["fields"]
     assert report["draft_usage"]["model"] == "test/model"
+
+
+def _findings(world):
+    with SessionLocal() as db:
+        rows = db.query(InspectionFinding).all()
+        return [
+            (
+                f.service_order_id,
+                f.source,
+                f.visit_type,
+                f.rodent_activity,
+                f.devices_serviced,
+                f.model,
+                [(i.kind, i.category, i.status, i.severity) for i in f.items],
+            )
+            for f in rows
+        ]
+
+
+def test_drafting_stores_the_visits_findings(client, world, admin, template, visit, fake_llm):
+    report = _start(client, world, admin, template)
+    client.post(f"/v1/service-reports/{report['id']}/draft", headers=admin)
+    _run_worker()
+    assert _findings(world) == [
+        (
+            world.service_order_a,
+            "report_draft",
+            "qc_inspection",
+            "none",
+            6,
+            "test/model",
+            [
+                ("structural", "wall/floor gap", "open", None),
+                ("pest", "drain fly", None, "low"),
+            ],
+        )
+    ]
+
+    # Editing the narrative leaves them alone.
+    url = f"/v1/service-reports/{report['id']}"
+    resp = client.patch(url, json={"fields": {"summary": ["Rewritten."]}}, headers=admin)
+    assert resp.status_code == 200
+    assert len(_findings(world)[0][6]) == 2
+
+    # A new draft replaces them: still one row for the order.
+    again = {
+        **DRAFT,
+        "findings": {
+            **DRAFT["findings"],
+            "rodent_activity": "low",
+            "structural_findings": [],
+            "other_pests": [],
+        },
+    }
+    fake_llm.clear()
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setitem(DRAFT, "findings", again["findings"])
+        client.post(f"{url}/draft", headers=admin)
+        _run_worker()
+    [row] = _findings(world)
+    assert (row[3], row[6]) == ("low", [])
 
 
 def test_drafting_needs_a_selected_note(client, world, admin, template):
@@ -265,6 +357,7 @@ def test_an_llm_failure_is_recorded_on_the_report(
     report = client.get(f"/v1/service-reports/{report['id']}", headers=admin).json()
     assert report["status"] == "draft"
     assert report["draft_error"] == "OPENROUTER_API_KEY is not set"
+    assert _findings(world) == []
 
 
 def test_editing_checks_fields_and_photo_choices(client, world, admin, template, visit):
@@ -423,6 +516,9 @@ def test_template_fields_are_validated_and_versioned(client, world, template):
     url = f"/v1/report-templates/{template['id']}"
     duplicate = FIELDS + [FIELDS[0]]
     assert client.patch(url, json={"fields": duplicate}, headers=platform).status_code == 422
+    # Drafting's reply carries the visit's findings under "findings".
+    reserved = FIELDS + [{"key": "findings", "label": "Findings", "type": "text"}]
+    assert client.patch(url, json={"fields": reserved}, headers=platform).status_code == 422
     # The HTML uses fields.summary; dropping the field fails the sample render.
     resp = client.patch(url, json={"fields": FIELDS[1:]}, headers=platform)
     assert resp.status_code == 422 and "summary" in resp.json()["detail"]

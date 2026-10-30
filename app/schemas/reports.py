@@ -37,10 +37,16 @@ class TemplateField(BaseModel):
     default: str | list[str] | None = None
 
 
+# Drafting's reply carries the visit's findings under this key, beside the fields.
+RESERVED_FIELD_KEYS = {"findings"}
+
+
 def _unique_keys(fields: list[TemplateField]) -> list[TemplateField]:
     keys = [f.key for f in fields]
     if len(keys) != len(set(keys)):
         raise ValueError("field keys must be unique")
+    if reserved := RESERVED_FIELD_KEYS.intersection(keys):
+        raise ValueError(f"field keys {sorted(reserved)} are reserved")
     return fields
 
 

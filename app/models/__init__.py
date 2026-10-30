@@ -17,6 +17,7 @@ from app.models.inspection import (
     RiskInspectionSummary,
     RiskInspectionZone,
 )
+from app.models.inspection_finding import InspectionFinding, InspectionFindingItem
 from app.models.invoice import Invoice, InvoiceLine
 from app.models.note import Note
 from app.models.pestpac import ConnectionStatus, PestPacConnection
@@ -56,6 +57,8 @@ __all__ = [
     "Document",
     "GoCanvasConnection",
     "GoCanvasRequest",
+    "InspectionFinding",
+    "InspectionFindingItem",
     "InspectionForm",
     "InspectionFormField",
     "InspectionFormZone",
