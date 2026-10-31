@@ -27,6 +27,7 @@ import type {
   ConditionRead,
   DocumentRead,
   HTTPValidationError,
+  LocationAreaRead,
   LocationDetail,
   LocationsListInvoicedServiceOrdersParams,
   LocationsListOpenServiceOrdersParams,
@@ -403,6 +404,125 @@ export function useLocationsListDocuments<TData = Awaited<ReturnType<typeof loca
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getLocationsListDocumentsQueryOptions(locationId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type locationsListAreasResponse200 = {
+  data: LocationAreaRead[]
+  status: 200
+}
+
+export type locationsListAreasResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type locationsListAreasResponseSuccess = (locationsListAreasResponse200) & {
+  headers: Headers;
+};
+export type locationsListAreasResponseError = (locationsListAreasResponse422) & {
+  headers: Headers;
+};
+
+export const getLocationsListAreasUrl = (locationId: string,) => {
+
+
+
+
+  return `/v1/locations/${locationId}/areas`
+}
+
+/**
+ * The location's areas as PestPac defines them, in tree order, with each area's open
+ * conditions. Filled by "Sync location"; empty when none are set up in PestPac.
+ * @summary List Areas
+ */
+export const locationsListAreas = async (locationId: string, options?: Parameters<typeof bffFetch>[1]): Promise<locationsListAreasResponseSuccess> => {
+
+  return bffFetch<locationsListAreasResponseSuccess>(getLocationsListAreasUrl(locationId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getLocationsListAreasQueryKey = (locationId: string,) => {
+    return [
+    `/v1/locations/${locationId}/areas`
+    ] as const;
+    }
+
+
+export const getLocationsListAreasQueryOptions = <TData = Awaited<ReturnType<typeof locationsListAreas>>, TError = HTTPValidationError>(locationId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListAreas>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getLocationsListAreasQueryKey(locationId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof locationsListAreas>>> = ({ signal }) => locationsListAreas(locationId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: locationId !== null && locationId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof locationsListAreas>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type LocationsListAreasQueryResult = NonNullable<Awaited<ReturnType<typeof locationsListAreas>>>
+export type LocationsListAreasQueryError = HTTPValidationError
+
+
+export function useLocationsListAreas<TData = Awaited<ReturnType<typeof locationsListAreas>>, TError = HTTPValidationError>(
+ locationId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListAreas>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof locationsListAreas>>,
+          TError,
+          Awaited<ReturnType<typeof locationsListAreas>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useLocationsListAreas<TData = Awaited<ReturnType<typeof locationsListAreas>>, TError = HTTPValidationError>(
+ locationId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListAreas>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof locationsListAreas>>,
+          TError,
+          Awaited<ReturnType<typeof locationsListAreas>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useLocationsListAreas<TData = Awaited<ReturnType<typeof locationsListAreas>>, TError = HTTPValidationError>(
+ locationId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListAreas>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Areas
+ */
+
+export function useLocationsListAreas<TData = Awaited<ReturnType<typeof locationsListAreas>>, TError = HTTPValidationError>(
+ locationId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof locationsListAreas>>, TError, TData>>, request?: SecondParameter<typeof bffFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getLocationsListAreasQueryOptions(locationId,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

@@ -39,6 +39,7 @@ from app.core.config import get_settings  # noqa: E402
 from app.db.session import SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import (  # noqa: E402
+    AreaType,
     BillTo,
     Company,
     CompanyMembership,
@@ -93,7 +94,7 @@ def _clean_tables():
     with engine.begin() as conn:
         conn.execute(
             text(
-                "TRUNCATE contact_links, contacts, "
+                "TRUNCATE contact_links, contacts, location_areas, area_types, zone_labels, "
                 "inspection_photos, inspection_photo_values, stored_files, "
                 "risk_inspection_zones, risk_inspection_materials, "
                 "risk_inspection_summaries, inspection_responses, inspection_submissions, "
@@ -250,6 +251,39 @@ def pestpac_document(
 
 LOCATION_CONDITIONS_URL = re.compile(re.escape(PESTPAC_BASE) + r"/Locations/(\d+)/conditions")
 CONDITION_URL = re.compile(re.escape(PESTPAC_BASE) + r"/Conditions/(\d+)$")
+LOCATION_AREAS_URL = re.compile(re.escape(PESTPAC_BASE) + r"/Locations/(\d+)/areas$")
+AREA_TYPES_URL = re.compile(re.escape(PESTPAC_BASE) + r"/lookups/AreaTypes$")
+
+
+def pestpac_area(
+    area_id: int,
+    location_id: int,
+    name: str,
+    *,
+    parent_id: int = 0,
+    path: str | None = None,
+    area_type: str | None = "INTERIOR",
+    children: list | None = None,
+    depth: int = 1,
+):
+    """A node of GET /Locations/{id}/areas, shaped like PestPac's (Entity, Depth, ChildNodes)."""
+    return {
+        "Entity": {
+            "AreaID": area_id,
+            "ParentID": parent_id,
+            "LocationID": location_id,
+            "Active": True,
+            "AreaType": area_type,
+            "Name": name,
+            "Description": "",
+            "NameWithPath": path or name,
+            "Barcode": "",
+            "LastInspectionDate": "1900-01-01T00:00:00",
+            "MultiUnitCategory": "Area",
+        },
+        "Depth": depth,
+        "ChildNodes": children or [],
+    }
 
 
 def pestpac_condition(
@@ -465,6 +499,24 @@ def pestpac():
             )
             return status, {"Content-Type": content_type}, body
 
+        # Areas: the tree per PestPac LocationID (none set up: an empty list, as PestPac does).
+        rsps.areas_by_location = {}
+
+        def location_areas(request):
+            location_id = int(LOCATION_AREAS_URL.search(request.url).group(1))
+            value = rsps.areas_by_location.get(location_id, [])
+            if isinstance(value, int):
+                return value, {}, "{}"
+            return 200, {}, json.dumps(value)
+
+        # Area types (GET /lookups/AreaTypes): the list, or an int status code.
+        rsps.area_types = []
+
+        def area_types(request):
+            if isinstance(rsps.area_types, int):
+                return rsps.area_types, {}, "{}"
+            return 200, {}, json.dumps(rsps.area_types)
+
         # Conditions: open list per PestPac LocationID, and details by IssueID (unknown: 404).
         rsps.conditions_by_location = {}
         rsps.condition_details = {}
@@ -511,6 +563,8 @@ def pestpac():
         rsps.add_callback(responses.GET, INVOICE_URL, invoice_detail)
         rsps.add_callback(responses.GET, INVOICE_SEARCH_URL, invoice_search)
         rsps.add_callback(responses.GET, LOCATION_CONDITIONS_URL, location_conditions)
+        rsps.add_callback(responses.GET, LOCATION_AREAS_URL, location_areas)
+        rsps.add_callback(responses.GET, AREA_TYPES_URL, area_types)
         rsps.add_callback(responses.GET, CONDITION_URL, condition_detail)
         rsps.add_callback(responses.GET, LOCATION_DOCUMENTS_URL, location_documents)
         rsps.add_callback(responses.GET, DOCUMENT_DOWNLOAD_URL, document_download)
@@ -558,6 +612,7 @@ class World:
     document_a: uuid.UUID
     file_a: uuid.UUID
     risk_inspection_a: uuid.UUID
+    area_type_a: uuid.UUID
     # A draft with one selected note (so it can be drafted), and a final one with a stored PDF.
     report_a: uuid.UUID
     report_final_a: uuid.UUID
@@ -769,6 +824,15 @@ def world(storage) -> World:
         )
         db.add(risk_form_a)
         db.flush()
+        area_type_a = AreaType(
+            operator_id=op_a.id,
+            pestpac_area_type_id=28,
+            code="FRONTHOUSE",
+            description="Front of House",
+            zone="dining_guest",
+            pestpac_fetched_at=datetime.now(UTC),
+        )
+        db.add(area_type_a)
         risk_inspection_a = InspectionSubmission(
             operator_id=op_a.id,
             form_id=risk_form_a.id,
@@ -862,6 +926,7 @@ def world(storage) -> World:
             document_a=document_a.id,
             file_a=file_a.id,
             risk_inspection_a=risk_inspection_a.id,
+            area_type_a=area_type_a.id,
             report_a=report_a.id,
             invoice_a=invoice_a.id,
             gocanvas_request_a=gocanvas_request_a.id,

@@ -45,6 +45,10 @@ class Condition(Base):
     pestpac_location_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
     pestpac_order_id: Mapped[int | None] = mapped_column(BigInteger)
     pestpac_area_id: Mapped[int | None] = mapped_column(BigInteger)
+    # The area PestPac's AreaID names, once the location's areas are synced.
+    location_area_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("location_areas.id", ondelete="SET NULL"), index=True
+    )
 
     area: Mapped[str | None] = mapped_column(String(200))
     specific_area: Mapped[str | None] = mapped_column(String(200))

@@ -6,6 +6,7 @@
  */
 import type { InspectionFindingItemRead } from './inspectionFindingItemRead';
 import type { InspectionFindingReadSource } from './inspectionFindingReadSource';
+import type { Zone } from './zone';
 
 /**
  * The visit's findings as read by the LLM (internal: levels and severities never appear
@@ -19,6 +20,8 @@ export interface InspectionFindingRead {
   rodent_evidence: string[];
   rodents_captured: number | null;
   activity_locations: string[];
+  activity_zones: Zone[];
+  activity_zone_names: string[];
   devices_serviced: number | null;
   exclusion_status: string | null;
   sanitation_rating: string | null;

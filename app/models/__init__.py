@@ -1,3 +1,4 @@
+from app.models.area_mapping import AreaType, ZoneLabel
 from app.models.condition import Condition, ConditionInspection
 from app.models.contact import Contact, ContactLink, ContactRole
 from app.models.customer import BillTo, Company, Location
@@ -23,6 +24,7 @@ from app.models.inspection_finding import (
     InspectionFindingRequest,
 )
 from app.models.invoice import Invoice, InvoiceLine
+from app.models.location_area import LocationArea
 from app.models.note import Note
 from app.models.pestpac import ConnectionStatus, PestPacConnection
 from app.models.rbac import CompanyMembership, Membership, Permission, Role, role_permissions
@@ -43,8 +45,11 @@ from app.models.webhook import (
     WebhookEvent,
     WebhookEventStatus,
 )
+from app.models.zone import DEFAULT_ZONE_NAMES, Zone
 
 __all__ = [
+    "AreaType",
+    "DEFAULT_ZONE_NAMES",
     "AuthSession",
     "LoginThrottle",
     "BillTo",
@@ -57,6 +62,7 @@ __all__ = [
     "ContactLink",
     "ContactRole",
     "Location",
+    "LocationArea",
     "Credential",
     "Document",
     "GoCanvasConnection",
@@ -97,6 +103,8 @@ __all__ = [
     "User",
     "WebhookEntity",
     "WebhookEvent",
+    "Zone",
+    "ZoneLabel",
     "WebhookEventStatus",
     "role_permissions",
 ]

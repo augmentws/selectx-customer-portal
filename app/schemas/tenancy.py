@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
-from app.models import SyncJobKind, SyncJobStatus
+from app.models import SyncJobKind, SyncJobStatus, Zone
 from app.schemas.auth import PASSWORD_MIN_LENGTH
 from app.schemas.pestpac import LocationSyncSummary
 from app.security.permissions import RoleScope
@@ -352,6 +352,23 @@ class ConditionInspectionRead(BaseModel):
     comment: str | None
 
 
+class LocationAreaRead(BaseModel):
+    """One of the location's PestPac areas, in tree order (a parent, then its children)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    pestpac_area_id: int
+    parent_id: uuid.UUID | None
+    depth: int  # 1 for top-level areas
+    name: str
+    name_with_path: str | None
+    area_type: str | None
+    active: bool
+    last_inspection_date: datetime | None  # PestPac local time; null if never inspected
+    open_conditions: int  # open conditions PestPac records in this area
+
+
 class ConditionBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -384,12 +401,17 @@ class ConditionRead(ConditionBase):
 
 
 class InspectionFindingItemRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    # The display names are filled in after validation; responses always carry them.
+    model_config = ConfigDict(
+        from_attributes=True, json_schema_serialization_defaults_required=True
+    )
 
     kind: Literal["structural", "sanitation", "pest"]
     # Structural and sanitation: the category; pest: the pest.
     category: str
     location: str | None
+    zone: Zone | None  # null for findings read before zones
+    zone_name: str | None = None  # the zone's display name for the operator
     issue: str | None
     status: str | None  # structural only
     severity: str | None  # sanitation and pest only
@@ -399,7 +421,9 @@ class InspectionFindingRead(BaseModel):
     """The visit's findings as read by the LLM (internal: levels and severities never appear
     in the report's narrative)."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True, json_schema_serialization_defaults_required=True
+    )
 
     source: Literal["report_draft", "extraction"]
     visit_type: str
@@ -408,6 +432,8 @@ class InspectionFindingRead(BaseModel):
     rodent_evidence: list[str]
     rodents_captured: int | None
     activity_locations: list[str]
+    activity_zones: list[Zone]
+    activity_zone_names: list[str] = []  # their display names for the operator
     devices_serviced: int | None
     exclusion_status: str | None
     sanitation_rating: str | None

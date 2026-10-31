@@ -18,10 +18,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.integrations.openrouter import Usage
-from app.models import InspectionFinding, InspectionFindingItem
+from app.models import InspectionFinding, InspectionFindingItem, Zone
 
 # Bump when INSTRUCTIONS or FindingsOut change in a way that changes what's extracted.
-METHOD_VERSION = 2
+METHOD_VERSION = 3
 
 VisitType = Literal[
     "risk_assessment",
@@ -73,9 +73,11 @@ SanitationCategory = Literal[
 Pest = Literal[
     "German cockroach",
     "American cockroach",
+    "cockroach (unspecified)",
     "fruit fly",
     "drain fly",
     "house fly",
+    "flies (unspecified)",
     "gnats",
     "ants",
     "stored product pest",
@@ -89,6 +91,7 @@ class StructuralFindingOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     location: str = _TEXT
+    zone: Zone
     issue: str = _TEXT
     category: StructuralCategory
     status: Literal["open", "in_progress", "repaired"]
@@ -98,6 +101,7 @@ class SanitationFindingOut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     location: str = _TEXT
+    zone: Zone
     issue: str = _TEXT
     category: SanitationCategory
     severity: Level
@@ -109,6 +113,14 @@ class PestFindingOut(BaseModel):
     pest: Pest
     severity: Level
     location: str | None = _TEXT
+    zone: Zone
+
+
+class ActivityLocationOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    location: str = _TEXT
+    zone: Zone
 
 
 class FindingsOut(BaseModel):
@@ -119,7 +131,7 @@ class FindingsOut(BaseModel):
     rodent_species: list[Literal["rat", "mouse"]]
     rodent_evidence: list[Evidence]
     rodents_captured: int | None = Field(ge=0)
-    activity_locations: list[str]
+    activity_locations: list[ActivityLocationOut]
     devices_serviced: int | None = Field(ge=0)
     exclusion_status: Literal["intact", "compromised"] | None
     sanitation_rating: Literal["satisfactory", "needs_improvement", "poor"] | None
@@ -143,8 +155,8 @@ RULES = """\
 - rodent_evidence: the kinds of evidence the notes report (droppings, capture, live sighting, gnaw
   marks, rub marks, burrows, nesting, dead rodent, tracks).
 - rodents_captured: only a number the notes state; else null.
-- activity_locations: where activity was found, short phrases (e.g. "serving line motor
-  compartment").
+- activity_locations: where activity was found: a short phrase (e.g. "serving line motor
+  compartment") and its zone.
 - devices_serviced: only a number the notes state; else null.
 - exclusion_status: intact or compromised, only when the notes assess it. Doors left open or
   unlocked are a store practice, not a breach: they don't make it compromised.
@@ -154,9 +166,29 @@ RULES = """\
   practices such as doors left open (put those in the summary). Status is repaired only when the
   notes confirm the repair, in_progress when partly done, otherwise open.
 - sanitation_findings: one per condition (location, issue, category, severity).
-- other_pests: one per non-rodent pest reported (pest, severity, location). Use the pest the notes
-  name (gnats for gnats); when it isn't one of the choices, use other. Never guess a species.
-- summary: one or two plain sentences on what was found and done."""
+- other_pests: one per non-rodent pest reported (pest, severity, location, zone). Use the pest the
+  notes name (gnats for gnats); roaches or flies of no named species are "cockroach (unspecified)"
+  or "flies (unspecified)"; anything else not among the choices is other. Never guess a species.
+  Rats and mice are never other pests: they belong under rodent activity.
+- summary: one or two plain sentences on what was found and done.
+- zone (on every finding and activity location): the restaurant zone it's in, from the location's
+  words; other when none fits or the notes don't say where.
+  exterior_perimeter: outside, perimeter, patio, parking lot, sidewalk, roof, landscaping.
+  dumpster_waste: dumpster, trash room, refuse, compactor, garbage.
+  receiving_delivery: rear entry, back door, receiving, delivery, loading dock.
+  dry_food_storage: dry storage, walk-in cooler or freezer, reach-in coolers, stockroom, pantry.
+  food_preparation: prep areas and tables, kitchen in general, chef's table, bakery.
+  service_line: serving or make line, DML, front line, cook line, grill, fryer, hot box, ovens.
+  dishwashing_drains: dish area, three-compartment and mop sinks, floor drains, grease trap.
+  bar_beverage: bar, lounge, beverage or soda station, ice machine, coffee and bread stations.
+  dining_guest: dining room, front of house, booths, seating, entrance, carry-out, host stand.
+  restrooms: restrooms and bathrooms.
+  offices_employee: manager's office, employee or break room, lockers.
+  mechanical_utility: mechanical, utility, electrical and boiler rooms, water heater, service
+  corridors and hallways, utility penetrations.
+  basement: basement, cellar, crawl space.
+  ceiling_voids: ceiling voids, drop ceiling, wall paneling and voids, dumbwaiter or elevator.
+  shared_structures: shared walls, adjacent tenants, mall common areas."""
 
 INSTRUCTIONS = f"""FINDINGS
 Besides the report, fill `findings`: the same visit as data, for Select's internal tracking. Take it
@@ -198,7 +230,8 @@ def save(
     row.rodent_species = list(findings.rodent_species)
     row.rodent_evidence = list(findings.rodent_evidence)
     row.rodents_captured = findings.rodents_captured
-    row.activity_locations = findings.activity_locations
+    row.activity_locations = [a.location for a in findings.activity_locations]
+    row.activity_zones = sorted({a.zone.value for a in findings.activity_locations})
     row.devices_serviced = findings.devices_serviced
     row.exclusion_status = findings.exclusion_status
     row.sanitation_rating = findings.sanitation_rating
@@ -211,6 +244,7 @@ def save(
     items = [
         InspectionFindingItem(
             kind="structural",
+            zone=s.zone.value,
             category=s.category,
             location=s.location,
             issue=s.issue,
@@ -221,6 +255,7 @@ def save(
     items += [
         InspectionFindingItem(
             kind="sanitation",
+            zone=s.zone.value,
             category=s.category,
             location=s.location,
             issue=s.issue,
@@ -230,7 +265,11 @@ def save(
     ]
     items += [
         InspectionFindingItem(
-            kind="pest", category=p.pest, location=p.location, severity=p.severity
+            kind="pest",
+            zone=p.zone.value,
+            category=p.pest,
+            location=p.location,
+            severity=p.severity,
         )
         for p in findings.other_pests
     ]

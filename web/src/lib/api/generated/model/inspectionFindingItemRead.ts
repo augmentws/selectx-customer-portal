@@ -5,11 +5,14 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { InspectionFindingItemReadKind } from './inspectionFindingItemReadKind';
+import type { Zone } from './zone';
 
 export interface InspectionFindingItemRead {
   kind: InspectionFindingItemReadKind;
   category: string;
   location: string | null;
+  zone: Zone | null;
+  zone_name: string | null;
   issue: string | null;
   status: string | null;
   severity: string | null;

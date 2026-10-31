@@ -13,6 +13,7 @@ from app.core.config import get_settings
 from app.integrations.pestpac import PestPacClient
 from app.models import BillTo, Location, SyncJob, SyncJobKind, SyncJobStatus, Tenant
 from app.schemas.pestpac import (
+    AreaSyncCounts,
     ConditionSyncCounts,
     DocumentSyncCounts,
     InvoiceSyncCounts,
@@ -23,6 +24,7 @@ from app.services import (
     conditions,
     documents,
     invoices,
+    location_areas,
     notes,
     pestpac_connection,
     service_orders,
@@ -236,11 +238,13 @@ def run_job(db: Session, job: SyncJob) -> SyncJob:
                     {"pestpac_location_id": location.pestpac_location_id, "error": str(exc)[:300]}
                 )
             # Then conditions: a posted order is when a technician's new conditions appear.
-            # Their documents are stored as rows; files wait for "Sync location". A failure
-            # never undoes the orders, notes, or invoices.
+            # Their documents are stored as rows; files wait for "Sync location", and so do new
+            # areas (conditions link to the ones already stored). A failure never undoes the
+            # orders, notes, or invoices.
             condition_counts = ConditionSyncCounts()
             try:
                 conditions.sync_location_conditions(db, client, location, condition_counts)
+                location_areas.link_conditions(db, location, AreaSyncCounts())
                 db.commit()
                 _add(condition_totals, condition_counts)
             except PestPacUnavailableError as exc:
@@ -290,9 +294,10 @@ LOCATION_SYNC_KINDS = (SyncJobKind.bill_to_location_sync, SyncJobKind.location_s
 def _run_location_sync(
     db: Session, job: SyncJob, client: PestPacClient, locations: list[Location]
 ) -> SyncJob:
-    """ "Sync location": per location, its documents list, its conditions (which can add
-    condition documents), then files not stored yet. Locations are independent; one failing
-    (PestPac or storage unreachable) leaves the others' work."""
+    """ "Sync location": per location, its areas, its documents list, its conditions (which can
+    add condition documents, and name their areas), then files not stored yet. Locations are
+    independent; one failing (PestPac or storage unreachable) leaves the others' work."""
+    area_totals = AreaSyncCounts()
     document_totals = DocumentSyncCounts()
     condition_totals = ConditionSyncCounts()
     failed: list[dict] = []
@@ -305,12 +310,15 @@ def _run_location_sync(
         progress["document_files"] = str(exc)
 
     for done, location in enumerate(locations, start=1):
+        area_counts = AreaSyncCounts()
         document_counts = DocumentSyncCounts()
         condition_counts = ConditionSyncCounts()
         lists_committed = False
         try:
+            location_areas.sync_location_areas(db, client, location, area_counts)
             documents.sync_location_metadata(db, client, location, document_counts)
             conditions.sync_location_conditions(db, client, location, condition_counts)
+            location_areas.link_conditions(db, location, area_counts)
             db.commit()
             lists_committed = True
             if storage is not None:
@@ -324,6 +332,7 @@ def _run_location_sync(
         # Lists count only if they were committed; files commit one by one, so they count even
         # if a later one stopped the location.
         if lists_committed:
+            _add(area_totals, area_counts)
             _add(condition_totals, condition_counts)
             _add(document_totals, document_counts)
         else:
@@ -333,6 +342,7 @@ def _run_location_sync(
             **progress,
             "locations_done": done,
             "failed_locations": failed,
+            "areas": area_totals.model_dump(),
             "documents": document_totals.model_dump(),
             "conditions": condition_totals.model_dump(),
         }

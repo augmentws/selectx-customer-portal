@@ -19,6 +19,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.zone import zone_check
 
 
 class InspectionFinding(Base):
@@ -61,6 +62,10 @@ class InspectionFinding(Base):
     rodent_evidence: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     rodents_captured: Mapped[int | None] = mapped_column(Integer)
     activity_locations: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
+    # The zones (app.models.Zone) of the activity locations, distinct.
+    activity_zones: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), default=list, server_default="{}"
+    )
     devices_serviced: Mapped[int | None] = mapped_column(Integer)
     exclusion_status: Mapped[str | None] = mapped_column(String(20))
     sanitation_rating: Mapped[str | None] = mapped_column(String(20))
@@ -92,6 +97,7 @@ class InspectionFindingItem(Base):
         CheckConstraint("kind IN ('structural', 'sanitation', 'pest')", name="kind_values"),
         CheckConstraint("status IN ('open', 'in_progress', 'repaired')", name="status_values"),
         CheckConstraint("severity IN ('low', 'moderate', 'heavy')", name="severity_values"),
+        CheckConstraint(zone_check("zone"), name="zone_values"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -103,6 +109,8 @@ class InspectionFindingItem(Base):
     # Structural and sanitation: the category; pest: the pest.
     category: Mapped[str] = mapped_column(String(60))
     location: Mapped[str | None] = mapped_column(Text)
+    # Where it is, as a zone (app.models.Zone); null for findings read before zones.
+    zone: Mapped[str | None] = mapped_column(String(40))
     issue: Mapped[str | None] = mapped_column(Text)
     # Structural only.
     status: Mapped[str | None] = mapped_column(String(20))

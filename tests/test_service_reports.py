@@ -41,13 +41,14 @@ DRAFT = {
         "rodent_species": [],
         "rodent_evidence": [],
         "rodents_captured": None,
-        "activity_locations": [],
+        "activity_locations": [{"location": "trash room wall", "zone": "dumpster_waste"}],
         "devices_serviced": 6,
         "exclusion_status": "compromised",
         "sanitation_rating": "satisfactory",
         "structural_findings": [
             {
                 "location": "trash room",
+                "zone": "dumpster_waste",
                 "issue": "opening at the wall base",
                 "category": "wall/floor gap",
                 "status": "open",
@@ -55,7 +56,12 @@ DRAFT = {
         ],
         "sanitation_findings": [],
         "other_pests": [
-            {"pest": "gnats", "severity": "low", "location": "mop sink"},
+            {
+                "pest": "gnats",
+                "severity": "low",
+                "location": "mop sink",
+                "zone": "dishwashing_drains",
+            },
         ],
         "summary": "No rodent activity; an opening was found in the trash room.",
     },

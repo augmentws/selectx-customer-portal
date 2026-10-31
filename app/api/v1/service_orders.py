@@ -15,7 +15,7 @@ from app.schemas.tenancy import (
 )
 from app.security.access import AccessScope, get_scope
 from app.security.permissions import Perm
-from app.services import notes, order_related, service_reports, trail
+from app.services import area_mapping, notes, order_related, service_reports, trail
 
 router = APIRouter(prefix="/service-orders", tags=["service_orders"])
 
@@ -52,8 +52,18 @@ def get_service_order(
             location_id=order.location_id,
         ),
         invoice_id=order_related.stored_invoice_id(db, order),
-        findings=InspectionFindingRead.model_validate(finding) if finding else None,
+        findings=_findings(db, finding) if finding else None,
     )
+
+
+def _findings(db: Session, finding: InspectionFinding) -> InspectionFindingRead:
+    """The findings with their zones' display names for the operator."""
+    names = area_mapping.zone_names(db, finding.operator_id)
+    read = InspectionFindingRead.model_validate(finding)
+    for item in read.items:
+        item.zone_name = names[item.zone] if item.zone else None
+    read.activity_zone_names = [names[z] for z in read.activity_zones]
+    return read
 
 
 @router.get("/{order_id}/related", response_model=ServiceOrderRelated)

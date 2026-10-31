@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1 import (
+    area_mapping,
     auth,
     bill_tos,
     companies,
@@ -28,6 +29,7 @@ from app.api.v1 import (
 router = APIRouter(prefix="/v1")
 router.include_router(auth.router)
 router.include_router(operators.router)
+router.include_router(area_mapping.router)
 router.include_router(companies.router)
 router.include_router(dashboard.router)
 router.include_router(bill_tos.router)

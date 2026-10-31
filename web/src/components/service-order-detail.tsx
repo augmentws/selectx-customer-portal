@@ -112,6 +112,7 @@ function Findings({ findings: f }: { findings: InspectionFindingRead }) {
     ["Rodents captured", f.rodents_captured ?? "—"],
     ["Devices serviced", f.devices_serviced ?? "—"],
     ["Activity locations", f.activity_locations.join("; ") || "—"],
+    ["Activity zones", f.activity_zone_names.join(", ") || "—"],
   ];
   return (
     <div className="flex flex-col gap-4">
@@ -137,6 +138,7 @@ function Findings({ findings: f }: { findings: InspectionFindingRead }) {
                 <li key={n} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
                   <span className="font-medium">{label(i.category)}</span>
                   {i.location && <span className="text-muted-foreground">{i.location}</span>}
+                  {i.zone_name && <Badge variant="outline">{i.zone_name}</Badge>}
                   {i.issue && <span className="basis-full">{i.issue}</span>}
                   <span className="ml-auto">
                     <Level value={i.status ?? i.severity} />

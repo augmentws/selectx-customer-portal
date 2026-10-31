@@ -406,6 +406,44 @@ CASES = [
         _all(404, platform_admin=200, admin_a=200, staff_a=200),
     ),
     Case(
+        "list zones of operator A",
+        "GET",
+        lambda w: f"/v1/operators/{w.op_a}/zones",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "name a zone for operator A",
+        "PUT",
+        lambda w: f"/v1/operators/{w.op_a}/zones/dining_guest",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+        body=lambda w: {"display_name": "Front of House"},
+    ),
+    Case(
+        "list area types of operator A",
+        "GET",
+        lambda w: f"/v1/operators/{w.op_a}/area-types",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
+        "sync area types of operator A",
+        "POST",
+        lambda w: f"/v1/operators/{w.op_a}/area-types/sync",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+    ),
+    Case(
+        "map an area type of operator A",
+        "PATCH",
+        lambda w: f"/v1/area-types/{w.area_type_a}",
+        _all(404, platform_admin=200, admin_a=200, staff_a=403),
+        body=lambda w: {"zone": "restrooms"},
+    ),
+    Case(
+        "list areas of location A",
+        "GET",
+        lambda w: f"/v1/locations/{w.location_a}/areas",
+        _all(404, platform_admin=200, admin_a=200, staff_a=200),
+    ),
+    Case(
         "list contacts of location A",
         "GET",
         lambda w: f"/v1/locations/{w.location_a}/contacts",
@@ -647,6 +685,7 @@ _PLACEHOLDER_WORLD = World(
     document_a="{document_id}",  # type: ignore[arg-type]
     file_a="{file_id}",  # type: ignore[arg-type]
     risk_inspection_a="{inspection_id}",  # type: ignore[arg-type]
+    area_type_a="{area_type_id}",  # type: ignore[arg-type]
     report_a="{report_id}",  # type: ignore[arg-type]
     report_final_a="{report_id}",  # type: ignore[arg-type]
 )
@@ -655,4 +694,6 @@ _PLACEHOLDER_WORLD = World(
 def _template(path: str) -> str:
     # Members routes use {tenant_id} for both platform and operator tenants.
     path = path.replace("/tenants/{operator_id}/", "/tenants/{tenant_id}/")
+    # Zone routes take a zone value, not an id.
+    path = path.replace("/zones/dining_guest", "/zones/{zone}")
     return path.split("?", 1)[0]

@@ -6,6 +6,7 @@ import { useCallback } from "react";
 
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { LocationConditions } from "@/components/location-conditions";
+import { LocationAreas } from "@/components/location-areas";
 import { LocationContacts } from "@/components/location-contacts";
 import { LocationDocuments } from "@/components/location-documents";
 import { LocationInvoices } from "@/components/location-invoices";
@@ -43,6 +44,7 @@ const TABS = [
   "contacts",
   "orders",
   "conditions",
+  "areas",
   "risk",
   "documents",
   "invoices",
@@ -132,6 +134,7 @@ export function LocationDetail() {
             Service orders{(loc.open_order_count ?? 0) > 0 && ` (${loc.open_order_count} open)`}
           </TabsTrigger>
           <TabsTrigger value="conditions">Conditions</TabsTrigger>
+          <TabsTrigger value="areas">Areas</TabsTrigger>
           <TabsTrigger value="risk">Risk inspections</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           {canBilling && <TabsTrigger value="invoices">Invoices</TabsTrigger>}
@@ -235,6 +238,10 @@ export function LocationDetail() {
 
         <TabsContent value="conditions" className="pt-4">
           <LocationConditions locationId={loc.id} />
+        </TabsContent>
+
+        <TabsContent value="areas" className="pt-4">
+          <LocationAreas locationId={loc.id} />
         </TabsContent>
 
         <TabsContent value="risk" className="pt-4">
