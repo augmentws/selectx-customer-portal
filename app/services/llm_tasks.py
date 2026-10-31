@@ -2,7 +2,8 @@
 
 A task is instructions plus a Pydantic output model. `run_task` sends the input as JSON, asks
 for a reply matching the model's JSON schema, validates it, and on an invalid reply asks once
-more with the validation errors. Requests are routed only to providers that support
+more with the validation errors (a reply cut off at the task's `max_tokens` is asked for again
+from scratch, without the cut-off text). Requests are routed only to providers that support
 `response_format` (`provider.require_parameters`), so a model without structured-output
 support fails with a clear 503 instead of returning free text.
 """
@@ -52,6 +53,9 @@ class LLMTask[Out: BaseModel]:
     output: type[Out]
     model: str | None = None  # None: OPENROUTER_DEFAULT_MODEL
     temperature: float = 0.0
+    # Caps each reply (reasoning included), so a model stuck repeating itself stops instead of
+    # running to the provider's limit. None: no cap.
+    max_tokens: int | None = None
 
 
 @dataclass(frozen=True)
@@ -115,16 +119,27 @@ def run_task[Out: BaseModel](
     }
 
     usage = Usage()
-    last_error: ValidationError | None = None
+    last_error: ValidationError | None = None  # None after a cut-off reply
     for attempt in (1, 2):
         result = client.chat(
             messages,
             model=chosen,
             response_format=response_format,
             temperature=task.temperature,
+            max_tokens=task.max_tokens,
             provider={"require_parameters": True},
         )
         usage = _add(usage, result.usage)
+        if result.finish_reason == "length":
+            log.warning(
+                "Task %s: reply from %s cut off at %s tokens (attempt %s)",
+                task.name,
+                result.model,
+                task.max_tokens,
+                attempt,
+            )
+            last_error = None
+            continue
         try:
             output = _parse(task, result.content)
         except ValidationError as exc:
@@ -144,6 +159,8 @@ def run_task[Out: BaseModel](
             ]
             continue
         return TaskResult(output=output, model=result.model, usage=usage, attempts=attempt)
+    if last_error is None:
+        raise LLMTaskError(f"Task {task.name}: reply cut off at {task.max_tokens} tokens")
     raise LLMTaskError(f"Task {task.name}: no valid reply after 2 attempts") from last_error
 
 

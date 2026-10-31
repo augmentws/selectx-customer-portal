@@ -85,6 +85,10 @@ Pest = Literal[
 ]
 
 _TEXT = Field(max_length=500)
+# Caps on each list, above the most any visit has held (12 items, 8 activity locations): a reply
+# past them is a model repeating itself, which then fails validation instead of running on.
+MAX_ITEMS = 15
+MAX_ACTIVITY_LOCATIONS = 10
 
 
 class StructuralFindingOut(BaseModel):
@@ -131,13 +135,13 @@ class FindingsOut(BaseModel):
     rodent_species: list[Literal["rat", "mouse"]]
     rodent_evidence: list[Evidence]
     rodents_captured: int | None = Field(ge=0)
-    activity_locations: list[ActivityLocationOut]
+    activity_locations: list[ActivityLocationOut] = Field(max_length=MAX_ACTIVITY_LOCATIONS)
     devices_serviced: int | None = Field(ge=0)
     exclusion_status: Literal["intact", "compromised"] | None
     sanitation_rating: Literal["satisfactory", "needs_improvement", "poor"] | None
-    structural_findings: list[StructuralFindingOut]
-    sanitation_findings: list[SanitationFindingOut]
-    other_pests: list[PestFindingOut]
+    structural_findings: list[StructuralFindingOut] = Field(max_length=MAX_ITEMS)
+    sanitation_findings: list[SanitationFindingOut] = Field(max_length=MAX_ITEMS)
+    other_pests: list[PestFindingOut] = Field(max_length=MAX_ITEMS)
     summary: str = Field(max_length=1000)
 
 

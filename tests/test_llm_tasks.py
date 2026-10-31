@@ -111,6 +111,42 @@ def test_two_invalid_replies_raise(api, client):
         run_task(ADDRESS_CLEANUP, ADDRESS, model=MODEL, client=client)
 
 
+def test_a_cut_off_reply_is_asked_for_again_from_scratch(api, client):
+    capped = llm_tasks.LLMTask(
+        name="address_cleanup",
+        instructions=ADDRESS_CLEANUP.instructions,
+        output=ADDRESS_CLEANUP.output,
+        max_tokens=500,
+    )
+    api.post(URL, json=completion('{"address": "150 E 44TH ST", "address', finish="length"))
+    api.post(URL, json=completion(json.dumps(CLEAN)))
+    result = run_task(capped, ADDRESS, model=MODEL, client=client)
+
+    assert result.attempts == 2 and result.output.city == "NEW YORK"
+    assert sent(api)["max_tokens"] == 500
+    # The cut-off text isn't sent back: the retry is the original request.
+    assert sent(api, 1)["messages"] == sent(api)["messages"]
+
+
+def test_two_cut_off_replies_raise(api, client):
+    capped = llm_tasks.LLMTask(
+        name="address_cleanup",
+        instructions=ADDRESS_CLEANUP.instructions,
+        output=ADDRESS_CLEANUP.output,
+        max_tokens=500,
+    )
+    api.post(URL, json=completion("{", finish="length"))
+    api.post(URL, json=completion("{", finish="length"))
+    with pytest.raises(LLMTaskError, match="cut off at 500 tokens"):
+        run_task(capped, ADDRESS, model=MODEL, client=client)
+
+
+def test_a_task_without_a_cap_sends_no_max_tokens(api, client):
+    api.post(URL, json=completion(json.dumps(CLEAN)))
+    run_task(ADDRESS_CLEANUP, ADDRESS, model=MODEL, client=client)
+    assert "max_tokens" not in sent(api)
+
+
 @pytest.mark.parametrize("status", [429, 502, 503])
 def test_transient_errors_are_retried(api, client, sleeps, status):
     api.post(URL, status=status, json={"error": {"code": status, "message": "busy"}})
