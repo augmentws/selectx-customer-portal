@@ -172,7 +172,15 @@ TECHNICIANS_URL = re.compile(re.escape(PESTPAC_BASE) + r"/lookups/Employees/tech
 LOCATION_NOTES_URL = re.compile(re.escape(PESTPAC_BASE) + r"/Locations/(\d+)/notes")
 NOTE_URL = re.compile(re.escape(PESTPAC_BASE) + r"/Notes/(\d+)$")
 INVOICE_URL = re.compile(re.escape(PESTPAC_BASE) + r"/Invoices/(\d+)$")
-INVOICE_SEARCH_URL = re.compile(re.escape(PESTPAC_BASE) + r"/Invoices\?")
+SERVICE_HISTORY_URL = re.compile(re.escape(PESTPAC_BASE) + r"/Locations/(\d+)/serviceHistory\b")
+# What GET /Locations/{id}/serviceHistory leaves out of each invoice.
+SERVICE_HISTORY_OMITS = {
+    "LineItems",
+    "TechnicianComment",
+    "LocationInstructions",
+    "ServiceInstructions",
+    "OrderInstructions",
+}
 
 # Sample GET /Invoices/{id} response, with personal details and amounts replaced.
 INVOICE_FIXTURE = json.loads(
@@ -535,23 +543,30 @@ def pestpac():
                 return body, {}, "{}"
             return (200, {}, json.dumps(body)) if body else (404, {}, "{}")
 
-        # Invoices by InvoiceID (an int value is a status code; unknown: 404). The orderNumber
-        # search returns the matching invoice object, as PestPac does (404 when none), or the
-        # status code set in `invoice_search_status`.
+        # Invoices by InvoiceID (an int value is a status code; unknown: 404). A location's
+        # service history lists the stored invoices whose LocationID it is, as summaries, newest
+        # first, paged with skip/top; or the status code set in `service_history_status`.
         rsps.invoices = {}
-        rsps.invoice_search_status = 200
+        rsps.service_history_status = 200
 
-        def invoice_search(request):
+        def service_history(request):
             from urllib.parse import parse_qs, urlparse
 
-            if rsps.invoice_search_status != 200:
-                return rsps.invoice_search_status, {}, "{}"
-            number = parse_qs(urlparse(request.url).query)["orderNumber"][0]
-            found = [
-                i for i in rsps.invoices.values()
-                if isinstance(i, dict) and i.get("OrderNumber") == number
-            ]  # fmt: skip
-            return (200, {}, json.dumps(found[0])) if found else (404, {}, "{}")
+            if rsps.service_history_status != 200:
+                return rsps.service_history_status, {}, "{}"
+            location_id = int(SERVICE_HISTORY_URL.search(request.url).group(1))
+            query = parse_qs(urlparse(request.url).query)
+            skip, top = int(query["skip"][0]), int(query["top"][0])
+            listed = sorted(
+                (
+                    {k: v for k, v in i.items() if k not in SERVICE_HISTORY_OMITS}
+                    for i in rsps.invoices.values()
+                    if isinstance(i, dict) and i.get("LocationID") == location_id
+                ),
+                key=lambda i: i["InvoiceID"],
+                reverse=True,
+            )
+            return 200, {}, json.dumps(listed[skip : skip + top])
 
         def invoice_detail(request):
             invoice_id = int(INVOICE_URL.search(request.url).group(1))
@@ -561,7 +576,7 @@ def pestpac():
             return (200, {}, json.dumps(body)) if body else (404, {}, "{}")
 
         rsps.add_callback(responses.GET, INVOICE_URL, invoice_detail)
-        rsps.add_callback(responses.GET, INVOICE_SEARCH_URL, invoice_search)
+        rsps.add_callback(responses.GET, SERVICE_HISTORY_URL, service_history)
         rsps.add_callback(responses.GET, LOCATION_CONDITIONS_URL, location_conditions)
         rsps.add_callback(responses.GET, LOCATION_AREAS_URL, location_areas)
         rsps.add_callback(responses.GET, AREA_TYPES_URL, area_types)

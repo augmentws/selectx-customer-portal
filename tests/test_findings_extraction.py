@@ -286,12 +286,24 @@ def test_an_order_posted_by_its_invoice_is_queued(client, world, onboarded, pest
     _enable(world)
     # We saw the order open and never saw it posted; then it was billed.
     pestpac.orders_by_location[STORE] = [pestpac_order(ORDER_ID, STORE, ONBOARDED_BILL_TO)]
-    pestpac.invoices[3494466] = pestpac_invoice()
     _drain_with_order_sync(client, onboarded)
     assert _requests() == []
+    pestpac.invoices[3494466] = pestpac_invoice()
     _invoice_webhook(client)
     worker._Stop.requested = False
     worker.run_pending()
+    assert _requests() == [(_order().id, True, 0, None)]
+
+
+def test_an_order_billed_before_we_saw_it_posted_is_queued_by_the_sync(
+    client, world, onboarded, pestpac, no_llm
+):
+    _enable(world)
+    pestpac.orders_by_location[STORE] = [pestpac_order(ORDER_ID, STORE, ONBOARDED_BILL_TO)]
+    _drain_with_order_sync(client, onboarded)
+    pestpac.orders_by_location[STORE] = []  # billed: PestPac stops listing it
+    pestpac.invoices[3494466] = pestpac_invoice()  # found in the location's service history
+    _drain_with_order_sync(client, onboarded)
     assert _requests() == [(_order().id, True, 0, None)]
 
 
