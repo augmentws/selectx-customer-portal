@@ -67,6 +67,8 @@ TASK = llm_tasks.LLMTask(
     name="inspection_findings",
     instructions=INSTRUCTIONS,
     output=inspection_findings.FindingsOut,
+    # Normal replies, reasoning included, stay under ~18k tokens.
+    max_tokens=24_000,
 )
 
 
@@ -228,8 +230,21 @@ def run(db: Session, req: InspectionFindingRequest) -> str:
         db.delete(req)
         db.commit()
         return "nothing to read"
+    settings = get_settings()
     try:
-        result = llm_tasks.run_task(TASK, data, model=get_settings().findings_llm_model or None)
+        try:
+            result = llm_tasks.run_task(TASK, data, model=settings.findings_llm_model or None)
+        except (llm_tasks.LLMTaskError, OpenRouterError) as exc:
+            if not settings.findings_fallback_model:
+                raise
+            # Usually a model repeating itself on one input; another model reads it fine.
+            log.warning(
+                "Findings for order %s failed (%s); trying %s",
+                order.id,
+                exc,
+                settings.findings_fallback_model,
+            )
+            result = llm_tasks.run_task(TASK, data, model=settings.findings_fallback_model)
     except (llm_tasks.LLMNotConfiguredError, llm_tasks.LLMTaskError, OpenRouterError) as exc:
         log.warning("Findings for order %s failed: %s", order.id, exc)
         req.requested_at = None

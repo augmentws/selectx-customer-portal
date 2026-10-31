@@ -220,8 +220,9 @@ def run_job(db: Session, job: SyncJob) -> SyncJob:
                 notes_failed.append(
                     {"pestpac_location_id": location.pestpac_location_id, "error": str(exc)[:300]}
                 )
-            # Then invoices for worked orders that don't have one yet; a failure never undoes
-            # the orders or notes.
+            # Then the location's invoices (its service history), which also stores orders we
+            # never saw listed, such as RAMP program nights; a failure never undoes the orders or
+            # notes.
             try:
                 _add(
                     invoice_totals,

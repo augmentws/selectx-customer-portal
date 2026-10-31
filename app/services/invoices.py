@@ -1,5 +1,6 @@
-"""PestPac invoices: fetched by id (GET /Invoices/{id}) when an invoice webhook arrives, and by
-order number (GET /Invoices?orderNumber=) for worked orders without one during order syncs.
+"""PestPac invoices: fetched by id (GET /Invoices/{id}) when an invoice webhook arrives, and during
+order syncs for each invoice in the location's service history (GET
+/Locations/{id}/serviceHistory) that we don't hold yet.
 
 Only invoices of an onboarded, active bill-to are stored. An invoice also completes its service
 order: billed work drops off PestPac's open-orders list, so the invoice is our last chance to
@@ -14,14 +15,16 @@ from sqlalchemy import exists, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.config import get_settings
 from app.integrations.pestpac import PestPacAuthError, PestPacClient
 from app.models import BillTo, Invoice, InvoiceLine, Location, ServiceOrder
 from app.schemas.pestpac import (
     InvoiceSyncCounts,
+    NoteSyncCounts,
     PestPacInvoiceDetails,
     ServiceOrderSyncCounts,
 )
-from app.services import findings_extraction
+from app.services import findings_extraction, notes
 from app.services.pestpac_connection import PestPacUnavailableError
 from app.services.technicians import TechnicianResolver
 
@@ -48,34 +51,42 @@ def fetch_invoice(client: PestPacClient, pestpac_invoice_id: int) -> PestPacInvo
         raise PestPacUnavailableError(f"PestPac returned an unusable invoice: {exc}") from None
 
 
-def fetch_invoices_for_order(
-    client: PestPacClient, order_number: str
-) -> list[PestPacInvoiceDetails]:
-    """The invoice for an order number (the full object, as GET /Invoices/{id}), or [] when
-    PestPac answers 404: the order isn't invoiced yet."""
-    try:
-        response = client.custom_endpoint("/Invoices").get(
-            params={"orderNumber": order_number}, expected=(404,)
-        )
-    except (PestPacAuthError, requests.RequestException) as exc:
-        raise PestPacUnavailableError(f"Could not reach PestPac: {type(exc).__name__}") from exc
-    if response.status_code == 404:
-        return []
-    if response.status_code != 200:
-        raise PestPacUnavailableError(f"PestPac /Invoices search returned {response.status_code}")
-    try:
-        body = response.json()
-    except ValueError:
-        body = None
-    if not isinstance(body, dict):
-        raise PestPacUnavailableError("PestPac returned an unexpected invoice search response")
-    # Only an exact match: don't trust the search to be exact.
-    if str(body.get("OrderNumber") or "") != order_number:
-        return []
-    try:
-        return [PestPacInvoiceDetails.from_api(body)]
-    except ValueError as exc:
-        raise PestPacUnavailableError(f"PestPac returned an unusable invoice: {exc}") from None
+def fetch_service_history(client: PestPacClient, pestpac_location_id: int) -> list[dict]:
+    """Every invoice PestPac lists for the location: summaries (no line items, instructions, or
+    technician comment), each with its InvoiceID, OrderID, and LocationID. Pages with skip/top,
+    like notes; a short page ends paging."""
+    settings = get_settings()
+    top = settings.pestpac_page_size
+    path = f"/Locations/{pestpac_location_id}/serviceHistory"
+    by_id: dict[int, dict] = {}
+    for page_number in range(settings.pestpac_max_pages):
+        try:
+            response = client.custom_endpoint(path).get(
+                params={"skip": page_number * top, "top": top}
+            )
+        except (PestPacAuthError, requests.RequestException) as exc:
+            raise PestPacUnavailableError(f"Could not reach PestPac: {type(exc).__name__}") from exc
+        if response.status_code != 200:
+            raise PestPacUnavailableError(f"PestPac {path} returned {response.status_code}")
+        try:
+            body = response.json()
+        except ValueError:
+            body = None
+        if not isinstance(body, list) or not all(
+            isinstance(e, dict) and isinstance(e.get("InvoiceID"), int) for e in body
+        ):
+            raise PestPacUnavailableError("PestPac returned an unexpected service history response")
+        if body and body[0]["InvoiceID"] in by_id:
+            raise PestPacUnavailableError(
+                "PestPac returned the same page of service history twice; paging is not advancing"
+            )
+        by_id.update({e["InvoiceID"]: e for e in body})
+        if len(body) < top:
+            return list(by_id.values())
+    raise PestPacUnavailableError(
+        f"Location {pestpac_location_id} has more than {settings.pestpac_max_pages * top} "
+        "invoices; raise PESTPAC_MAX_PAGES to sync them"
+    )
 
 
 def _find(db: Session, operator_id: uuid.UUID, pestpac_invoice_id: int) -> Invoice | None:
@@ -229,42 +240,75 @@ def upsert_invoice(
 def sync_location_invoices(
     db: Session, client: PestPacClient, location: Location, technicians: TechnicianResolver
 ) -> InvoiceSyncCounts:
-    """Fetch invoices for the location's worked orders that have none stored yet (billed or
-    not: unbilled ones simply find nothing and are tried again next sync). An invoice we hold
-    for the order's OrderID (from a webhook, before we held the order) is linked instead, with no
+    """Store every invoice in the location's service history that we don't hold yet (GET
+    /Invoices/{id} for each: the history leaves out line items and the technician comment).
+    An order we don't hold is stored from its invoice, as worked and billed: RAMP program nights
+    are billed before an order sync ever sees them. Then worked orders without an invoice are
+    linked to one we hold for their OrderID (from a webhook, before we held the order), with no
     call. Does not commit."""
     counts = InvoiceSyncCounts()
-    orders = db.scalars(
-        select(ServiceOrder)
-        .where(
+    operator_id = location.operator_id
+    history = fetch_service_history(client, location.pestpac_location_id)
+    counts.listed = len(history)
+    held = set(
+        db.scalars(
+            select(Invoice.pestpac_invoice_id).where(
+                Invoice.operator_id == operator_id,
+                Invoice.pestpac_invoice_id.in_([e["InvoiceID"] for e in history]),
+            )
+        )
+    )
+    known_orders = set(
+        db.scalars(
+            select(ServiceOrder.pestpac_order_id).where(
+                ServiceOrder.operator_id == operator_id,
+                ServiceOrder.pestpac_order_id.in_(
+                    [e["OrderID"] for e in history if isinstance(e.get("OrderID"), int)]
+                ),
+            )
+        )
+    )
+    for entry in sorted(history, key=lambda e: e["InvoiceID"]):
+        if entry["InvoiceID"] in held:
+            counts.held += 1
+            continue
+        details = fetch_invoice(client, entry["InvoiceID"])
+        if details is None:  # removed between the two calls
+            counts.not_found += 1
+            continue
+        invoice = upsert_invoice(db, operator_id, details, technicians, create_order=True)
+        if invoice is None:  # not an onboarded, active bill-to
+            continue
+        counts.stored += 1
+        order_id = details.pestpac_order_id
+        if order_id is not None and order_id not in known_orders and invoice.service_order_id:
+            counts.orders_created += 1
+            known_orders.add(order_id)
+
+    now = datetime.now(UTC)
+    unlinked = db.scalars(
+        select(ServiceOrder).where(
             ServiceOrder.location_id == location.id,
             ServiceOrder.posted.is_(True),
-            ServiceOrder.order_number.is_not(None),
             ~exists().where(Invoice.service_order_id == ServiceOrder.id),
         )
-        .order_by(ServiceOrder.work_date, ServiceOrder.id)
     ).all()
-    now = datetime.now(UTC)
-    for order in orders:
-        counts.orders_checked += 1
-        held = db.scalar(
+    for order in unlinked:
+        invoice = db.scalar(
             select(Invoice).where(
-                Invoice.operator_id == order.operator_id,
+                Invoice.operator_id == operator_id,
                 Invoice.pestpac_order_id == order.pestpac_order_id,
                 Invoice.removed_at.is_(None),
             )
         )
-        if held is not None:
-            held.service_order_id = order.id
-            _complete_order(order, held, now)
+        if invoice is not None:
+            invoice.service_order_id = order.id
+            _complete_order(order, invoice, now)
             counts.linked += 1
-            continue
-        found = fetch_invoices_for_order(client, order.order_number)
-        if not found:
-            counts.not_invoiced += 1
-        for details in found:
-            if upsert_invoice(db, location.operator_id, details, technicians) is not None:
-                counts.stored += 1
+    if counts.orders_created:
+        # Their notes are already stored (a location's whole note history is synced).
+        notes.link_notes_to_orders(db, operator_id, NoteSyncCounts())
+    db.flush()
     return counts
 
 

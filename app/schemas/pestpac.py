@@ -229,10 +229,12 @@ class PestPacServiceOrderDetails(BaseModel):
 
 
 class InvoiceSyncCounts(BaseModel):
-    orders_checked: int = 0  # worked orders without a stored invoice
-    linked: int = 0  # already stored (e.g. from a webhook) before we held the order: no call
-    stored: int = 0
-    not_invoiced: int = 0  # PestPac has no invoice for the order number yet
+    listed: int = 0  # invoices in the locations' service history
+    held: int = 0  # already stored: no call
+    stored: int = 0  # fetched and stored
+    orders_created: int = 0  # orders we didn't hold, stored from their invoice
+    not_found: int = 0  # listed, but gone when fetched
+    linked: int = 0  # worked orders linked to an invoice already stored for their OrderID
 
 
 class ServiceOrderSyncCounts(BaseModel):

@@ -1,9 +1,11 @@
 from datetime import UTC, datetime
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import select, update
 
 from app import extract_findings, worker
+from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.integrations.openrouter import Usage
 from app.models import (
@@ -196,6 +198,62 @@ def test_a_failure_is_recorded_and_can_be_requeued(world, monkeypatch, fake_llm)
     assert _requests() == []
 
 
+@pytest.fixture
+def fallback_model(monkeypatch):
+    monkeypatch.setenv("FINDINGS_LLM_MODEL", "test/primary")
+    monkeypatch.setenv("FINDINGS_FALLBACK_MODEL", "test/fallback")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
+def test_a_failed_reply_is_tried_once_on_the_fallback_model(world, monkeypatch, fallback_model):
+    _worked(world, comment="Dead mouse under the ordering line panel.")
+    models = []
+
+    def primary_loops(task, data, *, model=None, **_):
+        models.append(model)
+        if model == "test/primary":
+            raise llm_tasks.LLMTaskError("Task inspection_findings: reply cut off at 24000 tokens")
+        return llm_tasks.TaskResult(
+            output=task.output.model_validate(FINDINGS),
+            model=model,
+            usage=Usage(prompt_tokens=100, completion_tokens=50, total_tokens=150, cost=0.002),
+            attempts=1,
+        )
+
+    monkeypatch.setattr(llm_tasks, "run_task", primary_loops)
+    _request(world)
+    assert _run() == 1
+    assert models == ["test/primary", "test/fallback"]
+    with SessionLocal() as db:
+        assert db.scalar(select(InspectionFinding.model)) == "test/fallback"
+    assert _requests() == []
+
+
+def test_a_failure_on_the_fallback_too_is_recorded(world, monkeypatch, fallback_model):
+    _worked(world, comment="No activity.")
+    models = []
+
+    def fails(task, data, *, model=None, **_):
+        models.append(model)
+        raise llm_tasks.LLMTaskError(f"no valid reply from {model}")
+
+    monkeypatch.setattr(llm_tasks, "run_task", fails)
+    _request(world)
+    assert _run() == 1
+    assert models == ["test/primary", "test/fallback"]
+    assert _requests() == [(world.service_order_a, False, 1, "no valid reply from test/fallback")]
+
+
+def test_findings_lists_are_capped():
+    item = FINDINGS["structural_findings"][0]
+    too_many = {**FINDINGS, "structural_findings": [item] * (inspection_findings.MAX_ITEMS + 1)}
+    with pytest.raises(ValidationError):
+        inspection_findings.FindingsOut.model_validate(too_many)
+    assert findings_extraction.TASK.max_tokens == 24_000
+
+
 def test_a_request_waits_for_the_notes_to_sync(world, fake_llm):
     _worked(world, comment="No activity.")
     _request(world, wait=True)
@@ -228,12 +286,24 @@ def test_an_order_posted_by_its_invoice_is_queued(client, world, onboarded, pest
     _enable(world)
     # We saw the order open and never saw it posted; then it was billed.
     pestpac.orders_by_location[STORE] = [pestpac_order(ORDER_ID, STORE, ONBOARDED_BILL_TO)]
-    pestpac.invoices[3494466] = pestpac_invoice()
     _drain_with_order_sync(client, onboarded)
     assert _requests() == []
+    pestpac.invoices[3494466] = pestpac_invoice()
     _invoice_webhook(client)
     worker._Stop.requested = False
     worker.run_pending()
+    assert _requests() == [(_order().id, True, 0, None)]
+
+
+def test_an_order_billed_before_we_saw_it_posted_is_queued_by_the_sync(
+    client, world, onboarded, pestpac, no_llm
+):
+    _enable(world)
+    pestpac.orders_by_location[STORE] = [pestpac_order(ORDER_ID, STORE, ONBOARDED_BILL_TO)]
+    _drain_with_order_sync(client, onboarded)
+    pestpac.orders_by_location[STORE] = []  # billed: PestPac stops listing it
+    pestpac.invoices[3494466] = pestpac_invoice()  # found in the location's service history
+    _drain_with_order_sync(client, onboarded)
     assert _requests() == [(_order().id, True, 0, None)]
 
 

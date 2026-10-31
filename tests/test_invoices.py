@@ -1,13 +1,19 @@
+from decimal import Decimal
+
 from sqlalchemy import select
 
 from app import worker
+from app.core.config import get_settings
 from app.db.session import SessionLocal
-from app.models import Invoice, ServiceOrder, SyncJob, Tenant, WebhookEvent
+from app.models import Invoice, Note, ServiceOrder, SyncJob, Tenant, WebhookEvent
 from tests.conftest import (
     INVOICE_FIXTURE,
+    INVOICE_URL,
     ONBOARDED_BILL_TO,
     WORLD_WEBHOOK_SHA,
     pestpac_invoice,
+    pestpac_note,
+    pestpac_note_detail,
     pestpac_order,
 )
 from tests.test_notes import _store_id
@@ -144,7 +150,7 @@ def test_pestpac_failure_is_recorded_on_the_event(client, onboarded, pestpac):
     assert event.status == "failed" and "503" in event.error
 
 
-# --- Order sync -> GET /Invoices?orderNumber= ---
+# --- Order sync -> GET /Locations/{id}/serviceHistory ---
 
 
 def _posted_order(**overrides):
@@ -153,47 +159,104 @@ def _posted_order(**overrides):
     )
 
 
-def test_order_sync_fetches_invoices_for_worked_orders_once(client, onboarded, pestpac):
+def _invoice_progress() -> dict:
+    with SessionLocal() as db:
+        job = db.scalar(select(SyncJob).order_by(SyncJob.created_at.desc()))
+        return job.progress["invoices"]
+
+
+def _invoice_fetches(pestpac) -> int:
+    return sum(bool(INVOICE_URL.search(c.request.url)) for c in pestpac.calls)
+
+
+def test_order_sync_stores_the_locations_invoices_once(client, onboarded, pestpac):
     pestpac.orders_by_location[STORE] = [_posted_order()]
     pestpac.invoices[3494466] = pestpac_invoice()
     _drain()  # onboarding sync
 
-    with SessionLocal() as db:
-        job = db.scalar(select(SyncJob).order_by(SyncJob.created_at.desc()))
-        assert job.status == "succeeded"
-        assert job.progress["invoices"] == {
-            "orders_checked": 1,
-            "linked": 0,
-            "stored": 1,
-            "not_invoiced": 0,
-        }
-    assert _invoice().service_order_id == _order().id
+    assert _invoice_progress() == {
+        "listed": 1,
+        "held": 0,
+        "stored": 1,
+        "orders_created": 0,
+        "not_found": 0,
+        "linked": 0,
+    }
+    invoice = _invoice()
+    assert invoice.service_order_id == _order().id
+    # Fetched in full: the history leaves out line items and the technician comment.
+    assert [line.extended_price for line in invoice.lines] == [Decimal("120.00")]
+    assert _order().technician_comment is not None
 
+    fetches = _invoice_fetches(pestpac)
     _drain_with_order_sync(client, onboarded)
+    assert _invoice_progress()["held"] == 1
+    assert _invoice_fetches(pestpac) == fetches  # held: not fetched again
+
+
+def test_an_order_we_never_saw_is_stored_from_its_invoice(client, onboarded, pestpac):
+    """RAMP program nights are billed before any order sync lists them."""
+    night = 1854800
+    pestpac.orders_by_location[STORE] = [_posted_order()]
+    pestpac.invoices[3494466] = pestpac_invoice()
+    pestpac.invoices[3494470] = pestpac_invoice(
+        3494470,
+        OrderID=night,
+        OrderNumber="2596398",
+        InvoiceNumber="A2596398",
+        ServiceCode="RAMP 1",
+        TechnicianComment="Mass trapped entire store; two live mice upstairs.",
+    )
+    note = pestpac_note(77, text="Service: RAMP 1\nNight 1 of mass trapping.")
+    pestpac.notes_by_location[STORE] = [note]
+    pestpac.note_details[77] = pestpac_note_detail(note, location_id=STORE, order_id=night)
+    _drain()
+
+    progress = _invoice_progress()
+    assert (progress["listed"], progress["stored"], progress["orders_created"]) == (2, 2, 1)
     with SessionLocal() as db:
-        job = db.scalar(select(SyncJob).order_by(SyncJob.created_at.desc()))
-        assert job.progress["invoices"]["orders_checked"] == 0  # it has one now
+        order = db.scalar(select(ServiceOrder).where(ServiceOrder.pestpac_order_id == night))
+        assert (order.order_number, order.service_code, order.posted) == ("2596398", "RAMP 1", True)
+        assert order.closed_at is not None and order.pestpac_invoice_id == 3494470
+        assert order.technician_comment.startswith("Mass trapped")
+        assert order.location_id is not None
+        assert db.scalar(select(Note.service_order_id).where(Note.pestpac_note_id == 77)) == (
+            order.id
+        )
 
 
-def test_worked_order_not_invoiced_yet_is_tried_again(client, onboarded, pestpac):
+def test_a_worked_order_with_no_invoice_yet_waits(client, onboarded, pestpac):
     pestpac.orders_by_location[STORE] = [_posted_order()]
     _drain()
-    _drain_with_order_sync(client, onboarded)
-    with SessionLocal() as db:
-        job = db.scalar(select(SyncJob).order_by(SyncJob.created_at.desc()))
-        assert job.progress["invoices"] == {
-            "orders_checked": 1,
-            "linked": 0,
-            "stored": 0,
-            "not_invoiced": 1,
-        }
+    assert _invoice_progress() == {
+        "listed": 0,
+        "held": 0,
+        "stored": 0,
+        "orders_created": 0,
+        "not_found": 0,
+        "linked": 0,
+    }
+    assert _order().pestpac_invoice_id is None
 
 
-def _invoice_searches(pestpac) -> int:
-    return sum("/Invoices?" in c.request.url for c in pestpac.calls)
+def test_service_history_is_paged(client, onboarded, pestpac, monkeypatch):
+    monkeypatch.setenv("PESTPAC_PAGE_SIZE", "2")
+    get_settings.cache_clear()
+    try:
+        for n in range(5):
+            pestpac.invoices[3494466 + n] = pestpac_invoice(
+                3494466 + n, OrderID=ORDER_ID + n, OrderNumber=str(3048012 + n)
+            )
+        _drain()
+        assert _invoice_progress()["listed"] == 5
+        history = f"/Locations/{STORE}/serviceHistory"
+        pages = [c.request.url for c in pestpac.calls if history in c.request.url]
+        assert len(pages) == 3  # 2 + 2 + a short page of 1
+    finally:
+        get_settings.cache_clear()
 
 
-def test_order_sync_links_an_invoice_it_already_holds_without_searching(client, onboarded, pestpac):
+def test_order_sync_links_an_invoice_it_already_holds_without_fetching(client, onboarded, pestpac):
     """An invoice stored before we held its order (e.g. from a webhook) is linked by OrderID."""
     from app.schemas.pestpac import PestPacInvoiceDetails
     from app.services import invoices, pestpac_connection
@@ -211,23 +274,24 @@ def test_order_sync_links_an_invoice_it_already_holds_without_searching(client, 
         db.commit()
     assert _invoice().service_order_id is None  # we don't hold the order yet
     pestpac.orders_by_location[STORE] = [_posted_order()]
+    pestpac.invoices[3494466] = pestpac_invoice()  # listed in the history: held, not fetched
     _drain()  # onboarding sync stores the order
 
-    with SessionLocal() as db:
-        job = db.scalar(select(SyncJob).order_by(SyncJob.created_at.desc()))
-        assert job.progress["invoices"]["linked"] == 1
+    progress = _invoice_progress()
+    assert (progress["held"], progress["linked"]) == (1, 1)
     assert _invoice().service_order_id == _order().id
     assert _order().pestpac_invoice_id == 3494466
-    assert _invoice_searches(pestpac) == 0
+    assert _invoice_fetches(pestpac) == 0
 
 
-def test_invoice_search_failure_keeps_the_orders(client, onboarded, pestpac):
+def test_service_history_failure_keeps_the_orders(client, onboarded, pestpac):
     pestpac.orders_by_location[STORE] = [_posted_order()]
-    pestpac.invoice_search_status = 500
+    pestpac.service_history_status = 500
     _drain()
     with SessionLocal() as db:
         job = db.scalar(select(SyncJob).order_by(SyncJob.created_at.desc()))
-        assert job.status == "partial" and "invoices failed for 1" in job.error
+        # Every location's history is read, so all three of the bill-to's fail.
+        assert job.status == "partial" and "invoices failed for 3" in job.error
     assert _order().posted
 
 
@@ -250,20 +314,6 @@ def test_location_invoices_need_billing_read(client, onboarded, pestpac, world):
         "Pat Tech",  # our technician record for TechID 1332, not the invoice's copy of the name
     )
     assert [line["extended_price"] for line in item["lines"]] == ["120.00"]
-
-
-def test_search_takes_the_returned_invoice_object(pestpac, world):
-    """PestPac answers the orderNumber search with the invoice object itself."""
-    from app.services import pestpac_connection
-    from app.services.invoices import fetch_invoices_for_order
-
-    pestpac.invoices[3494466] = pestpac_invoice()
-    with SessionLocal() as db:
-        operator = db.get(Tenant, world.op_a)
-        client = pestpac_connection.get_pestpac_client(db, operator)
-    [found] = fetch_invoices_for_order(client, ORDER_NUMBER)
-    assert found.pestpac_invoice_id == 3494466
-    assert fetch_invoices_for_order(client, "999") == []  # 404: not invoiced yet
 
 
 def test_invoiced_orders_leave_posted_and_list_under_their_invoice(client, onboarded, pestpac):
