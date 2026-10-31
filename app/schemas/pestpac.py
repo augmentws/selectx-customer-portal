@@ -526,6 +526,45 @@ class PestPacConditionDetails(PestPacConditionSummary):
         )
 
 
+class PestPacArea(BaseModel):
+    """One area from GET /Locations/{id}/areas (an `Entity` of the tree, flattened).
+    Whitelisted: Barcode and MultiUnitCategory aren't kept."""
+
+    pestpac_area_id: int
+    pestpac_parent_id: int | None = None  # None for top-level areas (PestPac sends 0)
+    depth: int
+    name: str
+    name_with_path: str | None = None
+    area_type: str | None = None
+    description: str | None = None
+    active: bool
+    last_inspection_date: datetime | None = None
+
+    @classmethod
+    def from_api(cls, entity: dict, depth: int) -> PestPacArea:
+        inspected = _pestpac_local_datetime(entity.get("LastInspectionDate"))
+        return cls(
+            pestpac_area_id=entity["AreaID"],
+            pestpac_parent_id=_int_or_none(entity.get("ParentID")) or None,
+            depth=depth,
+            name=_text(entity, "Name", 200) or "",
+            name_with_path=_text(entity, "NameWithPath", 500),
+            area_type=_text(entity, "AreaType", 50),
+            description=_text(entity, "Description", 500),
+            active=entity.get("Active") is not False,
+            # 1900-01-01 is PestPac's "never inspected".
+            last_inspection_date=inspected if inspected and inspected.year > 1900 else None,
+        )
+
+
+class AreaSyncCounts(BaseModel):
+    total: int = 0
+    added: int = 0
+    updated: int = 0
+    removed: int = 0
+    conditions_linked: int = 0
+
+
 class ConditionSyncCounts(BaseModel):
     total: int = 0
     added: int = 0

@@ -482,6 +482,291 @@
         }
       }
     },
+    "/v1/operators/{operator_id}/zones": {
+      "get": {
+        "tags": [
+          "area mapping"
+        ],
+        "summary": "List Zones",
+        "description": "The fixed zones with the operator's display names, in their standard order.",
+        "operationId": "area mapping-list_zones",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "operator_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operator Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ZoneRead"
+                  },
+                  "title": "Response Area Mapping-List Zones"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/operators/{operator_id}/zones/{zone}": {
+      "put": {
+        "tags": [
+          "area mapping"
+        ],
+        "summary": "Set Zone Name",
+        "description": "Set the operator's display name for a zone (empty restores the default); returns every\nzone.",
+        "operationId": "area mapping-set_zone_name",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "operator_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operator Id"
+            }
+          },
+          {
+            "name": "zone",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Zone"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ZoneUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ZoneRead"
+                  },
+                  "title": "Response Area Mapping-Set Zone Name"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/operators/{operator_id}/area-types": {
+      "get": {
+        "tags": [
+          "area mapping"
+        ],
+        "summary": "List Area Types",
+        "description": "PestPac's area types as last synced, by code, each with its zone and how many location\nareas use it.",
+        "operationId": "area mapping-list_area_types",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "operator_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operator Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AreaTypeRead"
+                  },
+                  "title": "Response Area Mapping-List Area Types"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/operators/{operator_id}/area-types/sync": {
+      "post": {
+        "tags": [
+          "area mapping"
+        ],
+        "summary": "Sync Area Types",
+        "description": "Fetch PestPac's area types now (GET /lookups/AreaTypes). New types start with a default\nzone; known types keep theirs. 409 without a verified connection, 502 if PestPac fails.",
+        "operationId": "area mapping-sync_area_types",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "operator_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Operator Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AreaTypeSyncRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/area-types/{area_type_id}": {
+      "patch": {
+        "tags": [
+          "area mapping"
+        ],
+        "summary": "Update Area Type",
+        "description": "Map an area type to a zone (null: unmapped).",
+        "operationId": "area mapping-update_area_type",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "area_type_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Area Type Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AreaTypeUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AreaTypeRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/companies/{company_id}": {
       "get": {
         "tags": [
@@ -2009,6 +2294,59 @@
                     "$ref": "#/components/schemas/DocumentRead"
                   },
                   "title": "Response Locations-List Documents"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/locations/{location_id}/areas": {
+      "get": {
+        "tags": [
+          "locations"
+        ],
+        "summary": "List Areas",
+        "description": "The location's areas as PestPac defines them, in tree order, with each area's open\nconditions. Filled by \"Sync location\"; empty when none are set up in PestPac.",
+        "operationId": "locations-list_areas",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "location_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Location Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LocationAreaRead"
+                  },
+                  "title": "Response Locations-List Areas"
                 }
               }
             }
@@ -5607,6 +5945,118 @@
   },
   "components": {
     "schemas": {
+      "AreaTypeRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "pestpac_area_type_id": {
+            "type": "integer",
+            "title": "Pestpac Area Type Id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "zone": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Zone"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "zone_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zone Name"
+          },
+          "areas": {
+            "type": "integer",
+            "title": "Areas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "pestpac_area_type_id",
+          "code",
+          "description",
+          "zone",
+          "zone_name",
+          "areas"
+        ],
+        "title": "AreaTypeRead",
+        "description": "A PestPac area type and the zone its areas count as."
+      },
+      "AreaTypeSyncRead": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "added": {
+            "type": "integer",
+            "title": "Added"
+          },
+          "updated": {
+            "type": "integer",
+            "title": "Updated"
+          },
+          "removed": {
+            "type": "integer",
+            "title": "Removed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "added",
+          "updated",
+          "removed"
+        ],
+        "title": "AreaTypeSyncRead"
+      },
+      "AreaTypeUpdate": {
+        "properties": {
+          "zone": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Zone"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "zone"
+        ],
+        "title": "AreaTypeUpdate"
+      },
       "BillToCreate": {
         "properties": {
           "pestpac_bill_to_id": {
@@ -7783,6 +8233,27 @@
             ],
             "title": "Location"
           },
+          "zone": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Zone"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "zone_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zone Name"
+          },
           "issue": {
             "anyOf": [
               {
@@ -7822,6 +8293,8 @@
           "kind",
           "category",
           "location",
+          "zone",
+          "zone_name",
           "issue",
           "status",
           "severity"
@@ -7884,6 +8357,21 @@
             },
             "type": "array",
             "title": "Activity Locations"
+          },
+          "activity_zones": {
+            "items": {
+              "$ref": "#/components/schemas/Zone"
+            },
+            "type": "array",
+            "title": "Activity Zones"
+          },
+          "activity_zone_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Activity Zone Names",
+            "default": []
           },
           "devices_serviced": {
             "anyOf": [
@@ -7959,6 +8447,8 @@
           "rodent_evidence",
           "rodents_captured",
           "activity_locations",
+          "activity_zones",
+          "activity_zone_names",
           "devices_serviced",
           "exclusion_status",
           "sanitation_rating",
@@ -9014,6 +9504,96 @@
         ],
         "title": "InvoicedOrderRead",
         "description": "An invoice with the service order it bills (null when we don't hold the order)."
+      },
+      "LocationAreaRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "pestpac_area_id": {
+            "type": "integer",
+            "title": "Pestpac Area Id"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "depth": {
+            "type": "integer",
+            "title": "Depth"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "name_with_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name With Path"
+          },
+          "area_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Type"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active"
+          },
+          "last_inspection_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Inspection Date"
+          },
+          "open_conditions": {
+            "type": "integer",
+            "title": "Open Conditions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "pestpac_area_id",
+          "parent_id",
+          "depth",
+          "name",
+          "name_with_path",
+          "area_type",
+          "active",
+          "last_inspection_date",
+          "open_conditions"
+        ],
+        "title": "LocationAreaRead",
+        "description": "One of the location's PestPac areas, in tree order (a parent, then its children)."
       },
       "LocationDetail": {
         "properties": {
@@ -14648,6 +15228,70 @@
           "failed"
         ],
         "title": "WebhookEventStatus"
+      },
+      "Zone": {
+        "type": "string",
+        "enum": [
+          "exterior_perimeter",
+          "dumpster_waste",
+          "receiving_delivery",
+          "dry_food_storage",
+          "food_preparation",
+          "service_line",
+          "dishwashing_drains",
+          "bar_beverage",
+          "dining_guest",
+          "restrooms",
+          "offices_employee",
+          "mechanical_utility",
+          "basement",
+          "ceiling_voids",
+          "shared_structures",
+          "other"
+        ],
+        "title": "Zone",
+        "description": "The fixed set of restaurant zones that findings, areas, and dashboards group by: the\nzones of Maggiano's GoCanvas IPM form plus those of Chipotle's RiskGate form that don't fold\ninto them. Stored as these values (check constraints list them; changing the set needs a\nmigration)."
+      },
+      "ZoneRead": {
+        "properties": {
+          "zone": {
+            "$ref": "#/components/schemas/Zone"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "default_name": {
+            "type": "string",
+            "title": "Default Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "zone",
+          "display_name",
+          "default_name"
+        ],
+        "title": "ZoneRead",
+        "description": "A zone with the operator's display name for it."
+      },
+      "ZoneUpdate": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          }
+        },
+        "type": "object",
+        "title": "ZoneUpdate"
       }
     },
     "securitySchemes": {

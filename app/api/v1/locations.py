@@ -12,6 +12,7 @@ from app.schemas.tenancy import (
     ConditionBase,
     ConditionRead,
     DocumentRead,
+    LocationAreaRead,
     LocationDetail,
     NoteRead,
     PostedServiceOrderPage,
@@ -20,7 +21,15 @@ from app.schemas.tenancy import (
 )
 from app.security.access import AccessScope, get_scope
 from app.security.permissions import Perm
-from app.services import conditions, documents, notes, service_orders, sync_jobs, trail
+from app.services import (
+    conditions,
+    documents,
+    location_areas,
+    notes,
+    service_orders,
+    sync_jobs,
+    trail,
+)
 
 router = APIRouter(prefix="/locations", tags=["locations"])
 
@@ -72,6 +81,29 @@ def list_documents(
     location = _location_or_404(db, location_id)
     scope.require(Perm.bill_tos_read, location.operator_id, read_perm=Perm.bill_tos_read)
     return documents.list_documents(db, location_id=location.id)
+
+
+@router.get("/{location_id}/areas", response_model=list[LocationAreaRead])
+def list_areas(
+    location_id: uuid.UUID, db: Session = Depends(get_db), scope: AccessScope = Depends(get_scope)
+):
+    """The location's areas as PestPac defines them, in tree order, with each area's open
+    conditions. Filled by "Sync location"; empty when none are set up in PestPac."""
+    location = _location_or_404(db, location_id)
+    scope.require(Perm.bill_tos_read, location.operator_id, read_perm=Perm.bill_tos_read)
+    return [
+        LocationAreaRead.model_validate(
+            {
+                **{
+                    f: getattr(area, f)
+                    for f in LocationAreaRead.model_fields
+                    if f != "open_conditions"
+                },
+                "open_conditions": count,
+            }
+        )
+        for area, count in location_areas.list_for_location(db, location.id)
+    ]
 
 
 @router.get("/{location_id}/conditions", response_model=list[ConditionRead])

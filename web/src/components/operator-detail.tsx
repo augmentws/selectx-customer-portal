@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { AddDialog } from "@/components/add-dialog";
+import { AreaMappingPanel } from "@/components/area-mapping-panel";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { MembersPanel } from "@/components/members-panel";
 import { PestPacConnectionPanel } from "@/components/pestpac-connection-panel";
@@ -123,7 +124,7 @@ function CompaniesTab({ operatorId }: { operatorId: string }) {
 export function OperatorDetail() {
   const { operatorId } = useParams<{ operatorId: string }>();
   const [tab, setTab] = useUrlTab(
-    ["companies", "members", "pestpac", "gocanvas-api", "webhooks", "gocanvas"],
+    ["companies", "members", "pestpac", "gocanvas-api", "areas", "webhooks", "gocanvas"],
     "companies",
   );
   const { can } = usePermissions();
@@ -163,6 +164,9 @@ export function OperatorDetail() {
           {can("gocanvas_connection:read", operatorId) && (
             <TabsTrigger value="gocanvas-api">GoCanvas API</TabsTrigger>
           )}
+          {can("bill_tos:read", operatorId) && (
+            <TabsTrigger value="areas">Area mapping</TabsTrigger>
+          )}
           {can("webhooks:read", operatorId) && <TabsTrigger value="webhooks">Webhooks</TabsTrigger>}
           {can("webhooks:read", operatorId) && <TabsTrigger value="gocanvas">GoCanvas</TabsTrigger>}
         </TabsList>
@@ -186,6 +190,11 @@ export function OperatorDetail() {
         {can("gocanvas_connection:read", operatorId) && (
           <TabsContent value="gocanvas-api" className="pt-4">
             <GoCanvasConnectionPanel operatorId={operatorId} />
+          </TabsContent>
+        )}
+        {can("bill_tos:read", operatorId) && (
+          <TabsContent value="areas" className="pt-4">
+            <AreaMappingPanel operatorId={operatorId} />
           </TabsContent>
         )}
         {can("webhooks:read", operatorId) && (

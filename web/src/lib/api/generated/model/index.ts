@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './areaTypeRead';
+export * from './areaTypeSyncRead';
+export * from './areaTypeUpdate';
 export * from './billToCreate';
 export * from './billToDetail';
 export * from './billToLookup';
@@ -64,6 +67,7 @@ export * from './invoicesListBillToInvoicedOrdersSort';
 export * from './invoicesListCompanyInvoicedOrdersParams';
 export * from './invoicesListCompanyInvoicedOrdersSort';
 export * from './invoicesListLocationInvoicesParams';
+export * from './locationAreaRead';
 export * from './locationDetail';
 export * from './locationRead';
 export * from './locationsListInvoicedServiceOrdersParams';
@@ -159,3 +163,6 @@ export * from './webhookEventRead';
 export * from './webhookEventStatus';
 export * from './webhooksListGocanvasRequestsParams';
 export * from './webhooksListWebhookEventsParams';
+export * from './zone';
+export * from './zoneRead';
+export * from './zoneUpdate';

@@ -1,3 +1,4 @@
+export * from './area-mapping/area-mapping';
 export * from './auth/auth';
 export * from './bill-tos/bill-tos';
 export * from './companies/companies';
